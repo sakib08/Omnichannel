@@ -1,6 +1,7 @@
 import { useState } from "react";
 import EmailSettings from "./email";
 import MessengerSettings from "./messanger";
+import SmsSettings from "./sms";
 import TelegramSettings from "./telegram";
 import WhatsAppSettings from "./whatsapp";
 import { ChannelCard, TOKEN } from "./shared";
@@ -49,12 +50,23 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
     inlineKeyboard: true, fileUpload: true, autoAssign: true, commands: "start - Start a new conversation\nhelp - Get help and FAQs\nstatus - Check your ticket status",
     rateGlobal: "30", ratePerChat: "1", deleteClosed: false, anonymise: false,
   });
+  const [smsCfg, setSmsCfg] = useState({
+    enabled: false, accountSid: "", authToken: "", fromNumber: "", messagingServiceSid: "",
+    primaryNumber: "", fallbackNumber: "", senderStrategy: "service", region: "US",
+    createContacts: true, normalizeNumbers: true, autoAssign: true, deliveryReceipts: true,
+    mms: true, autoReply: true,
+    autoReplyMsg: "Thanks for texting support. We received your message and will reply shortly. Reply STOP to opt out.",
+    segmentWarning: "2", encoding: "auto", optOut: true, optIn: true,
+    stopMessage: "You are unsubscribed and will no longer receive messages. Reply START to resubscribe.",
+    trafficType: "support", campaignSid: "",
+  });
  
   const cfgMap = {
     messenger: [messengerCfg, setMessengerCfg],
     email:     [emailCfg,     setEmailCfg],
     whatsapp:  [whatsappCfg,  setWhatsappCfg],
     telegram:  [telegramCfg,  setTelegramCfg],
+    sms:       [smsCfg,       setSmsCfg],
   };
  
   const wrappedSet = (setFn) => (v) => { setFn(v); setDirty(true); };
@@ -144,6 +156,9 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
             )}
             {active === "telegram" && (
               <TelegramSettings cfg={telegramCfg} setCfg={wrappedSet(setTelegramCfg)} />
+            )}
+            {active === "sms" && (
+              <SmsSettings cfg={smsCfg} setCfg={wrappedSet(setSmsCfg)} />
             )}
           </div>
         </main>

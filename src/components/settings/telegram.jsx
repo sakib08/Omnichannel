@@ -81,7 +81,7 @@ export default function TelegramSettings({ cfg, setCfg }) {
           <SectionDivider label="Embed Snippet — Floating Button" />
           <CodeSnippet lang="html" code={`<!-- Telegram floating chat button -->\n<style>\n  .tg-btn {\n    position: fixed; bottom: 24px; right: 24px; z-index: 9999;\n    background: #229ED9; color: #fff; border-radius: 50px;\n    padding: 12px 20px; font-family: sans-serif; font-size: 14px;\n    font-weight: 600; text-decoration: none;\n    box-shadow: 0 4px 16px rgba(34,158,217,.4);\n  }\n</style>\n<a class="tg-btn"\n   href="https://t.me/${(cfg.botUsername||"YourBot").replace("@","")}"\n   target="_blank">\n  💬 ${cfg.btnLabel||"Chat on Telegram"}\n</a>`} />
           <SectionDivider label="Login Widget (Authenticate users via Telegram)" />
-          <CodeSnippet lang="html" code={`<script async src="https://telegram.org/js/telegram-widget.js?22"\n  data-telegram-login="${(cfg.botUsername||"YourBot").replace("@","")}\"\n  data-size="large"\n  data-auth-url="https://yoursite.com/auth/telegram"\n  data-request-access="write">\n</script>`} />
+          <CodeSnippet lang="html" code={`<script async src="https://telegram.org/js/telegram-widget.js?22"\n  data-telegram-login="${(cfg.botUsername||"YourBot").replace("@","")}"\n  data-size="large"\n  data-auth-url="https://yoursite.com/auth/telegram"\n  data-request-access="write">\n</script>`} />
         </div>
       )}
  
@@ -139,7 +139,3 @@ export default function TelegramSettings({ cfg, setCfg }) {
     </div>
   );
 }
- 
-/* ═══════════════════════════════════════════════════════════════════════════
-   MAIN SETTINGS PAGE
-═══════════════════════════════════════════════════════════════════════════ */

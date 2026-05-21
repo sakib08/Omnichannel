@@ -6,6 +6,7 @@ export const TOKEN = {
   email:     { label: "Email Pipe", color: "#10B981", bg: "#10B981", icon: "@", grad: "from-emerald-600 to-teal-400" },
   whatsapp:  { label: "WhatsApp",   color: "#25D366", bg: "#25D366", icon: "W", grad: "from-green-500 to-green-400" },
   telegram:  { label: "Telegram",   color: "#229ED9", bg: "#229ED9", icon: "T", grad: "from-sky-500 to-cyan-400" },
+  sms:       { label: "SMS",        color: "#F22F46", bg: "#F22F46", icon: "S", grad: "from-red-600 to-pink-500" },
 };
  
 /* ─── tiny primitives ───────────────────────────────────────────────────── */
