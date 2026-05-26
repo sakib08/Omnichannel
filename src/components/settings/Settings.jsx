@@ -1,10 +1,14 @@
 import { useState } from "react";
 import EmailSettings from "./email";
+import LineSettings from "./Line";
 import MessengerSettings from "./messanger";
 import SmsSettings from "./sms";
 import TelegramSettings from "./telegram";
+import ViberSettings from "./Viber";
+import WeChatSettings from "./WeChat";
 import WhatsAppSettings from "./whatsapp";
-import { ChannelCard, TOKEN } from "./shared";
+import { ChannelCard } from "./shared";
+import { TOKEN } from "./tokens";
 import ThemeToggle from "../ThemeToggle";
 
 export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
@@ -51,14 +55,34 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
     rateGlobal: "30", ratePerChat: "1", deleteClosed: false, anonymise: false,
   });
   const [smsCfg, setSmsCfg] = useState({
-    enabled: false, accountSid: "", authToken: "", fromNumber: "", messagingServiceSid: "",
-    primaryNumber: "", fallbackNumber: "", senderStrategy: "service", region: "US",
-    createContacts: true, normalizeNumbers: true, autoAssign: true, deliveryReceipts: true,
-    mms: true, autoReply: true,
+    enabled: false, provider: "twilio", accountSid: "", authToken: "",
+    vonageKey: "", vonageSecret: "", genericKey: "", genericSecret: "",
+    fromNumber: "", numberType: "local", perAgentNumber: false, mms: true,
+    charWarn: true, autoSplit: true, unicode: false, delivery: true, retry: false,
+    autoReply: true,
     autoReplyMsg: "Thanks for texting support. We received your message and will reply shortly. Reply STOP to opt out.",
-    segmentWarning: "2", encoding: "auto", optOut: true, optIn: true,
-    stopMessage: "You are unsubscribed and will no longer receive messages. Reply START to resubscribe.",
-    trafficType: "support", campaignSid: "",
+    optOut: true, optIn: true, helpKeyword: false,
+    helpMsg: "For support, call 1-800-000-0000 or email support@acme.com. Reply STOP to unsubscribe.",
+    quietHours: false, quietFrom: "21:00", quietUntil: "09:00",
+    brandId: "", campaignId: "", autoAssign: true, bizHours: false, sessionReset: false,
+  });
+  const [lineCfg, setLineCfg] = useState({
+    enabled: false, channelId: "", basicId: "", channelSecret: "", accessToken: "",
+    accountName: "Acme Support", language: "en", fetchProfile: true, createContacts: true,
+    autoAssign: true, richMessages: true, autoReply: true,
+    autoReplyMsg: "Thanks for messaging us. Our team will reply shortly.",
+  });
+  const [viberCfg, setViberCfg] = useState({
+    enabled: false, botName: "Acme Support", senderId: "", authToken: "", avatarUrl: "",
+    region: "global", fetchProfile: true, smsFallback: false, deliveryReceipts: true,
+    media: true, autoAssign: true,
+    autoReplyMsg: "Thanks for contacting support. We will reply shortly.",
+  });
+  const [wechatCfg, setWechatCfg] = useState({
+    enabled: false, appId: "", appSecret: "", accountType: "service", serverToken: "",
+    encodingAesKey: "", fetchProfile: true, autoAssign: true, media: true,
+    menuJson: '{"button":[{"type":"click","name":"Support","key":"SUPPORT"}]}',
+    autoReplyMsg: "Thanks for contacting us on WeChat. We will reply shortly.",
   });
  
   const cfgMap = {
@@ -67,6 +91,9 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
     whatsapp:  [whatsappCfg,  setWhatsappCfg],
     telegram:  [telegramCfg,  setTelegramCfg],
     sms:       [smsCfg,       setSmsCfg],
+    line:      [lineCfg,      setLineCfg],
+    viber:     [viberCfg,     setViberCfg],
+    wechat:    [wechatCfg,    setWechatCfg],
   };
  
   const wrappedSet = (setFn) => (v) => { setFn(v); setDirty(true); };
@@ -159,6 +186,15 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
             )}
             {active === "sms" && (
               <SmsSettings cfg={smsCfg} setCfg={wrappedSet(setSmsCfg)} />
+            )}
+            {active === "line" && (
+              <LineSettings cfg={lineCfg} setCfg={wrappedSet(setLineCfg)} />
+            )}
+            {active === "viber" && (
+              <ViberSettings cfg={viberCfg} setCfg={wrappedSet(setViberCfg)} />
+            )}
+            {active === "wechat" && (
+              <WeChatSettings cfg={wechatCfg} setCfg={wrappedSet(setWechatCfg)} />
             )}
           </div>
         </main>

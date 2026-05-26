@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle, TOKEN } from "./shared";
+import { InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared";
+import { TOKEN } from "./tokens";
 
 export default function EmailSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("inbox");
