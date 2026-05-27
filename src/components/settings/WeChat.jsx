@@ -1,18 +1,20 @@
 import { useState } from "react";
-import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle, TOKEN } from "./shared";
-export default function ViberSettings({ cfg, setCfg }) {
-  const [tab, setTab] = useState("bot");
-  const S = (key, value) => setCfg({ ...cfg, [key]: value });
-  const color = TOKEN.viber.color;
+import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared";
+import { TOKEN } from "./tokens";
+
+export default function WeChatSettings({ cfg, setCfg }) {
+  const [tab, setTab] = useState("account");
+  const S = (k, v) => setCfg({ ...cfg, [k]: v });
+  const color = TOKEN.wechat.color;
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${TOKEN.viber.grad} flex items-center justify-center text-white font-black text-lg shadow-lg`}>V</div>
+          <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${TOKEN.wechat.grad} flex items-center justify-center text-white font-black text-lg shadow-lg`}>W</div>
           <div>
-            <h2 className="text-lg font-bold text-white">Viber Bot</h2>
-            <p className="text-xs text-slate-400">Connect Viber Business Messages or a bot account</p>
+            <h2 className="text-lg font-bold text-white">WeChat Official Account</h2>
+            <p className="text-xs text-slate-400">Connect your WeChat Official Account to the unified inbox</p>
           </div>
         </div>
         <StatusBadge connected={cfg.enabled} />
@@ -20,9 +22,9 @@ export default function ViberSettings({ cfg, setCfg }) {
 
       <TabBar
         tabs={[
-          { id: "bot", label: "Bot Setup" },
+          { id: "account", label: "Account" },
           { id: "webhook", label: "Webhook" },
-          { id: "sender", label: "Sender" },
+          { id: "menu", label: "Custom Menu" },
           { id: "messaging", label: "Messaging" },
         ]}
         active={tab}
@@ -30,66 +32,86 @@ export default function ViberSettings({ cfg, setCfg }) {
         color={color}
       />
 
-      {tab === "bot" && (
+      {tab === "account" && (
         <div className="space-y-4">
-          <InfoBox type="info">Create a Viber bot or Business Messages sender, then paste the authentication token and sender details here.</InfoBox>
-          <Row label="Enable Viber" desc="Activate or pause the Viber integration.">
-            <Toggle checked={cfg.enabled} onChange={value => S("enabled", value)} color={color} />
+          <InfoBox type="info">
+            Register a WeChat Official Account at <strong>mp.weixin.qq.com</strong>, then create a developer app in the WeChat Open Platform to obtain your App ID and App Secret.
+          </InfoBox>
+          <Row label="Enable WeChat" desc="Activate or pause the WeChat integration.">
+            <Toggle checked={cfg.enabled} onChange={v => S("enabled", v)} color={color} />
           </Row>
           <div className="grid grid-cols-2 gap-4 pt-1">
-            <Input label="Bot name" value={cfg.botName} onChange={value => S("botName", value)} placeholder="Acme Support" />
-            <Input label="Sender ID" value={cfg.senderId} onChange={value => S("senderId", value)} placeholder="acme_support" mono />
+            <Input label="App ID" value={cfg.appId} onChange={v => S("appId", v)} placeholder="wx1234567890abcdef" mono helper="Found in WeChat Open Platform → your app → Development settings." />
+            <Select label="Account type" value={cfg.accountType} onChange={v => S("accountType", v)} options={[
+              { value: "service", label: "Service account" },
+              { value: "subscription", label: "Subscription account" },
+            ]} helper="Service accounts support more API features for customer support." />
             <div className="col-span-2">
-              <Input label="Authentication Token" value={cfg.authToken} onChange={value => S("authToken", value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" type="password" helper="Keep this token private and use it from your backend." />
+              <Input label="App Secret" value={cfg.appSecret} onChange={v => S("appSecret", v)} placeholder="••••••••••••••••••••••••••••••••" type="password" helper="Keep this secret. Use it only on your backend server." />
             </div>
           </div>
-          <button style={{ background: color }} className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity">Test Viber token</button>
+          <div className="flex gap-3">
+            <button style={{ background: color }} className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity">Test connection</button>
+          </div>
         </div>
       )}
 
       {tab === "webhook" && (
         <div className="space-y-4">
-          <InfoBox type="tip">Register this webhook endpoint with Viber so inbound messages and delivery statuses reach your inbox.</InfoBox>
-          <Input label="Webhook URL" value="https://api.yourdomain.com/webhooks/viber" readOnly mono />
-          <SectionDivider label="Register Webhook" />
-          <CodeSnippet lang="bash" code={`curl -X POST https://chatapi.viber.com/pa/set_webhook \\\n  -H "X-Viber-Auth-Token: ${cfg.authToken || "<AUTH_TOKEN>"}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"url":"https://api.yourdomain.com/webhooks/viber","event_types":["message","delivered","seen","failed"]}'`} />
-          <SectionDivider label="Sample Inbound Payload" />
-          <CodeSnippet lang="json" code={`{\n  "event": "message",\n  "sender": { "id": "viber-user-id", "name": "Customer" },\n  "message": { "type": "text", "text": "Hello, I need support" }\n}`} />
+          <InfoBox type="tip">
+            In the WeChat Official Account admin → Development → Basic configuration, set the server URL and paste the Token and EncodingAESKey below. Enable message encryption mode if you use AES.
+          </InfoBox>
+          <Input label="Server URL — paste in WeChat admin → Basic configuration" value="https://api.yourdomain.com/webhooks/wechat" readOnly mono helper="WeChat will POST inbound messages and events to this URL." />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Server Token" value={cfg.serverToken} onChange={v => S("serverToken", v)} placeholder="your_server_token" helper="Any secret string you choose. Used to verify webhook requests." />
+            <Input label="EncodingAESKey" value={cfg.encodingAesKey} onChange={v => S("encodingAesKey", v)} placeholder="43-character encoding key" mono helper="Required when message encryption is enabled (43 characters)." />
+          </div>
+          <SectionDivider label="URL Verification" />
+          <CodeSnippet lang="http" code={`GET https://api.yourdomain.com/webhooks/wechat\n  ?signature=<sha1>\n  &timestamp=<timestamp>\n  &nonce=<nonce>\n  &echostr=<echostr>\n\n# Your server must validate the signature using the Server Token,\n# then return echostr to complete verification.`} />
+          <SectionDivider label="Sample Inbound Message (XML)" />
+          <CodeSnippet lang="xml" code={`<xml>\n  <ToUserName><![CDATA[gh_xxxxxxxx]]></ToUserName>\n  <FromUserName><![CDATA[oXXXXXXXX]]></FromUserName>\n  <CreateTime>1234567890</CreateTime>\n  <MsgType><![CDATA[text]]></MsgType>\n  <Content><![CDATA[Hello, I need support]]></Content>\n  <MsgId>1234567890123456</MsgId>\n</xml>`} />
         </div>
       )}
 
-      {tab === "sender" && (
+      {tab === "menu" && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Avatar URL" value={cfg.avatarUrl} onChange={value => S("avatarUrl", value)} placeholder="https://cdn.yourdomain.com/viber-avatar.png" />
-            <Select label="Default region" value={cfg.region} onChange={value => S("region", value)} options={[
-              { value: "global", label: "Global" },
-              { value: "eu", label: "Europe" },
-              { value: "mena", label: "Middle East and Africa" },
-              { value: "apac", label: "Asia Pacific" },
-            ]} />
-          </div>
-          <Row label="Fetch subscriber profile" desc="Store display name and avatar on first inbound message.">
-            <Toggle checked={cfg.fetchProfile} onChange={value => S("fetchProfile", value)} color={color} />
-          </Row>
-          <Row label="Use sender fallback" desc="Fall back to SMS if a Viber delivery fails and a phone number is available.">
-            <Toggle checked={cfg.smsFallback} onChange={value => S("smsFallback", value)} color={color} />
-          </Row>
+          <InfoBox type="tip">
+            Define a custom menu for your Official Account. Publish via the WeChat API or paste JSON below and sync from your backend.
+          </InfoBox>
+          <Textarea
+            label="Custom menu JSON"
+            value={cfg.menuJson}
+            onChange={v => S("menuJson", v)}
+            rows={8}
+            mono
+            helper='Example: {"button":[{"type":"click","name":"Support","key":"SUPPORT"}]}'
+          />
+          <SectionDivider label="Publish Menu — API call" />
+          <CodeSnippet lang="bash" code={`curl -X POST \\\n  "https://api.weixin.qq.com/cgi-bin/menu/create?access_token=<ACCESS_TOKEN>" \\\n  -H "Content-Type: application/json" \\\n  -d '${cfg.menuJson || '{"button":[]}'}`} />
         </div>
       )}
 
       {tab === "messaging" && (
         <div className="space-y-4">
-          <Row label="Delivery receipts" desc="Show sent, delivered, seen, and failed states in the inbox.">
-            <Toggle checked={cfg.deliveryReceipts} onChange={value => S("deliveryReceipts", value)} color={color} />
+          <SectionDivider label="Conversation Behaviour" />
+          <Row label="Fetch user profiles" desc="Load WeChat nickname and avatar for inbound conversations.">
+            <Toggle checked={cfg.fetchProfile} onChange={v => S("fetchProfile", v)} color={color} />
           </Row>
-          <Row label="Allow media attachments" desc="Accept images, files, stickers, and contact cards when supported.">
-            <Toggle checked={cfg.media} onChange={value => S("media", value)} color={color} />
+          <Row label="Auto-assign conversations" desc="Route new WeChat messages to available agents.">
+            <Toggle checked={cfg.autoAssign} onChange={v => S("autoAssign", v)} color={color} />
           </Row>
-          <Row label="Auto-assign conversations" desc="Route new Viber messages to available agents.">
-            <Toggle checked={cfg.autoAssign} onChange={value => S("autoAssign", value)} color={color} />
+          <Row label="Allow media attachments" desc="Accept images, voice, video, and file messages when supported.">
+            <Toggle checked={cfg.media} onChange={v => S("media", v)} color={color} />
           </Row>
-          <Textarea label="Auto-reply message" value={cfg.autoReplyMsg} onChange={value => S("autoReplyMsg", value)} rows={3} placeholder="Thanks for contacting support. We will reply shortly." />
+          <SectionDivider label="Auto-Reply" />
+          <Textarea
+            label="Auto-reply message"
+            value={cfg.autoReplyMsg}
+            onChange={v => S("autoReplyMsg", v)}
+            rows={3}
+            placeholder="Thanks for contacting us on WeChat. We will reply shortly."
+            helper="Sent when a customer messages outside agent hours or on first contact, if configured on your backend."
+          />
         </div>
       )}
     </div>

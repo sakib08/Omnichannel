@@ -180,7 +180,7 @@ export function ChannelCard({ id, active, connected, onClick }) {
         {t.icon}
       </div>
       <div className="flex-1 text-left min-w-0">
-        <p className={`text-sm font-semibold truncate ${active ? "text-white" : "text-slate-300"}`}>{t.label}</p>
+        <p className={`text-sm font-semibold truncate ${active ? "text-gray-500" : "text-slate-300"}`}>{t.label}</p>
         <p className="text-xs text-slate-500">{connected ? "● Connected" : "○ Disconnected"}</p>
       </div>
       {active && <div className="w-1 h-8 rounded-full" style={{ background: t.color }} />}
