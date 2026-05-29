@@ -152,6 +152,16 @@ class Synchronized_Messaging_Engine_Rest_Api {
 
         register_rest_route(
             self::NAMESPACE_V1,
+            '/conversations/(?P<id>\d+)',
+            array(
+                'methods'             => WP_REST_Server::EDITABLE,
+                'callback'            => array( $this, 'update_conversation' ),
+                'permission_callback' => array( $this, 'check_access_messaging' ),
+            )
+        );
+
+        register_rest_route(
+            self::NAMESPACE_V1,
             '/conversations/(?P<id>\d+)/messages',
             array(
                 'methods'             => WP_REST_Server::READABLE,
@@ -559,6 +569,54 @@ class Synchronized_Messaging_Engine_Rest_Api {
 
         $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $wpdb->insert_id ), ARRAY_A );
         return rest_ensure_response( $this->format_message_row( $row ) );
+    }
+
+    public function update_conversation( WP_REST_Request $request ) {
+        global $wpdb;
+        $id    = (int) $request->get_param( 'id' );
+        $table = $wpdb->prefix . 'sme_conversations';
+
+        $existing = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ), ARRAY_A );
+        if ( ! $existing ) {
+            return new WP_Error( 'sme_not_found', __( 'Conversation not found.', 'synchronized-messaging-engine' ), array( 'status' => 404 ) );
+        }
+
+        $data   = array();
+        $format = array();
+
+        $string_fields = array( 'status', 'priority', 'subject', 'preview' );
+        foreach ( $string_fields as $field ) {
+            if ( null !== $request->get_param( $field ) ) {
+                $data[ $field ] = sanitize_text_field( (string) $request->get_param( $field ) );
+                $format[]       = '%s';
+            }
+        }
+
+        if ( $request->has_param( 'assigneeId' ) ) {
+            $val                 = $request->get_param( 'assigneeId' );
+            $data['assignee_id'] = $val ? (int) $val : null;
+            $format[]            = '%d';
+        }
+
+        if ( $request->has_param( 'departmentId' ) ) {
+            $val                   = $request->get_param( 'departmentId' );
+            $data['department_id'] = $val ? (int) $val : null;
+            $format[]              = '%d';
+        }
+
+        if ( $request->has_param( 'unreadCount' ) ) {
+            $data['unread_count'] = max( 0, (int) $request->get_param( 'unreadCount' ) );
+            $format[]             = '%d';
+        }
+
+        if ( ! empty( $data ) ) {
+            $data['updated_at'] = current_time( 'mysql' );
+            $format[]           = '%s';
+            $wpdb->update( $table, $data, array( 'id' => $id ), $format, array( '%d' ) );
+        }
+
+        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ), ARRAY_A );
+        return rest_ensure_response( $this->format_conversation_row( $row ) );
     }
 
     private function format_conversation_row( $row ) {

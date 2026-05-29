@@ -17,6 +17,7 @@ class Synchronized_Messaging_Engine {
         $this->set_locale();
         $this->define_admin_hooks();
         $this->define_rest_hooks();
+        $this->define_email_pipe_hooks();
     }
 
     private function load_dependencies() {
@@ -37,6 +38,11 @@ class Synchronized_Messaging_Engine {
     private function define_rest_hooks() {
         $rest = new Synchronized_Messaging_Engine_Rest_Api();
         $this->loader->add_action( 'rest_api_init', $rest, 'register_routes' );
+    }
+
+    private function define_email_pipe_hooks() {
+        $email_pipe = new Synchronized_Messaging_Engine_Email_Pipe();
+        $email_pipe->register_hooks( $this->loader );
     }
 
     public function run() {

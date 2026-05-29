@@ -7,6 +7,7 @@ export default function ConversationList({
   activeChannel,
   filterStatus,
   filtered,
+  loading,
   search,
   selected,
   setFilterStatus,
@@ -62,20 +63,26 @@ export default function ConversationList({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {filtered.length === 0 && (
+        {loading && (
+          <div className="flex flex-col items-center justify-center h-40 text-gray-400 gap-2">
+            <svg className="animate-spin w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+            </svg>
+            <span className="text-sm">Loading…</span>
+          </div>
+        )}
+        {!loading && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center h-40 text-gray-400 gap-2">
             <i className="ti ti-inbox-off" style={{ fontSize: 28 }} />
             <span className="text-sm">No conversations</span>
           </div>
         )}
-        {filtered.map((conversation) => (
+        {!loading && filtered.map((conversation) => (
           <button
             key={conversation.id}
             onClick={() => {
               setSelected(conversation.id);
-              setConversations((previous) =>
-                previous.map((item) => (item.id === conversation.id ? { ...item, unread: 0 } : item))
-              );
             }}
             className={`w-full text-left px-4 py-3 border-b border-gray-50 transition-all hover:bg-indigo-50/40 ${selected === conversation.id ? "bg-indigo-50 border-l-2 border-l-indigo-500" : ""}`}
           >

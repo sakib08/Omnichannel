@@ -28,6 +28,7 @@ require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/cl
 require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-admin.php';
 require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-public.php';
 require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-rest-api.php';
+require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-email-pipe.php';
 require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine.php';
 
 register_activation_hook( __FILE__, array( 'Synchronized_Messaging_Engine_Activator', 'activate' ) );

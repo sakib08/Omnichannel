@@ -62,7 +62,12 @@ export const api = {
   },
   listMessages: (cid) => request(`conversations/${cid}/messages`),
   createConversation: (payload) => request("conversations", { method: "POST", body: payload }),
+  updateConversation: (id, payload) => request(`conversations/${id}`, { method: "PUT", body: payload }),
   createMessage: (payload) => request("messages", { method: "POST", body: payload }),
+
+  sendEmail: (payload) => request("email/send", { method: "POST", body: payload }),
+  pollEmail: () => request("email/poll", { method: "POST" }),
+  testEmailConnection: (type) => request("email/test-connection", { method: "POST", body: { type } }),
 };
 
 export default api;
