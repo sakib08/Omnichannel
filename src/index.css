@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/* Constrain the app to the area actually visible inside WP admin
+   (viewport minus the admin bar) so inner scroll areas can reach
+   their real bottom instead of being clipped under the chrome. */
+.sme-app-root {
+  height: calc(100vh - 32px);
+}
+@media screen and (max-width: 782px) {
+  .sme-app-root {
+    height: calc(100vh - 46px);
+  }
+}
+
 .theme-toggle {
   border-color: #e5e7eb;
   background: #ffffff;

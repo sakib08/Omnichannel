@@ -89,7 +89,7 @@ export default function OmnichannelApp() {
   };
 
   return (
-    <div className={`theme-${theme} flex h-screen bg-gray-50 font-sans overflow-hidden`}>
+    <div className={`sme-app-root theme-${theme} flex bg-gray-50 font-sans overflow-hidden`}>
       <Sidebar
         activeChannel={activeChannel}
         conversations={conversations}

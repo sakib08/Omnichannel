@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import EmailSettings from "./email.js";
 import LineSettings from "./Line.jsx";
 import MessengerSettings from "./messanger.jsx";
@@ -8,53 +8,51 @@ import ViberSettings from "./Viber.jsx";
 import WeChatSettings from "./WeChat.jsx";
 import WhatsAppSettings from "./whatsapp.jsx";
 import { ChannelCard } from "./shared.jsx";
+import TeamSettings from "./Team.jsx";
 import { TOKEN } from "./tokens.js";
 import ThemeToggle from "../ThemeToggle.jsx";
+import api, { caps } from "../../api/client.js";
 
-export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
-  const [active, setActive] = useState("messenger");
-  const [saved, setSaved]   = useState(false);
-  const [dirty, setDirty]   = useState(false);
- 
-  /* per-channel config */
-  const [messengerCfg, setMessengerCfg] = useState({
-    enabled: true, pageId: "", pageName: "Acme Support", pageToken: "", appId: "", appSecret: "",
-    verifyToken: "acme_verify_2024", chatPlugin: true, greetLoggedIn: "Hi {{user_first_name}}! How can we help?",
+const CHANNEL_DEFAULTS = {
+  messenger: {
+    enabled: false, pageId: "", pageName: "Acme Support", pageToken: "", appId: "", appSecret: "",
+    verifyToken: "", chatPlugin: true, greetLoggedIn: "Hi {{user_first_name}}! How can we help?",
     greetLoggedOut: "Hi! How can we help today?", themeColor: "#0866FF", loggedOutMode: "window",
-    allowedDomain: "https://www.acme.com", autoReply: true,
-    autoReplyMsg: "Hi {{user_first_name}}! Thanks for messaging us 👋 An agent will reply shortly.",
-    awayMsg: true, awayMsgText: "We're offline right now but will respond first thing tomorrow ☀️",
+    allowedDomain: "", autoReply: true,
+    autoReplyMsg: "Hi {{user_first_name}}! Thanks for messaging us. An agent will reply shortly.",
+    awayMsg: true, awayMsgText: "We're offline right now but will respond first thing tomorrow.",
     iceBreakers: true, iceList: ["What are your business hours?", "Track my order", "Speak to a human"],
     persistentMenu: true, fetchProfile: true, readReceipts: true, typingIndicator: true,
     reactions: true, quickReplies: true, imageAttach: true, fileAttach: true, autoAssign: true,
     csat: false, handover: false, secondaryAppId: "",
-  });
-  const [emailCfg, setEmailCfg] = useState({
-    enabled: true, inboxName: "Customer Support", inboxEmail: "support@acme.com",
-    senderName: "Acme Support Team", replyTo: "", smtpPreset: "gmail",
-    smtpHost: "smtp.gmail.com", smtpPort: "587", smtpUser: "", smtpPass: "",
-    smtpTls: true, smtpVerifySsl: true, imapHost: "imap.gmail.com", imapPort: "993",
-    imapUser: "", imapPass: "", imapFolder: "INBOX", imapPoll: "2", imapDelete: false,
+  },
+  email: {
+    enabled: false, inboxName: "Customer Support", inboxEmail: "", senderName: "",
+    replyTo: "", smtpPreset: "gmail", smtpHost: "smtp.gmail.com", smtpPort: "587",
+    smtpUser: "", smtpPass: "", smtpTls: true, smtpVerifySsl: true,
+    imapHost: "imap.gmail.com", imapPort: "993", imapUser: "", imapPass: "",
+    imapFolder: "INBOX", imapPoll: "2", imapDelete: false,
     autoReply: true, autoReplySubject: "We received your message — Ref #{{ticket_id}}",
-    autoReplyBody: "", signature: true, signatureBody: "Best regards,\nThe Support Team\nsupport@acme.com",
-    outOfOffice: false, oooBody: "",
-  });
-  const [whatsappCfg, setWhatsappCfg] = useState({
-    enabled: true, wabaid: "", phoneNumberId: "", accessToken: "", verifyToken: "acme_wa_verify",
+    autoReplyBody: "", signature: true,
+    signatureBody: "Best regards,\nThe Support Team", outOfOffice: false, oooBody: "",
+  },
+  whatsapp: {
+    enabled: false, wabaid: "", phoneNumberId: "", accessToken: "", verifyToken: "",
     displayPhone: "", ctaMessage: "Hello! I'd like to chat with support.", btnStyle: "floating",
     btnLabel: "Chat on WhatsApp", readReceipts: true, media: true, autoAssign: true,
     bizHours: false, autoReply: false, autoReplyMsg: "", template: "none",
     optOut: true, optIn: true, businessId: "", qualityTier: "MEDIUM",
-  });
-  const [telegramCfg, setTelegramCfg] = useState({
-    enabled: false, botToken: "", botUsername: "@AcmeSupportBot", botName: "Acme Support",
+  },
+  telegram: {
+    enabled: false, botToken: "", botUsername: "", botName: "",
     startMessage: "Hello, I need support!", widgetStyle: "floating", btnLabel: "Chat on Telegram",
     widgetPos: "bottom-right", allowGroups: false, typingIndicator: true, markdown: true,
-    startReply: true, startMsg: "👋 Hi there! Welcome to Acme Support.\n\nHow can we help you today?",
-    inlineKeyboard: true, fileUpload: true, autoAssign: true, commands: "start - Start a new conversation\nhelp - Get help and FAQs\nstatus - Check your ticket status",
+    startReply: true, startMsg: "Hi there! Welcome to support.\n\nHow can we help you today?",
+    inlineKeyboard: true, fileUpload: true, autoAssign: true,
+    commands: "start - Start a new conversation\nhelp - Get help and FAQs\nstatus - Check your ticket status",
     rateGlobal: "30", ratePerChat: "1", deleteClosed: false, anonymise: false,
-  });
-  const [smsCfg, setSmsCfg] = useState({
+  },
+  sms: {
     enabled: false, provider: "twilio", accountSid: "", authToken: "",
     vonageKey: "", vonageSecret: "", genericKey: "", genericSecret: "",
     fromNumber: "", numberType: "local", perAgentNumber: false, mms: true,
@@ -65,49 +63,118 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
     helpMsg: "For support, call 1-800-000-0000 or email support@acme.com. Reply STOP to unsubscribe.",
     quietHours: false, quietFrom: "21:00", quietUntil: "09:00",
     brandId: "", campaignId: "", autoAssign: true, bizHours: false, sessionReset: false,
-  });
-  const [lineCfg, setLineCfg] = useState({
+  },
+  line: {
     enabled: false, channelId: "", basicId: "", channelSecret: "", accessToken: "",
-    accountName: "Acme Support", language: "en", fetchProfile: true, createContacts: true,
+    accountName: "", language: "en", fetchProfile: true, createContacts: true,
     autoAssign: true, richMessages: true, autoReply: true,
     autoReplyMsg: "Thanks for messaging us. Our team will reply shortly.",
-  });
-  const [viberCfg, setViberCfg] = useState({
-    enabled: false, botName: "Acme Support", senderId: "", authToken: "", avatarUrl: "",
+  },
+  viber: {
+    enabled: false, botName: "", senderId: "", authToken: "", avatarUrl: "",
     region: "global", fetchProfile: true, smsFallback: false, deliveryReceipts: true,
     media: true, autoAssign: true,
     autoReplyMsg: "Thanks for contacting support. We will reply shortly.",
-  });
-  const [wechatCfg, setWechatCfg] = useState({
+  },
+  wechat: {
     enabled: false, appId: "", appSecret: "", accountType: "service", serverToken: "",
     encodingAesKey: "", fetchProfile: true, autoAssign: true, media: true,
     menuJson: '{"button":[{"type":"click","name":"Support","key":"SUPPORT"}]}',
     autoReplyMsg: "Thanks for contacting us on WeChat. We will reply shortly.",
-  });
- 
-  const cfgMap = {
-    messenger: [messengerCfg, setMessengerCfg],
-    email:     [emailCfg,     setEmailCfg],
-    whatsapp:  [whatsappCfg,  setWhatsappCfg],
-    telegram:  [telegramCfg,  setTelegramCfg],
-    sms:       [smsCfg,       setSmsCfg],
-    line:      [lineCfg,      setLineCfg],
-    viber:     [viberCfg,     setViberCfg],
-    wechat:    [wechatCfg,    setWechatCfg],
+  },
+};
+
+const CHANNEL_ORDER = Object.keys(CHANNEL_DEFAULTS);
+
+// Strip masked secret placeholders ("••••••••") so they're not posted back to
+// the server and overwrite the real stored secret.
+function stripMaskedSecrets(values) {
+  const out = { ...values };
+  for (const key of Object.keys(out)) {
+    if (typeof out[key] === "string" && /^•+$/.test(out[key])) {
+      delete out[key];
+    }
+    if (key.endsWith("_set")) delete out[key];
+  }
+  return out;
+}
+
+export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
+  const [active, setActive] = useState("messenger");
+  const [configs, setConfigs] = useState(() =>
+    Object.fromEntries(CHANNEL_ORDER.map((id) => [id, { ...CHANNEL_DEFAULTS[id] }]))
+  );
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    api.getSettings()
+      .then((remote) => {
+        if (cancelled) return;
+        setConfigs((previous) => {
+          const next = { ...previous };
+          for (const id of CHANNEL_ORDER) {
+            next[id] = { ...CHANNEL_DEFAULTS[id], ...(remote?.[id] || {}) };
+          }
+          return next;
+        });
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message || "Could not load settings");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const setChannel = (id) => (updater) => {
+    setConfigs((previous) => {
+      const current = previous[id];
+      const next = typeof updater === "function" ? updater(current) : updater;
+      return { ...previous, [id]: { ...current, ...next } };
+    });
+    setDirty(true);
   };
- 
-  const wrappedSet = (setFn) => (v) => { setFn(v); setDirty(true); };
- 
-  const handleSave = () => {
-    setSaved(true); setDirty(false);
-    setTimeout(() => setSaved(false), 2500);
+
+  const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const payload = Object.fromEntries(
+        CHANNEL_ORDER.map((id) => [id, stripMaskedSecrets(configs[id])])
+      );
+      const remote = await api.saveSettings(payload);
+      setConfigs((previous) => {
+        const next = { ...previous };
+        for (const id of CHANNEL_ORDER) {
+          next[id] = { ...CHANNEL_DEFAULTS[id], ...(remote?.[id] || {}) };
+        }
+        return next;
+      });
+      setSaved(true);
+      setDirty(false);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setError(err.message || "Could not save settings");
+    } finally {
+      setSaving(false);
+    }
   };
- 
-  const channels = Object.keys(cfgMap);
- 
+
+  const channels = useMemo(() => [...CHANNEL_ORDER, "team"], []);
+  const canManageSettings = caps?.canManageSettings || caps?.isAdmin;
+  const showSaveButton = active !== "team" && canManageSettings;
+
   return (
     <div
-      className="settings-page min-h-screen text-slate-100 flex flex-col"
+      className="settings-page h-full text-slate-100 flex flex-col"
       style={{
         background:
           theme === "dark"
@@ -116,85 +183,114 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
         fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
       }}
     >
-      {/* Top bar */}
       <header
         className="sticky top-0 z-30 flex items-center justify-between px-6 py-3 border-b border-slate-800/80 backdrop-blur-md"
         style={{ background: theme === "dark" ? "rgba(10,14,26,0.85)" : "rgba(255,255,255,0.86)" }}
       >
         <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-black text-white">⚙</div>
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-black text-white">
+            <i className="ti ti-settings" />
+          </div>
           <span className="text-sm font-bold text-white tracking-tight">Integration Settings</span>
-          <span className="text-xs text-slate-600 hidden sm:block">/ Channel Connections</span>
+          <span className="text-xs text-slate-600 hidden sm:block">
+            / {active === "team" ? "Team & Departments" : "Channel Connections"}
+          </span>
         </div>
         <div className="flex items-center gap-3">
-          {dirty && <span className="text-xs text-amber-400 font-medium animate-pulse">Unsaved changes</span>}
+          {loading && <span className="text-xs text-slate-400">Loading…</span>}
+          {error && <span className="text-xs text-red-400 font-medium">{error}</span>}
+          {dirty && !saved && !saving && <span className="text-xs text-amber-400 font-medium animate-pulse">Unsaved changes</span>}
+          {saving && <span className="text-xs text-slate-300">Saving…</span>}
           {toggleTheme && <ThemeToggle theme={theme} onToggle={toggleTheme} />}
-          <button
-            onClick={handleSave}
-            style={{ background: saved ? "#10B981" : "linear-gradient(135deg,#6366f1,#8b5cf6)" }}
-            className="px-5 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 shadow-lg flex items-center gap-2"
-          >
-            {saved ? <>✓ Saved</> : <>Save changes</>}
-          </button>
+          {showSaveButton && (
+            <button
+              disabled={saving || loading || !dirty}
+              onClick={handleSave}
+              style={{ background: saved ? "#10B981" : "linear-gradient(135deg,#6366f1,#8b5cf6)" }}
+              className="px-5 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saved ? "✓ Saved" : saving ? "Saving…" : "Save changes"}
+            </button>
+          )}
         </div>
       </header>
- 
+
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
         <aside
           className="w-60 shrink-0 border-r border-slate-800/60 flex flex-col py-4 px-3 gap-1 overflow-y-auto"
           style={{ background: theme === "dark" ? "rgba(8,12,22,0.6)" : "rgba(255,255,255,0.62)" }}
         >
           <p className="px-3 text-xs font-bold uppercase tracking-widest text-slate-600 mb-2">Channels</p>
-          {channels.map(id => (
+          {CHANNEL_ORDER.map((id) => (
             <ChannelCard
-              key={id} id={id} active={active === id}
-              connected={cfgMap[id][0].enabled}
+              key={id}
+              id={id}
+              active={active === id}
+              connected={!!configs[id]?.enabled}
               onClick={() => setActive(id)}
             />
           ))}
- 
+
+          <p className="px-3 mt-6 text-xs font-bold uppercase tracking-widest text-slate-600 mb-2">Team</p>
+          <button
+            onClick={() => setActive("team")}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-150 ${active === "team" ? "bg-slate-800 shadow-md border border-slate-700/60" : "hover:bg-slate-800/50 border border-transparent"}`}
+          >
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white bg-gradient-to-br from-indigo-500 to-purple-600 shrink-0">
+              <i className="ti ti-users" />
+            </div>
+            <div className="flex-1 text-left min-w-0">
+              <p className={`text-sm font-semibold truncate ${active === "team" ? "text-gray-500" : "text-slate-300"}`}>Agents & Departments</p>
+              <p className="text-xs text-slate-500">Manage assignments</p>
+            </div>
+          </button>
+
           <div className="flex-1" />
- 
+
           <div className="px-3 pt-4 border-t border-slate-800/60 mt-2 space-y-1">
             <p className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-2">Status</p>
-            {channels.map(id => (
+            {CHANNEL_ORDER.map((id) => (
               <div key={id} className="flex items-center justify-between py-1">
                 <span className="text-xs text-slate-400">{TOKEN[id].label}</span>
-                <span className={`text-xs font-semibold ${cfgMap[id][0].enabled ? "text-green-400" : "text-slate-600"}`}>
-                  {cfgMap[id][0].enabled ? "●" : "○"}
+                <span className={`text-xs font-semibold ${configs[id]?.enabled ? "text-green-400" : "text-slate-600"}`}>
+                  {configs[id]?.enabled ? "●" : "○"}
                 </span>
               </div>
             ))}
           </div>
         </aside>
- 
-        {/* Main content */}
+
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-6 py-8">
-            {active === "messenger" && (
-              <MessengerSettings cfg={messengerCfg} setCfg={wrappedSet(setMessengerCfg)} />
-            )}
-            {active === "email" && (
-              <EmailSettings cfg={emailCfg} setCfg={wrappedSet(setEmailCfg)} />
-            )}
-            {active === "whatsapp" && (
-              <WhatsAppSettings cfg={whatsappCfg} setCfg={wrappedSet(setWhatsappCfg)} />
-            )}
-            {active === "telegram" && (
-              <TelegramSettings cfg={telegramCfg} setCfg={wrappedSet(setTelegramCfg)} />
-            )}
-            {active === "sms" && (
-              <SmsSettings cfg={smsCfg} setCfg={wrappedSet(setSmsCfg)} />
-            )}
-            {active === "line" && (
-              <LineSettings cfg={lineCfg} setCfg={wrappedSet(setLineCfg)} />
-            )}
-            {active === "viber" && (
-              <ViberSettings cfg={viberCfg} setCfg={wrappedSet(setViberCfg)} />
-            )}
-            {active === "wechat" && (
-              <WeChatSettings cfg={wechatCfg} setCfg={wrappedSet(setWechatCfg)} />
+          <div className="max-w-3xl mx-auto px-6 py-8 pb-24">
+            {active === "team" ? (
+              <TeamSettings />
+            ) : (
+              <>
+                {active === "messenger" && (
+                  <MessengerSettings cfg={configs.messenger} setCfg={setChannel("messenger")} />
+                )}
+                {active === "email" && (
+                  <EmailSettings cfg={configs.email} setCfg={setChannel("email")} />
+                )}
+                {active === "whatsapp" && (
+                  <WhatsAppSettings cfg={configs.whatsapp} setCfg={setChannel("whatsapp")} />
+                )}
+                {active === "telegram" && (
+                  <TelegramSettings cfg={configs.telegram} setCfg={setChannel("telegram")} />
+                )}
+                {active === "sms" && (
+                  <SmsSettings cfg={configs.sms} setCfg={setChannel("sms")} />
+                )}
+                {active === "line" && (
+                  <LineSettings cfg={configs.line} setCfg={setChannel("line")} />
+                )}
+                {active === "viber" && (
+                  <ViberSettings cfg={configs.viber} setCfg={setChannel("viber")} />
+                )}
+                {active === "wechat" && (
+                  <WeChatSettings cfg={configs.wechat} setCfg={setChannel("wechat")} />
+                )}
+              </>
             )}
           </div>
         </main>
