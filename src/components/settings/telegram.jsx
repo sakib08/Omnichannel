@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
+import { webhookUrl } from "../../api/client.js";
 
 export default function TelegramSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("bot");
@@ -51,9 +52,9 @@ export default function TelegramSettings({ cfg, setCfg }) {
       {tab === "webhook" && (
         <div className="space-y-4">
           <InfoBox type="info">Telegram uses webhooks to push messages to your server. You must register the webhook URL using the Telegram Bot API.</InfoBox>
-          <Input label="Your webhook URL" value="https://api.yourdomain.com/webhooks/telegram" readOnly mono />
+          <Input label="Your webhook URL" value={webhookUrl("telegram")} readOnly mono />
           <SectionDivider label="Register Webhook — Run this command" />
-          <CodeSnippet lang="bash" code={`curl -X POST \\\n  https://api.telegram.org/bot${cfg.botToken||"<YOUR_BOT_TOKEN>"}/setWebhook \\\n  -d "url=https://api.yourdomain.com/webhooks/telegram" \\\n  -d "secret_token=your_secret_here" \\\n  -d "allowed_updates=[message,callback_query]"`} />
+          <CodeSnippet lang="bash" code={`curl -X POST \\\n  https://api.telegram.org/bot${cfg.botToken||"<YOUR_BOT_TOKEN>"}/setWebhook \\\n  -d "url=${webhookUrl("telegram")}" \\\n  -d "secret_token=your_secret_here" \\\n  -d "allowed_updates=[message,callback_query]"`} />
           <SectionDivider label="Verify Webhook Status" />
           <CodeSnippet lang="bash" code={`curl https://api.telegram.org/bot${cfg.botToken||"<YOUR_BOT_TOKEN>"}/getWebhookInfo`} />
           <SectionDivider label="Sample Update Object" />

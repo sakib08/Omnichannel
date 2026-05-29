@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
+import { webhookUrl } from "../../api/client.js";
 
 export default function WhatsAppSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("api");
@@ -46,7 +47,7 @@ export default function WhatsAppSettings({ cfg, setCfg }) {
             <Input label="Webhook Verify Token" value={cfg.verifyToken} onChange={v => S("verifyToken", v)} placeholder="your_webhook_verify_token" helper="Any secret string you choose." />
             <Input label="Display phone number" value={cfg.displayPhone} onChange={v => S("displayPhone", v)} placeholder="+1 555 000 0000" />
           </div>
-          <Input label="Webhook URL — paste in Meta App → WhatsApp → Configuration" value="https://api.yourdomain.com/webhooks/whatsapp" readOnly mono />
+          <Input label="Webhook URL — paste in Meta App → WhatsApp → Configuration" value={webhookUrl("whatsapp")} readOnly mono />
           <div className="flex gap-3">
             <button style={{ background: color }} className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity">Test connection</button>
           </div>
@@ -56,7 +57,7 @@ export default function WhatsAppSettings({ cfg, setCfg }) {
       {tab === "webhook" && (
         <div className="space-y-4">
           <InfoBox type="tip">Subscribe to these webhook fields in Meta → WhatsApp → Configuration → Webhooks.</InfoBox>
-          <Input label="Callback URL" value="https://api.yourdomain.com/webhooks/whatsapp" readOnly mono />
+          <Input label="Callback URL" value={webhookUrl("whatsapp")} readOnly mono />
           <SectionDivider label="Required Webhook Fields" />
           <CodeSnippet lang="fields" code={"messages\nmessage_template_status_update\naccount_update\nphone_number_quality_update"} />
           <SectionDivider label="Sample Inbound Message" />

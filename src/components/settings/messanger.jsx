@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
+import { webhookUrl } from "../../api/client.js";
 
 export default function MessengerSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("api");
@@ -61,7 +62,7 @@ export default function MessengerSettings({ cfg, setCfg }) {
           <InfoBox type="tip">
             Paste the Callback URL and Verify Token into <strong>Meta for Developers → App → Webhooks → Page</strong>. Subscribe to: <code className="font-mono">messages, messaging_postbacks, messaging_optins, message_deliveries</code>
           </InfoBox>
-          <Input label="Callback URL — paste into Meta Webhooks" value="https://api.yourdomain.com/webhooks/messenger" readOnly mono helper="Meta will POST all Messenger events to this endpoint." />
+          <Input label="Callback URL — paste into Meta Webhooks" value={webhookUrl("messenger")} readOnly mono helper="Meta will POST all Messenger events to this endpoint." />
           <Input label="Verify Token — paste into Meta Webhooks" value={cfg.verifyToken} onChange={v => S("verifyToken", v)} placeholder="your_custom_verify_token_here" helper="Any secret string. Must match exactly what you enter in Meta." />
           <SectionDivider label="Required Webhook Subscriptions" />
           <CodeSnippet lang="subscriptions" code={"messages\nmessaging_postbacks\nmessaging_optins\nmessage_deliveries\nmessage_reads"} />

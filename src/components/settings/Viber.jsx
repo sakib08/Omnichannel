@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle, TOKEN } from "./shared.jsx";
+import { webhookUrl } from "../../api/client.js";
 export default function ViberSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("bot");
   const S = (key, value) => setCfg({ ...cfg, [key]: value });
@@ -50,9 +51,9 @@ export default function ViberSettings({ cfg, setCfg }) {
       {tab === "webhook" && (
         <div className="space-y-4">
           <InfoBox type="tip">Register this webhook endpoint with Viber so inbound messages and delivery statuses reach your inbox.</InfoBox>
-          <Input label="Webhook URL" value="https://api.yourdomain.com/webhooks/viber" readOnly mono />
+          <Input label="Webhook URL" value={webhookUrl("viber")} readOnly mono />
           <SectionDivider label="Register Webhook" />
-          <CodeSnippet lang="bash" code={`curl -X POST https://chatapi.viber.com/pa/set_webhook \\\n  -H "X-Viber-Auth-Token: ${cfg.authToken || "<AUTH_TOKEN>"}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"url":"https://api.yourdomain.com/webhooks/viber","event_types":["message","delivered","seen","failed"]}'`} />
+          <CodeSnippet lang="bash" code={`curl -X POST https://chatapi.viber.com/pa/set_webhook \\\n  -H "X-Viber-Auth-Token: ${cfg.authToken || "<AUTH_TOKEN>"}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"url":"${webhookUrl("viber")}","event_types":["message","delivered","seen","failed"]}'`} />
           <SectionDivider label="Sample Inbound Payload" />
           <CodeSnippet lang="json" code={`{\n  "event": "message",\n  "sender": { "id": "viber-user-id", "name": "Customer" },\n  "message": { "type": "text", "text": "Hello, I need support" }\n}`} />
         </div>

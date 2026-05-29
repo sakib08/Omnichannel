@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
+import { webhookUrl } from "../../api/client.js";
 
 export default function LineSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("channel");
@@ -55,9 +56,9 @@ export default function LineSettings({ cfg, setCfg }) {
       {tab === "webhook" && (
         <div className="space-y-4">
           <InfoBox type="tip">Enable webhooks in the LINE Developers Console and set this endpoint as the Webhook URL.</InfoBox>
-          <Input label="Webhook URL" value="https://api.yourdomain.com/webhooks/line" readOnly mono />
+          <Input label="Webhook URL" value={webhookUrl("line")} readOnly mono />
           <SectionDivider label="Webhook Verification" />
-          <CodeSnippet lang="http" code={"POST https://api.yourdomain.com/webhooks/line\nHeader: x-line-signature\nBody: LINE event payload"} />
+          <CodeSnippet lang="http" code={`POST ${webhookUrl("line")}\nHeader: x-line-signature\nBody: LINE event payload`} />
           <SectionDivider label="Sample Message Event" />
           <CodeSnippet lang="json" code={`{\n  "events": [{\n    "type": "message",\n    "replyToken": "reply-token",\n    "source": { "type": "user", "userId": "Uxxxxxxxx" },\n    "message": { "type": "text", "text": "Hello, I need help" }\n  }]\n}`} />
         </div>

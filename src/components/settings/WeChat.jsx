@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
+import { webhookUrl } from "../../api/client.js";
 
 export default function WeChatSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("account");
@@ -61,13 +62,13 @@ export default function WeChatSettings({ cfg, setCfg }) {
           <InfoBox type="tip">
             In the WeChat Official Account admin → Development → Basic configuration, set the server URL and paste the Token and EncodingAESKey below. Enable message encryption mode if you use AES.
           </InfoBox>
-          <Input label="Server URL — paste in WeChat admin → Basic configuration" value="https://api.yourdomain.com/webhooks/wechat" readOnly mono helper="WeChat will POST inbound messages and events to this URL." />
+          <Input label="Server URL — paste in WeChat admin → Basic configuration" value={webhookUrl("wechat")} readOnly mono helper="WeChat will POST inbound messages and events to this URL." />
           <div className="grid grid-cols-2 gap-4">
             <Input label="Server Token" value={cfg.serverToken} onChange={v => S("serverToken", v)} placeholder="your_server_token" helper="Any secret string you choose. Used to verify webhook requests." />
             <Input label="EncodingAESKey" value={cfg.encodingAesKey} onChange={v => S("encodingAesKey", v)} placeholder="43-character encoding key" mono helper="Required when message encryption is enabled (43 characters)." />
           </div>
           <SectionDivider label="URL Verification" />
-          <CodeSnippet lang="http" code={`GET https://api.yourdomain.com/webhooks/wechat\n  ?signature=<sha1>\n  &timestamp=<timestamp>\n  &nonce=<nonce>\n  &echostr=<echostr>\n\n# Your server must validate the signature using the Server Token,\n# then return echostr to complete verification.`} />
+          <CodeSnippet lang="http" code={`GET ${webhookUrl("wechat")}\n  ?signature=<sha1>\n  &timestamp=<timestamp>\n  &nonce=<nonce>\n  &echostr=<echostr>\n\n# Your server validates the signature using the Server Token,\n# then returns echostr to complete verification.`} />
           <SectionDivider label="Sample Inbound Message (XML)" />
           <CodeSnippet lang="xml" code={`<xml>\n  <ToUserName><![CDATA[gh_xxxxxxxx]]></ToUserName>\n  <FromUserName><![CDATA[oXXXXXXXX]]></FromUserName>\n  <CreateTime>1234567890</CreateTime>\n  <MsgType><![CDATA[text]]></MsgType>\n  <Content><![CDATA[Hello, I need support]]></Content>\n  <MsgId>1234567890123456</MsgId>\n</xml>`} />
         </div>

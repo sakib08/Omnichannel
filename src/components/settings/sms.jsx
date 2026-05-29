@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
+import { webhookUrl } from "../../api/client.js";
 
 export default function SmsSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("connection");
@@ -59,7 +60,7 @@ export default function SmsSettings({ cfg, setCfg }) {
                 <Input label="Auth Token" value={cfg.authToken} onChange={v => S("authToken", v)} placeholder="••••••••••••••••••••••••••••••••" type="password" helper="Keep this secret. Never expose it client-side." />
               </div>
               <div className="col-span-2">
-                <Input label="Webhook URL — paste in Twilio Console → Phone Numbers → Messaging" value="https://api.yourdomain.com/webhooks/sms/twilio" readOnly mono helper="Twilio will POST inbound SMS to this URL." />
+                <Input label="Webhook URL — paste in Twilio Console → Phone Numbers → Messaging" value={webhookUrl("sms")} readOnly mono helper="Twilio will POST inbound SMS to this URL." />
               </div>
             </div>
           )}
@@ -68,7 +69,7 @@ export default function SmsSettings({ cfg, setCfg }) {
               <Input label="API Key" value={cfg.vonageKey} onChange={v => S("vonageKey", v)} placeholder="Vonage API Key" />
               <Input label="API Secret" value={cfg.vonageSecret} onChange={v => S("vonageSecret", v)} placeholder="••••••••" type="password" />
               <div className="col-span-2">
-                <Input label="Inbound Webhook URL" value="https://api.yourdomain.com/webhooks/sms/vonage" readOnly mono />
+                <Input label="Inbound Webhook URL" value={webhookUrl("sms")} readOnly mono />
               </div>
             </div>
           )}
@@ -77,7 +78,7 @@ export default function SmsSettings({ cfg, setCfg }) {
               <Input label="API Key / Auth ID" value={cfg.genericKey} onChange={v => S("genericKey", v)} placeholder="API Key" />
               <Input label="API Secret" value={cfg.genericSecret} onChange={v => S("genericSecret", v)} placeholder="••••••••" type="password" />
               <div className="col-span-2">
-                <Input label="Webhook URL" value={`https://api.yourdomain.com/webhooks/sms/${cfg.provider}`} readOnly mono />
+                <Input label="Webhook URL" value={webhookUrl("sms")} readOnly mono />
               </div>
             </div>
           )}

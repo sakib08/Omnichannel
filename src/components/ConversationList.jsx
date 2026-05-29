@@ -21,9 +21,9 @@ export default function ConversationList({
   return (
     <div className="w-80 bg-white border-r border-gray-100 flex flex-col shadow-sm">
       <div className="px-4 pt-4 pb-3 border-b border-gray-100">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col gap-2 mb-3">
           <h1 className="text-sm font-semibold text-gray-800">{title}</h1>
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             {STATUS_FILTERS.map((status) => (
               <button
                 key={status}

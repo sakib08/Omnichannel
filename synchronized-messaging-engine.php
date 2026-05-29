@@ -29,6 +29,15 @@ require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/cl
 require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-public.php';
 require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-rest-api.php';
 require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-email-pipe.php';
+require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-channel-pipe-base.php';
+require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-telegram-pipe.php';
+require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-whatsapp-pipe.php';
+require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-messenger-pipe.php';
+require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-wechat-pipe.php';
+require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-sms-pipe.php';
+require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-line-pipe.php';
+require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-instagram-pipe.php';
+require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-viber-pipe.php';
 require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine.php';
 
 register_activation_hook( __FILE__, array( 'Synchronized_Messaging_Engine_Activator', 'activate' ) );

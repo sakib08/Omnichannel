@@ -18,6 +18,7 @@ class Synchronized_Messaging_Engine {
         $this->define_admin_hooks();
         $this->define_rest_hooks();
         $this->define_email_pipe_hooks();
+        $this->define_channel_pipe_hooks();
     }
 
     private function load_dependencies() {
@@ -43,6 +44,22 @@ class Synchronized_Messaging_Engine {
     private function define_email_pipe_hooks() {
         $email_pipe = new Synchronized_Messaging_Engine_Email_Pipe();
         $email_pipe->register_hooks( $this->loader );
+    }
+
+    private function define_channel_pipe_hooks() {
+        $pipes = array(
+            new Synchronized_Messaging_Engine_Telegram_Pipe(),
+            new Synchronized_Messaging_Engine_Whatsapp_Pipe(),
+            new Synchronized_Messaging_Engine_Messenger_Pipe(),
+            new Synchronized_Messaging_Engine_Wechat_Pipe(),
+            new Synchronized_Messaging_Engine_Sms_Pipe(),
+                        new Synchronized_Messaging_Engine_Line_Pipe(),
+                        new Synchronized_Messaging_Engine_Instagram_Pipe(),
+                        new Synchronized_Messaging_Engine_Viber_Pipe(),
+                    );
+        foreach ( $pipes as $pipe ) {
+            $pipe->register_hooks( $this->loader );
+        }
     }
 
     public function run() {

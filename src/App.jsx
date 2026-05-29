@@ -208,7 +208,7 @@ export default function OmnichannelApp() {
       let newMsg;
 
       if (conv.channel === "email") {
-        // Send via the email pipe endpoint which uses SMTP.
+        // Email: send via SMTP using the email pipe endpoint.
         const result = await api.sendEmail({
           conversationId: selected,
           to: conv.contactHandle,
@@ -225,14 +225,21 @@ export default function OmnichannelApp() {
           isAgent: true,
         };
       } else {
-        // Generic message store for other channels.
-        const result = await api.createMessage({
+        // All other channels: use the channel-specific send endpoint which
+        // both delivers the message via the external API and stores it in DB.
+        const result = await api.sendChannel(conv.channel, {
           conversationId: selected,
-          body: plainText,
-          senderType: "agent",
-          senderName: currentUser.name || "Agent",
+          recipientId: conv.externalId || conv.contactHandle,
+          text: plainText,
         });
-        newMsg = normaliseMessage(result);
+        newMsg = {
+          id: result.messageId || Date.now(),
+          sender: currentUser.name || "You",
+          text: plainText,
+          isHtml: false,
+          time: "just now",
+          isAgent: true,
+        };
       }
 
       setMessagesByConvId((prev) => ({

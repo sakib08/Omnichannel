@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
+import { webhookUrl, siteHost } from "../../api/client.js";
 
 export default function EmailSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("inbox");
@@ -38,8 +39,8 @@ export default function EmailSettings({ cfg, setCfg }) {
             <Input label="Reply-to address" value={cfg.replyTo} onChange={v => S("replyTo", v)} placeholder="noreply@acme.com" helper="Leave blank to use inbox address." />
           </div>
           <SectionDivider label="Email Forwarding / Piping" />
-          <Input label="Forward-to address (copy into your mailbox forwarder)" value="inbound+acme@in.yourdomain.com" readOnly mono helper="Direct your email provider's forwarding rule to this address." />
-          <Input label="Inbound webhook (alternative)" value="https://api.yourdomain.com/webhooks/email/inbound" readOnly mono />
+          <Input label="Forward-to address (copy into your mailbox forwarder)" value={`inbound@${siteHost}`} readOnly mono helper="Direct your email provider's forwarding rule to this address." />
+          <Input label="Inbound webhook (alternative)" value={webhookUrl("email")} readOnly mono />
         </div>
       )}
  
@@ -137,13 +138,13 @@ export default function EmailSettings({ cfg, setCfg }) {
         <div className="space-y-4">
           <InfoBox type="warning">Add these DNS TXT records to your domain to improve deliverability and prevent spoofing. Changes can take up to 48 hours to propagate.</InfoBox>
           <SectionDivider label="SPF Record" />
-          <Input label="TXT record — add to your root domain (@)" value={"v=spf1 include:mail.yourdomain.com ~all"} readOnly mono helper="Authorises your mail server to send on behalf of your domain." />
+          <Input label="TXT record — add to your root domain (@)" value={`v=spf1 include:mail.${siteHost} ~all`} readOnly mono helper="Authorises your mail server to send on behalf of your domain." />
           <SectionDivider label="DKIM Record" />
           <Input label="TXT record — host: mail._domainkey" value={"v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQ..."} readOnly mono />
           <SectionDivider label="DMARC Record" />
           <Input label="TXT record — host: _dmarc" value={"v=DMARC1; p=quarantine; rua=mailto:dmarc@acme.com"} readOnly mono />
           <SectionDivider label="MX Record (for email piping)" />
-          <Input label="MX record — host: @, priority: 10" value={"mx.in.yourdomain.com"} readOnly mono helper="Required if you want to receive email directly (not forwarding)." />
+          <Input label="MX record — host: @, priority: 10" value={`mx.in.${siteHost}`} readOnly mono helper="Required if you want to receive email directly (not forwarding)." />
         </div>
       )}
     </div>

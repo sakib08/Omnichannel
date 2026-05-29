@@ -1,12 +1,14 @@
 export const CHANNELS = [
-  { id: "all", label: "All", icon: "ti-inbox" },
-  { id: "email", label: "Email", icon: "ti-mail", color: "#4F46E5" },
-  { id: "whatsapp", label: "WhatsApp", icon: "ti-brand-whatsapp", color: "#25D366" },
-  { id: "messenger", label: "Messenger", icon: "ti-brand-messenger", color: "#0084FF" },
-  { id: "telegram", label: "Telegram", icon: "ti-brand-telegram", color: "#26A5E4" },
-  { id: "instagram", label: "Instagram DM", icon: "ti-brand-instagram", color: "#E1306C" },
-  { id: "livechat", label: "Live Chat", icon: "ti-message-circle", color: "#F59E0B" },
-  { id: "sms", label: "SMS", icon: "ti-device-mobile-message", color: "#6366F1" },
+  { id: "all",       label: "All",           icon: "ti-inbox" },
+  { id: "email",     label: "Email",          icon: "ti-mail",                  color: "#4F46E5" },
+  { id: "whatsapp",  label: "WhatsApp",       icon: "ti-brand-whatsapp",        color: "#25D366" },
+  { id: "messenger", label: "Messenger",      icon: "ti-brand-messenger",       color: "#0084FF" },
+  { id: "telegram",  label: "Telegram",       icon: "ti-brand-telegram",        color: "#26A5E4" },
+  { id: "instagram", label: "Instagram DM",   icon: "ti-brand-instagram",       color: "#E1306C" },
+  { id: "sms",       label: "SMS",            icon: "ti-device-mobile-message", color: "#6366F1" },
+  { id: "viber",     label: "Viber",          icon: "letter:Vi",                color: "#7360F2" },
+  { id: "wechat",    label: "WeChat",         icon: "ti-brand-wechat",          color: "#07C160" },
+  { id: "line",      label: "LINE",           icon: "ti-brand-line",            color: "#06C755" },
 ];
 
 export const AGENTS = ["Alice Wang", "Ben Torres", "Clara Kim", "David Patel", "Unassigned"];

@@ -5,6 +5,21 @@
 const boot = typeof window !== "undefined" && window.SMEBoot ? window.SMEBoot : {};
 
 export const restUrl = (boot.restUrl || "/wp-json/sme/v1/").replace(/\/?$/, "/");
+
+/** Build a fully-qualified webhook URL for a given channel slug.
+ *  e.g. webhookUrl("telegram") → "https://example.com/wp-json/sme/v1/webhooks/telegram"
+ */
+export const webhookUrl = (slug) => restUrl + "webhooks/" + slug;
+
+/** Site origin, derived from the REST URL (used for display-only labels). */
+export const siteOrigin = (() => {
+  try { return new URL(restUrl).origin; } catch (_) { return ""; }
+})();
+
+/** Hostname only, e.g. "example.com" */
+export const siteHost = (() => {
+  try { return new URL(restUrl).hostname; } catch (_) { return "yourdomain.com"; }
+})();
 export const restNonce = boot.nonce || "";
 export const currentUser = boot.user || { id: 0, name: "Guest", email: "", roles: [] };
 export const caps = boot.caps || {
@@ -65,9 +80,42 @@ export const api = {
   updateConversation: (id, payload) => request(`conversations/${id}`, { method: "PUT", body: payload }),
   createMessage: (payload) => request("messages", { method: "POST", body: payload }),
 
-  sendEmail: (payload) => request("email/send", { method: "POST", body: payload }),
-  pollEmail: () => request("email/poll", { method: "POST" }),
+  sendEmail:    (payload) => request("email/send",    { method: "POST", body: payload }),
+  pollEmail:    () =>        request("email/poll",    { method: "POST" }),
   testEmailConnection: (type) => request("email/test-connection", { method: "POST", body: { type } }),
+
+  // Channel-specific outbound send (all share the same { conversationId, recipientId, text } shape).
+  sendTelegram:   (payload) => request("telegram/send",   { method: "POST", body: payload }),
+  sendWhatsApp:   (payload) => request("whatsapp/send",   { method: "POST", body: payload }),
+  sendMessenger:  (payload) => request("messenger/send",  { method: "POST", body: payload }),
+  sendWeChat:     (payload) => request("wechat/send",     { method: "POST", body: payload }),
+  sendSms:        (payload) => request("sms/send",        { method: "POST", body: payload }),
+  sendLine:       (payload) => request("line/send",       { method: "POST", body: payload }),
+  sendInstagram:  (payload) => request("instagram/send",  { method: "POST", body: payload }),
+  sendViber:      (payload) => request("viber/send",      { method: "POST", body: payload }),
+
+  /** Generic channel send — picks the right endpoint from the channel slug. */
+  sendChannel: (channel, payload) => {
+    const map = {
+      email:     "email/send",
+      telegram:  "telegram/send",
+      whatsapp:  "whatsapp/send",
+      messenger: "messenger/send",
+      wechat:    "wechat/send",
+      sms:       "sms/send",
+      line:      "line/send",
+      instagram: "instagram/send",
+      viber:     "viber/send",
+    };
+    const path = map[channel];
+    if (!path) return Promise.reject(new Error(`No send endpoint for channel: ${channel}`));
+    return request(path, { method: "POST", body: payload });
+  },
+
+  /** Register a Telegram webhook with a single API call. */
+  registerTelegramWebhook: () => request("telegram/set-webhook", { method: "POST" }),
+  /** Register Viber webhook via the Viber Chat API. */
+  registerViberWebhook: () => request("viber/set-webhook", { method: "POST" }),
 };
 
 export default api;

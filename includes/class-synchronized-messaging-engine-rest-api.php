@@ -37,7 +37,7 @@ class Synchronized_Messaging_Engine_Rest_Api {
 
     /** Channels supported by the React app — every key matches a wp_option sub-array. */
     public static function supported_channels() {
-        return array( 'messenger', 'email', 'whatsapp', 'telegram', 'sms', 'line', 'viber', 'wechat' );
+        return array( 'messenger', 'email', 'whatsapp', 'telegram', 'sms', 'line', 'viber', 'wechat', 'instagram' );
     }
 
     public function register_routes() {

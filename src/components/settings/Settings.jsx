@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import EmailSettings from "./email.js";
+import InstagramSettings from "./instagram.jsx";
 import LineSettings from "./Line.jsx";
 import MessengerSettings from "./messanger.jsx";
 import SmsSettings from "./sms.jsx";
@@ -81,6 +82,14 @@ const CHANNEL_DEFAULTS = {
     encodingAesKey: "", fetchProfile: true, autoAssign: true, media: true,
     menuJson: '{"button":[{"type":"click","name":"Support","key":"SUPPORT"}]}',
     autoReplyMsg: "Thanks for contacting us on WeChat. We will reply shortly.",
+  },
+  instagram: {
+    enabled: false, igAccountId: "", pageId: "", pageToken: "", appId: "", appSecret: "",
+    verifyToken: "", fetchProfile: true, typingIndicator: true, readReceipts: true,
+    imageAttach: true, storyReplies: true, autoAssign: true, csat: false,
+    autoReply: true, autoReplyMsg: "Hi! Thanks for reaching out on Instagram 👋 An agent will reply shortly.",
+    awayMsg: false, awayMsgText: "We're offline right now but will respond as soon as possible.",
+    iceBreakers: false, iceList: ["What are your hours?", "Track my order", "Speak to a human"],
   },
 };
 
@@ -289,6 +298,9 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
                 )}
                 {active === "wechat" && (
                   <WeChatSettings cfg={configs.wechat} setCfg={setChannel("wechat")} />
+                )}
+                {active === "instagram" && (
+                  <InstagramSettings cfg={configs.instagram} setCfg={setChannel("instagram")} />
                 )}
               </>
             )}
