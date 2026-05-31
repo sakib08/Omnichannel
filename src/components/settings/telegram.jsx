@@ -1,12 +1,49 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
 import { webhookUrl } from "../../api/client.js";
+import api from "../../api/client.js";
 
 export default function TelegramSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("bot");
   const S = (k, v) => setCfg({ ...cfg, [k]: v });
   const color = TOKEN.telegram.color;
+
+  const [webhookInfo, setWebhookInfo]       = useState(null);
+  const [infoLoading, setInfoLoading]       = useState(false);
+  const [registerBusy, setRegisterBusy]     = useState(false);
+  const [registerResult, setRegisterResult] = useState(null); // { ok, message }
+
+  const fetchWebhookInfo = useCallback(async () => {
+    if (!cfg.botToken) return;
+    setInfoLoading(true);
+    try {
+      const data = await api.getTelegramWebhookInfo();
+      setWebhookInfo(data);
+    } catch (err) {
+      setWebhookInfo({ error: err.message || "Failed to fetch info" });
+    } finally {
+      setInfoLoading(false);
+    }
+  }, [cfg.botToken]);
+
+  useEffect(() => {
+    if (tab === "webhook") fetchWebhookInfo();
+  }, [tab, fetchWebhookInfo]);
+
+  const handleRegisterWebhook = async () => {
+    setRegisterBusy(true);
+    setRegisterResult(null);
+    try {
+      const data = await api.registerTelegramWebhook();
+      setWebhookInfo(data.info || null);
+      setRegisterResult({ ok: true, message: "Webhook registered successfully ✓" });
+    } catch (err) {
+      setRegisterResult({ ok: false, message: err.message || "Registration failed" });
+    } finally {
+      setRegisterBusy(false);
+    }
+  };
  
   return (
     <div className="space-y-5">
@@ -51,13 +88,94 @@ export default function TelegramSettings({ cfg, setCfg }) {
  
       {tab === "webhook" && (
         <div className="space-y-4">
-          <InfoBox type="info">Telegram uses webhooks to push messages to your server. You must register the webhook URL using the Telegram Bot API.</InfoBox>
-          <Input label="Your webhook URL" value={webhookUrl("telegram")} readOnly mono />
-          <SectionDivider label="Register Webhook — Run this command" />
-          <CodeSnippet lang="bash" code={`curl -X POST \\\n  https://api.telegram.org/bot${cfg.botToken||"<YOUR_BOT_TOKEN>"}/setWebhook \\\n  -d "url=${webhookUrl("telegram")}" \\\n  -d "secret_token=your_secret_here" \\\n  -d "allowed_updates=[message,callback_query]"`} />
-          <SectionDivider label="Verify Webhook Status" />
-          <CodeSnippet lang="bash" code={`curl https://api.telegram.org/bot${cfg.botToken||"<YOUR_BOT_TOKEN>"}/getWebhookInfo`} />
-          <SectionDivider label="Sample Update Object" />
+          <InfoBox type="info">
+            Telegram delivers messages by calling your webhook URL. Click <strong>Register Webhook</strong> to point your bot at this plugin automatically — no cURL required.
+          </InfoBox>
+
+          {/* Webhook URL */}
+          <Input label="Webhook URL (this site)" value={webhookUrl("telegram")} readOnly mono />
+
+          {/* One-click register */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              style={{ background: color }}
+              disabled={registerBusy || !cfg.botToken}
+              onClick={handleRegisterWebhook}
+              className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {registerBusy ? (
+                <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Registering…</>
+              ) : "Register Webhook"}
+            </button>
+            <button
+              onClick={fetchWebhookInfo}
+              disabled={infoLoading || !cfg.botToken}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 border border-slate-700 hover:bg-slate-800 transition-colors disabled:opacity-50"
+            >
+              {infoLoading ? "Checking…" : "Check Status"}
+            </button>
+            {!cfg.botToken && (
+              <span className="text-xs text-amber-400">Save your bot token first</span>
+            )}
+          </div>
+
+          {/* Register result banner */}
+          {registerResult && (
+            <div className={`text-sm font-medium px-4 py-2 rounded-xl ${registerResult.ok ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+              {registerResult.message}
+            </div>
+          )}
+
+          {/* Live webhook status card */}
+          {webhookInfo && !webhookInfo.error && (
+            <div className="rounded-xl border border-slate-700/60 bg-slate-900/40 p-4 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Live Webhook Status</p>
+
+              <div className="flex items-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${webhookInfo.registered && webhookInfo.urlMatch ? "bg-green-400" : webhookInfo.registered ? "bg-amber-400" : "bg-red-400"}`} />
+                <span className={`text-sm font-semibold ${webhookInfo.registered && webhookInfo.urlMatch ? "text-green-400" : webhookInfo.registered ? "text-amber-400" : "text-red-400"}`}>
+                  {!webhookInfo.registered
+                    ? "Not registered — Telegram doesn't know where to send messages"
+                    : webhookInfo.urlMatch
+                      ? "Active — pointing at this site ✓"
+                      : "Registered but pointing at a different URL"}
+                </span>
+              </div>
+
+              {webhookInfo.webhookUrl && (
+                <p className="text-xs text-slate-400 font-mono break-all">
+                  <span className="text-slate-600">Current URL: </span>{webhookInfo.webhookUrl}
+                </p>
+              )}
+
+              {webhookInfo.pendingUpdateCount > 0 && (
+                <p className="text-xs text-amber-400">
+                  ⚠ {webhookInfo.pendingUpdateCount} pending update{webhookInfo.pendingUpdateCount !== 1 ? "s" : ""} queued by Telegram
+                </p>
+              )}
+
+              {webhookInfo.lastError && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                  <p className="text-xs font-semibold text-red-400 mb-0.5">Last delivery error</p>
+                  <p className="text-xs text-red-300">{webhookInfo.lastError}</p>
+                  {webhookInfo.lastErrorAt && (
+                    <p className="text-xs text-slate-500 mt-1">{new Date(webhookInfo.lastErrorAt * 1000).toLocaleString()}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {webhookInfo?.error && (
+            <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">
+              {webhookInfo.error}
+            </div>
+          )}
+
+          <SectionDivider label="Manual cURL (alternative)" />
+          <CodeSnippet lang="bash" code={`curl -X POST \\\n  https://api.telegram.org/bot${cfg.botToken||"<YOUR_BOT_TOKEN>"}/setWebhook \\\n  -d "url=${webhookUrl("telegram")}" \\\n  -d "allowed_updates=[message,callback_query]"`} />
+
+          <SectionDivider label="Sample Incoming Update" />
           <CodeSnippet lang="json" code={`{\n  "update_id": 123456789,\n  "message": {\n    "message_id": 1,\n    "from": { "id": 987654, "first_name": "Sarah" },\n    "chat": { "id": 987654, "type": "private" },\n    "text": "Hello! I need help."\n  }\n}`} />
         </div>
       )}

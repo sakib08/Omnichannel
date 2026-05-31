@@ -225,8 +225,10 @@ abstract class Synchronized_Messaging_Engine_Channel_Pipe_Base {
 
     /**
      * Convenience wrapper: POST JSON to an API.
+     *
+     * @return array|\WP_Error  Decoded response array, or WP_Error on failure.
      */
-    protected function http_post_json( string $url, array $payload, array $headers = array() ): array {
+    protected function http_post_json( string $url, array $payload, array $headers = array() ) {
         return $this->http( $url, array(
             'method'  => 'POST',
             'headers' => array_merge(
@@ -239,8 +241,10 @@ abstract class Synchronized_Messaging_Engine_Channel_Pipe_Base {
 
     /**
      * Convenience wrapper: POST form-encoded data.
+     *
+     * @return array|\WP_Error
      */
-    protected function http_post_form( string $url, array $fields, array $headers = array() ): array {
+    protected function http_post_form( string $url, array $fields, array $headers = array() ) {
         return $this->http( $url, array(
             'method'  => 'POST',
             'headers' => $headers,

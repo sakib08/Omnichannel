@@ -67,6 +67,16 @@ class Synchronized_Messaging_Engine_Telegram_Pipe extends Synchronized_Messaging
                 'permission_callback' => array( $this, 'check_manage_settings' ),
             )
         );
+
+        register_rest_route(
+            $ns,
+            '/telegram/webhook-info',
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array( $this, 'handle_webhook_info' ),
+                'permission_callback' => array( $this, 'check_manage_settings' ),
+            )
+        );
     }
 
     // ── Inbound webhook ────────────────────────────────────────────────────
@@ -242,13 +252,18 @@ class Synchronized_Messaging_Engine_Telegram_Pipe extends Synchronized_Messaging
         $cfg   = $this->get_settings();
         $token = (string) ( $cfg['botToken'] ?? '' );
         if ( '' === $token ) {
-            return new WP_Error( 'sme_no_token', __( 'Bot token is not configured.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error(
+                'sme_no_token',
+                __( 'Bot token is not configured. Save the Telegram settings first.', 'synchronized-messaging-engine' ),
+                array( 'status' => 400 )
+            );
         }
 
         $webhook_url = rest_url( Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1 . '/webhooks/telegram' );
         $payload     = array(
             'url'             => $webhook_url,
             'allowed_updates' => array( 'message', 'callback_query' ),
+            'drop_pending_updates' => false,
         );
 
         $secret = (string) ( $cfg['webhookSecret'] ?? '' );
@@ -262,13 +277,76 @@ class Synchronized_Messaging_Engine_Telegram_Pipe extends Synchronized_Messaging
         );
 
         if ( is_wp_error( $result ) ) {
-            return $result;
+            return new WP_Error(
+                'sme_telegram_api_error',
+                sprintf( __( 'Telegram API error: %s', 'synchronized-messaging-engine' ), $result->get_error_message() ),
+                array( 'status' => 502 )
+            );
         }
+
+        if ( empty( $result['ok'] ) ) {
+            return new WP_Error(
+                'sme_telegram_rejected',
+                sprintf(
+                    __( 'Telegram rejected the webhook: %s', 'synchronized-messaging-engine' ),
+                    $result['description'] ?? 'Unknown error'
+                ),
+                array( 'status' => 502 )
+            );
+        }
+
+        // Fetch the current info so the UI can confirm registration.
+        $info = $this->get_webhook_info( $token );
 
         return rest_ensure_response( array(
             'ok'         => true,
             'webhookUrl' => $webhook_url,
             'telegram'   => $result,
+            'info'       => $info,
         ) );
+    }
+
+    // ── Webhook status info ────────────────────────────────────────────────
+
+    public function handle_webhook_info( WP_REST_Request $request ) {
+        $cfg   = $this->get_settings();
+        $token = (string) ( $cfg['botToken'] ?? '' );
+        if ( '' === $token ) {
+            return new WP_Error( 'sme_no_token', __( 'Bot token is not configured.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+        }
+
+        $info = $this->get_webhook_info( $token );
+
+        if ( is_wp_error( $info ) ) {
+            return new WP_Error(
+                'sme_telegram_api_error',
+                sprintf( __( 'Could not fetch webhook info: %s', 'synchronized-messaging-engine' ), $info->get_error_message() ),
+                array( 'status' => 502 )
+            );
+        }
+
+        $expected_url = rest_url( Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1 . '/webhooks/telegram' );
+        $current_url  = (string) ( $info['result']['url'] ?? '' );
+
+        return rest_ensure_response( array(
+            'ok'          => true,
+            'registered'  => $current_url !== '',
+            'urlMatch'    => rtrim( $current_url, '/' ) === rtrim( $expected_url, '/' ),
+            'webhookUrl'  => $current_url,
+            'expectedUrl' => $expected_url,
+            'pendingUpdateCount' => (int) ( $info['result']['pending_update_count'] ?? 0 ),
+            'lastError'   => $info['result']['last_error_message'] ?? null,
+            'lastErrorAt' => $info['result']['last_error_date'] ?? null,
+            'raw'         => $info['result'] ?? array(),
+        ) );
+    }
+
+    /**
+     * Call getWebhookInfo on the Telegram Bot API.
+     *
+     * @return array|\WP_Error
+     */
+    private function get_webhook_info( string $token ) {
+        return $this->http( self::BOT_API . $token . '/getWebhookInfo' );
     }
 }

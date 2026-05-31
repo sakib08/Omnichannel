@@ -1,8 +1,11 @@
 import { CHANNELS } from "../constants/config";
-const channelMeta = (id) => CHANNELS.find((c) => c.id === id) || CHANNELS[0];
+export const channelMeta = (id) => CHANNELS.find((c) => c.id === id) || CHANNELS[0];
 
-/** Renders either a Tabler icon class or a text letter (icon: "letter:XX"). */
-function ChannelIcon({ icon, color, size }) {
+/**
+ * Renders either a Tabler icon class (ti-brand-*) or a styled letter badge
+ * (icon: "letter:XX") for platforms without a Tabler brand icon.
+ */
+export function ChannelIcon({ icon, color, size }) {
   if (icon && icon.startsWith("letter:")) {
     const letter = icon.slice(7);
     return (
@@ -11,7 +14,7 @@ function ChannelIcon({ icon, color, size }) {
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           width: size, height: size, borderRadius: "50%",
           background: color, color: "#fff",
-          fontSize: Math.round(size * 0.6), fontWeight: 800, lineHeight: 1,
+          fontSize: Math.round(size * 0.55), fontWeight: 800, lineHeight: 1,
           flexShrink: 0,
         }}
       >
@@ -19,7 +22,7 @@ function ChannelIcon({ icon, color, size }) {
       </span>
     );
   }
-  return <i className={`ti ${icon}`} style={{ fontSize: size }} />;
+  return <i className={`ti ${icon}`} style={{ fontSize: size, color }} />;
 }
 
 export default function ChannelBadge({ channelId, small }) {

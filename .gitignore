@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build artefacts
+build/
+
+# Distribution zip
+*.zip
+
+# npm / Node
+package-lock.json
+npm-debug.log*
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# OS & editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo

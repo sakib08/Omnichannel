@@ -114,6 +114,8 @@ export const api = {
 
   /** Register a Telegram webhook with a single API call. */
   registerTelegramWebhook: () => request("telegram/set-webhook", { method: "POST" }),
+  /** Fetch live webhook status from Telegram (getWebhookInfo). */
+  getTelegramWebhookInfo: () => request("telegram/webhook-info"),
   /** Register Viber webhook via the Viber Chat API. */
   registerViberWebhook: () => request("viber/set-webhook", { method: "POST" }),
 };

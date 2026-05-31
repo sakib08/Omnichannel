@@ -7,7 +7,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "wp-scripts start",
-    "build": "wp-scripts build"
+    "build": "wp-scripts build",
+    "clean": "rm -rf build",
+    "bundle": "npm run clean && npm run build && wp-scripts plugin-zip"
   },
   "keywords": [],
   "author": "",
