@@ -132,6 +132,19 @@ class Synchronized_Messaging_Engine_Rest_Api {
             )
         );
 
+        // ─── Lightweight poll endpoint ───────────────────────────────────────
+        // Returns only a timestamp + unread count so the client can decide
+        // whether it needs to fetch full conversation / message data.
+        register_rest_route(
+            self::NAMESPACE_V1,
+            '/poll',
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array( $this, 'poll' ),
+                'permission_callback' => array( $this, 'check_access_messaging' ),
+            )
+        );
+
         // ─── Conversations & messages ────────────────────────────────────────
         register_rest_route(
             self::NAMESPACE_V1,
@@ -470,6 +483,43 @@ class Synchronized_Messaging_Engine_Rest_Api {
     }
 
     // ─── Conversations & messages ────────────────────────────────────────────
+    /**
+     * GET /poll
+     *
+     * Ultra-lightweight endpoint: single DB query, ~80-byte JSON response.
+     * The client calls this every 8 s and only fetches full data when
+     * ts (latest updated_at) or convTs (newest conversation created_at) changes.
+     *
+     * Response shape:
+     *   {
+     *     ts:        "2024-01-15 12:34:56",  // MAX(updated_at) across all open conversations
+     *     convTs:    "2024-01-15 12:34:56",  // MAX(created_at) — detects new conversations
+     *     unread:    3,                       // total unread messages
+     *     convCount: 12                       // total conversations
+     *   }
+     */
+    public function poll( WP_REST_Request $request ) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sme_conversations';
+
+        $row = $wpdb->get_row(
+            "SELECT
+                MAX(updated_at) AS ts,
+                MAX(created_at) AS conv_ts,
+                SUM(unread_count) AS unread,
+                COUNT(*) AS conv_count
+             FROM {$table}",
+            ARRAY_A
+        );
+
+        return rest_ensure_response( array(
+            'ts'        => $row['ts'] ?? '',
+            'convTs'    => $row['conv_ts'] ?? '',
+            'unread'    => (int) ( $row['unread'] ?? 0 ),
+            'convCount' => (int) ( $row['conv_count'] ?? 0 ),
+        ) );
+    }
+
     public function list_conversations( WP_REST_Request $request ) {
         global $wpdb;
         $table   = $wpdb->prefix . 'sme_conversations';
@@ -495,9 +545,30 @@ class Synchronized_Messaging_Engine_Rest_Api {
 
     public function list_messages( WP_REST_Request $request ) {
         global $wpdb;
-        $cid   = (int) $request->get_param( 'id' );
-        $table = $wpdb->prefix . 'sme_messages';
-        $rows  = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} WHERE conversation_id = %d ORDER BY sent_at ASC", $cid ), ARRAY_A );
+        $cid      = (int) $request->get_param( 'id' );
+        $after_id = (int) $request->get_param( 'after_id' ); // 0 = fetch all
+        $table    = $wpdb->prefix . 'sme_messages';
+
+        if ( $after_id > 0 ) {
+            // Incremental fetch: only messages newer than the given ID.
+            $rows = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT * FROM {$table} WHERE conversation_id = %d AND id > %d ORDER BY sent_at ASC",
+                    $cid,
+                    $after_id
+                ),
+                ARRAY_A
+            );
+        } else {
+            $rows = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT * FROM {$table} WHERE conversation_id = %d ORDER BY sent_at ASC",
+                    $cid
+                ),
+                ARRAY_A
+            );
+        }
+
         return rest_ensure_response( array_map( array( $this, 'format_message_row' ), (array) $rows ) );
     }
 

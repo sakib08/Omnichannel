@@ -94,7 +94,11 @@ export default function OmnichannelApp() {
   const [theme, setTheme] = useState("light");
   const [sendError, setSendError] = useState("");
   const messagesEndRef = useRef(null);
-  const refreshTimerRef = useRef(null);
+  // Smart-poller refs — stored as refs (not state) to avoid triggering re-renders.
+  const pollTimerRef   = useRef(null);
+  const lastPollTs     = useRef("");  // MAX(updated_at) seen in last /poll
+  const lastPollConvTs = useRef("");  // MAX(created_at) seen in last /poll
+  const lastMsgIdRef   = useRef({});  // { [convId]: maxMessageId }
 
   // ── Load agents once (for assignee selector) ────────────────────────────────
   useEffect(() => {
@@ -120,11 +124,72 @@ export default function OmnichannelApp() {
     loadConversations();
   }, [loadConversations]);
 
-  // Auto-refresh every 30 s to pick up new inbound emails.
+  // ── Smart visibility-aware poller ──────────────────────────────────────────
+  //
+  //  1. Calls GET /poll every POLL_INTERVAL ms — one DB query, ~80 bytes.
+  //  2. Compares ts/convTs to cached values; only fetches full data on change.
+  //  3. Fetches only *new* messages (after_id) for the open conversation.
+  //  4. Pauses automatically when the browser tab is hidden to save resources.
+  //
+  const POLL_INTERVAL = 8_000; // ms between polls when tab is visible
+
+  // selectedRef lets the async poll closure see the latest selected conv id
+  // without stale closure state — avoids re-creating the interval on every click.
+  const selectedRef = useRef(selected);
+  useEffect(() => { selectedRef.current = selected; }, [selected]);
+
   useEffect(() => {
-    refreshTimerRef.current = setInterval(loadConversations, 30_000);
-    return () => clearInterval(refreshTimerRef.current);
-  }, [loadConversations]);
+    let paused = document.hidden;
+
+    const onVisibilityChange = () => {
+      paused = document.hidden;
+      // Immediately poll when the tab comes back into view.
+      if (!paused) tick();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    const tick = async () => {
+      if (paused) return;
+      try {
+        const snap = await api.poll();
+        const convChanged =
+          snap.ts     !== lastPollTs.current ||
+          snap.convTs !== lastPollConvTs.current;
+
+        if (convChanged) {
+          lastPollTs.current     = snap.ts;
+          lastPollConvTs.current = snap.convTs;
+          // Refresh full conversation list only when something actually changed.
+          await loadConversations();
+        }
+
+        // Incremental message fetch for the currently open conversation.
+        const openId = selectedRef.current;
+        if (openId) {
+          const knownMax = lastMsgIdRef.current[openId] || 0;
+          if (knownMax > 0 || convChanged) {
+            const newMsgs = await api.listNewMessages(openId, knownMax);
+            if (newMsgs && newMsgs.length > 0) {
+              const normalised = newMsgs.map(normaliseMessage);
+              lastMsgIdRef.current[openId] = newMsgs[newMsgs.length - 1].id;
+              setMessagesByConvId((prev) => ({
+                ...prev,
+                [openId]: [...(prev[openId] || []), ...normalised],
+              }));
+            }
+          }
+        }
+      } catch {
+        // Silent — network hiccups are ignored; the next tick will retry.
+      }
+    };
+
+    pollTimerRef.current = setInterval(tick, POLL_INTERVAL);
+    return () => {
+      clearInterval(pollTimerRef.current);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [loadConversations]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Lazy-load messages when a conversation is opened ───────────────────────
   useEffect(() => {
@@ -135,10 +200,15 @@ export default function OmnichannelApp() {
     api
       .listMessages(selected)
       .then((msgs) => {
+        const rows = msgs || [];
         setMessagesByConvId((prev) => ({
           ...prev,
-          [selected]: (msgs || []).map(normaliseMessage),
+          [selected]: rows.map(normaliseMessage),
         }));
+        // Seed the max-id tracker so the poller can do incremental fetches.
+        if (rows.length > 0) {
+          lastMsgIdRef.current[selected] = rows[rows.length - 1].id;
+        }
         // Mark as read.
         api.updateConversation(selected, { unreadCount: 0 }).catch(() => {});
         setConversations((prev) =>

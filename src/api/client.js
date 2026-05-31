@@ -71,11 +71,15 @@ export const api = {
   listAgents:        () => request("agents"),
   assignAgentDepts:  (id, departmentIds) => request(`agents/${id}/departments`, { method: "POST", body: { departmentIds } }),
 
+  /** Lightweight heartbeat — single DB query, ~80 bytes. */
+  poll: () => request("poll"),
+
   listConversations: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request(`conversations${qs ? `?${qs}` : ""}`);
   },
-  listMessages: (cid) => request(`conversations/${cid}/messages`),
+  listMessages:    (cid) => request(`conversations/${cid}/messages`),
+  listNewMessages: (cid, afterId) => request(`conversations/${cid}/messages?after_id=${afterId}`),
   createConversation: (payload) => request("conversations", { method: "POST", body: payload }),
   updateConversation: (id, payload) => request(`conversations/${id}`, { method: "PUT", body: payload }),
   createMessage: (payload) => request("messages", { method: "POST", body: payload }),
