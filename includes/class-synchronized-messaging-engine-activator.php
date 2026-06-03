@@ -10,12 +10,12 @@
  *  - Seed default platform settings in wp_options so the React app has
  *    something to read on first load.
  *
- * @package Synchronized_Messaging_Engine
+ * @package Ppros_Synchronized_Messaging_Engine
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Activator {
+class Ppros_Synchronized_Messaging_Engine_Activator {
 
     const DB_VERSION_OPTION    = 'sme_db_version';
     const DB_VERSION           = '1.0.0';
@@ -31,12 +31,12 @@ class Synchronized_Messaging_Engine_Activator {
         self::migrate_settings_keys();
         self::seed_default_settings();
         self::seed_default_departments();
-        Synchronized_Messaging_Engine_Email_Pipe::schedule_cron();
+        Ppros_Synchronized_Messaging_Engine_Email_Pipe::schedule_cron();
     }
 
     public static function deactivate() {
         // Unschedule the IMAP poll cron on deactivation.
-        Synchronized_Messaging_Engine_Email_Pipe::unschedule_cron();
+        Ppros_Synchronized_Messaging_Engine_Email_Pipe::unschedule_cron();
         // Roles/caps and data are intentionally left in place on deactivation
         // so the admin doesn't lose history.  Removed only on uninstall.
     }

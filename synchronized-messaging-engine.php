@@ -40,11 +40,11 @@ require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/cl
 require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine-viber-pipe.php';
 require_once PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'includes/class-synchronized-messaging-engine.php';
 
-register_activation_hook( __FILE__, array( 'Synchronized_Messaging_Engine_Activator', 'activate' ) );
-register_deactivation_hook( __FILE__, array( 'Synchronized_Messaging_Engine_Activator', 'deactivate' ) );
+register_activation_hook( __FILE__, array( 'Ppros_Synchronized_Messaging_Engine_Activator', 'activate' ) );
+register_deactivation_hook( __FILE__, array( 'Ppros_Synchronized_Messaging_Engine_Activator', 'deactivate' ) );
 
 function run_synchronized_messaging_engine() {
-    $plugin = new Synchronized_Messaging_Engine();
+    $plugin = new Ppros_Synchronized_Messaging_Engine();
     $plugin->run();
 }
 run_synchronized_messaging_engine();

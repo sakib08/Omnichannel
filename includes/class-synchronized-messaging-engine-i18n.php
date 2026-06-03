@@ -2,12 +2,12 @@
 /**
  * Defines the internationalization functionality.
  *
- * @package Synchronized_Messaging_Engine
+ * @package Ppros_Synchronized_Messaging_Engine
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_I18n {
+class Ppros_Synchronized_Messaging_Engine_I18n {
 
     public function load_plugin_textdomain() {
         load_plugin_textdomain(

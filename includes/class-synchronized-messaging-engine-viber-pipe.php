@@ -18,12 +18,12 @@
  *   enabled, authToken, botName, senderId, avatarUrl,
  *   fetchProfile, deliveryReceipts, media, autoAssign, autoReplyMsg
  *
- * @package Synchronized_Messaging_Engine
+ * @package Ppros_Synchronized_Messaging_Engine
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Viber_Pipe extends Synchronized_Messaging_Engine_Channel_Pipe_Base {
+class Ppros_Synchronized_Messaging_Engine_Viber_Pipe extends Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
 
     const API_BASE = 'https://chatapi.viber.com/pa/';
 
@@ -32,7 +32,7 @@ class Synchronized_Messaging_Engine_Viber_Pipe extends Synchronized_Messaging_En
     }
 
     public function register_routes(): void {
-        $ns = Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
 
         register_rest_route(
             $ns,
@@ -242,7 +242,7 @@ class Synchronized_Messaging_Engine_Viber_Pipe extends Synchronized_Messaging_En
             return new WP_Error( 'sme_no_token', __( 'Viber auth token is not configured.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
         }
 
-        $webhook_url = rest_url( Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1 . '/webhooks/viber' );
+        $webhook_url = rest_url( Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1 . '/webhooks/viber' );
 
         $result = $this->http_post_json(
             self::API_BASE . 'set_webhook',

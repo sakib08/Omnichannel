@@ -22,12 +22,12 @@
  * Manual IMAP poll trigger (for testing / debugging)
  *   POST /wp-json/sme/v1/email/poll  (requires sme_manage_settings)
  *
- * @package Synchronized_Messaging_Engine
+ * @package Ppros_Synchronized_Messaging_Engine
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Email_Pipe {
+class Ppros_Synchronized_Messaging_Engine_Email_Pipe {
 
     // ── Cron event tag ───────────────────────────────────────────────────────
     const CRON_HOOK = 'sme_imap_poll';
@@ -36,14 +36,14 @@ class Synchronized_Messaging_Engine_Email_Pipe {
     const CRON_SCHEDULE = 'sme_every_5_minutes';
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  Registration helpers called from the main Synchronized_Messaging_Engine
+    //  Registration helpers called from the main Ppros_Synchronized_Messaging_Engine
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Register all WordPress hooks that this class needs.
-     * Called once from Synchronized_Messaging_Engine::define_email_pipe_hooks().
+     * Called once from Ppros_Synchronized_Messaging_Engine::define_email_pipe_hooks().
      */
-    public function register_hooks( Synchronized_Messaging_Engine_Loader $loader ) {
+    public function register_hooks( Ppros_Synchronized_Messaging_Engine_Loader $loader ) {
         // REST routes
         $loader->add_action( 'rest_api_init', $this, 'register_routes' );
 
@@ -91,7 +91,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
     // ─────────────────────────────────────────────────────────────────────────
 
     public function register_routes() {
-        $ns = Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
 
         // ── Outbound send ────────────────────────────────────────────────────
         register_rest_route(
@@ -157,12 +157,12 @@ class Synchronized_Messaging_Engine_Email_Pipe {
     // ─────────────────────────────────────────────────────────────────────────
 
     public function check_access(): bool {
-        return current_user_can( Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
+        return current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
             || current_user_can( 'manage_options' );
     }
 
     public function check_manage_settings(): bool {
-        return current_user_can( Synchronized_Messaging_Engine_Activator::CAP_MANAGE_SETTINGS )
+        return current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_MANAGE_SETTINGS )
             || current_user_can( 'manage_options' );
     }
 
@@ -1018,7 +1018,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
      * @return array
      */
     private function get_settings(): array {
-        $all = (array) get_option( Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
+        $all = (array) get_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
         return isset( $all['email'] ) ? (array) $all['email'] : array();
     }
 }

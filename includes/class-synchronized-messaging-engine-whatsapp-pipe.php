@@ -14,12 +14,12 @@
  *   enabled, accessToken, phoneNumberId, wabaid, verifyToken,
  *   displayPhone, autoReply, autoReplyMsg, readReceipts
  *
- * @package Synchronized_Messaging_Engine
+ * @package Ppros_Synchronized_Messaging_Engine
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Whatsapp_Pipe extends Synchronized_Messaging_Engine_Channel_Pipe_Base {
+class Ppros_Synchronized_Messaging_Engine_Whatsapp_Pipe extends Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
 
     const GRAPH_API = 'https://graph.facebook.com/v19.0/';
 
@@ -28,7 +28,7 @@ class Synchronized_Messaging_Engine_Whatsapp_Pipe extends Synchronized_Messaging
     }
 
     public function register_routes(): void {
-        $ns = Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
 
         // GET: webhook hub verification.
         register_rest_route(

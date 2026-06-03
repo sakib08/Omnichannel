@@ -26,12 +26,12 @@
  *     POST /conversations            — create conversation
  *     POST /messages                 — append a message to a conversation
  *
- * @package Synchronized_Messaging_Engine
+ * @package Ppros_Synchronized_Messaging_Engine
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Rest_Api {
+class Ppros_Synchronized_Messaging_Engine_Rest_Api {
 
     const NAMESPACE_V1 = 'sme/v1';
 
@@ -196,23 +196,23 @@ class Synchronized_Messaging_Engine_Rest_Api {
 
     // ─── Permission helpers ──────────────────────────────────────────────────
     public function check_manage_settings() {
-        return current_user_can( Synchronized_Messaging_Engine_Activator::CAP_MANAGE_SETTINGS )
+        return current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_MANAGE_SETTINGS )
             || current_user_can( 'manage_options' );
     }
 
     public function check_manage_depts() {
-        return current_user_can( Synchronized_Messaging_Engine_Activator::CAP_MANAGE_DEPTS )
+        return current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_MANAGE_DEPTS )
             || current_user_can( 'manage_options' );
     }
 
     public function check_access_messaging() {
-        return current_user_can( Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
+        return current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
             || current_user_can( 'manage_options' );
     }
 
     // ─── Settings handlers ───────────────────────────────────────────────────
     public function get_all_settings() {
-        $settings = get_option( Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
+        $settings = get_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
         return rest_ensure_response( $this->normalize_settings_output( (array) $settings ) );
     }
 
@@ -221,7 +221,7 @@ class Synchronized_Messaging_Engine_Rest_Api {
         if ( ! in_array( $channel, self::supported_channels(), true ) ) {
             return new WP_Error( 'sme_unknown_channel', __( 'Unknown channel.', 'synchronized-messaging-engine' ), array( 'status' => 404 ) );
         }
-        $settings = (array) get_option( Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
+        $settings = (array) get_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
         $current  = isset( $settings[ $channel ] ) ? (array) $settings[ $channel ] : array();
         return rest_ensure_response( $this->scrub_secrets_for_output( $current ) );
     }
@@ -232,7 +232,7 @@ class Synchronized_Messaging_Engine_Rest_Api {
             return new WP_Error( 'sme_invalid_payload', __( 'Expected a JSON object.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
         }
 
-        $existing = (array) get_option( Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
+        $existing = (array) get_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
         $allowed  = self::supported_channels();
 
         foreach ( $payload as $channel => $values ) {
@@ -242,7 +242,7 @@ class Synchronized_Messaging_Engine_Rest_Api {
             $current             = isset( $existing[ $channel ] ) ? (array) $existing[ $channel ] : array();
             $existing[ $channel ] = $this->sanitize_channel_payload( array_merge( $current, $values ) );
         }
-        update_option( Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, $existing, false );
+        update_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, $existing, false );
         return rest_ensure_response( $this->normalize_settings_output( $existing ) );
     }
 
@@ -256,10 +256,10 @@ class Synchronized_Messaging_Engine_Rest_Api {
             return new WP_Error( 'sme_invalid_payload', __( 'Expected a JSON object.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
         }
 
-        $existing            = (array) get_option( Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
+        $existing            = (array) get_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
         $current             = isset( $existing[ $channel ] ) ? (array) $existing[ $channel ] : array();
         $existing[ $channel ] = $this->sanitize_channel_payload( array_merge( $current, $payload ) );
-        update_option( Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, $existing, false );
+        update_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, $existing, false );
 
         return rest_ensure_response( $this->scrub_secrets_for_output( $existing[ $channel ] ) );
     }
@@ -405,7 +405,7 @@ class Synchronized_Messaging_Engine_Rest_Api {
         global $wpdb;
         $users = get_users(
             array(
-                'role__in' => array( Synchronized_Messaging_Engine_Activator::AGENT_ROLE, 'administrator' ),
+                'role__in' => array( Ppros_Synchronized_Messaging_Engine_Activator::AGENT_ROLE, 'administrator' ),
                 'fields'   => array( 'ID', 'display_name', 'user_email', 'user_login' ),
                 'orderby'  => 'display_name',
                 'order'    => 'ASC',
@@ -432,7 +432,7 @@ class Synchronized_Messaging_Engine_Rest_Api {
         $out = array();
         foreach ( $users as $user ) {
             $user_obj  = get_user_by( 'id', $user->ID );
-            $is_agent  = $user_obj && in_array( Synchronized_Messaging_Engine_Activator::AGENT_ROLE, (array) $user_obj->roles, true );
+            $is_agent  = $user_obj && in_array( Ppros_Synchronized_Messaging_Engine_Activator::AGENT_ROLE, (array) $user_obj->roles, true );
             $out[]     = array(
                 'id'            => (int) $user->ID,
                 'name'          => (string) $user->display_name,

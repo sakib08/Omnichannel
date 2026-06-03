@@ -7,12 +7,12 @@
  * each concrete channel pipe only needs to implement its own routes and
  * API logic.
  *
- * @package Synchronized_Messaging_Engine
+ * @package Ppros_Synchronized_Messaging_Engine
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-abstract class Synchronized_Messaging_Engine_Channel_Pipe_Base {
+abstract class Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
 
     // ── Each subclass must declare these ─────────────────────────────────────
 
@@ -29,19 +29,19 @@ abstract class Synchronized_Messaging_Engine_Channel_Pipe_Base {
      * Subclasses may override to add cron hooks; calling parent::register_hooks()
      * is not required but the default just adds the rest_api_init action.
      */
-    public function register_hooks( Synchronized_Messaging_Engine_Loader $loader ): void {
+    public function register_hooks( Ppros_Synchronized_Messaging_Engine_Loader $loader ): void {
         $loader->add_action( 'rest_api_init', $this, 'register_routes' );
     }
 
     // ── Shared permission callbacks ───────────────────────────────────────
 
     public function check_access(): bool {
-        return current_user_can( Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
+        return current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
             || current_user_can( 'manage_options' );
     }
 
     public function check_manage_settings(): bool {
-        return current_user_can( Synchronized_Messaging_Engine_Activator::CAP_MANAGE_SETTINGS )
+        return current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_MANAGE_SETTINGS )
             || current_user_can( 'manage_options' );
     }
 
@@ -52,7 +52,7 @@ abstract class Synchronized_Messaging_Engine_Channel_Pipe_Base {
      * Credentials are NOT scrubbed here (this runs server-side only).
      */
     protected function get_settings(): array {
-        $all = (array) get_option( Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
+        $all = (array) get_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
         $slug = $this->get_channel_slug();
         return isset( $all[ $slug ] ) ? (array) $all[ $slug ] : array();
     }

@@ -17,12 +17,12 @@
  * Access token is fetched on demand and cached for 90 minutes in a
  * WordPress transient (sme_wechat_access_token).
  *
- * @package Synchronized_Messaging_Engine
+ * @package Ppros_Synchronized_Messaging_Engine
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Wechat_Pipe extends Synchronized_Messaging_Engine_Channel_Pipe_Base {
+class Ppros_Synchronized_Messaging_Engine_Wechat_Pipe extends Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
 
     const API_BASE = 'https://api.weixin.qq.com/cgi-bin/';
     const TOKEN_TRANSIENT = 'sme_wechat_access_token';
@@ -32,7 +32,7 @@ class Synchronized_Messaging_Engine_Wechat_Pipe extends Synchronized_Messaging_E
     }
 
     public function register_routes(): void {
-        $ns = Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
 
         register_rest_route(
             $ns,

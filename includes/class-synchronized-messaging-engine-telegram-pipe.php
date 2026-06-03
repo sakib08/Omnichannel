@@ -17,12 +17,12 @@
  *   enabled, botToken, botUsername, webhookSecret, startReply, startMsg,
  *   typingIndicator, markdown, autoReply, autoReplyMsg
  *
- * @package Synchronized_Messaging_Engine
+ * @package Ppros_Synchronized_Messaging_Engine
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Telegram_Pipe extends Synchronized_Messaging_Engine_Channel_Pipe_Base {
+class Ppros_Synchronized_Messaging_Engine_Telegram_Pipe extends Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
 
     const BOT_API = 'https://api.telegram.org/bot';
 
@@ -31,7 +31,7 @@ class Synchronized_Messaging_Engine_Telegram_Pipe extends Synchronized_Messaging
     }
 
     public function register_routes(): void {
-        $ns = Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
 
         register_rest_route(
             $ns,
@@ -259,7 +259,7 @@ class Synchronized_Messaging_Engine_Telegram_Pipe extends Synchronized_Messaging
             );
         }
 
-        $webhook_url = rest_url( Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1 . '/webhooks/telegram' );
+        $webhook_url = rest_url( Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1 . '/webhooks/telegram' );
         $payload     = array(
             'url'             => $webhook_url,
             'allowed_updates' => array( 'message', 'callback_query' ),
@@ -325,7 +325,7 @@ class Synchronized_Messaging_Engine_Telegram_Pipe extends Synchronized_Messaging
             );
         }
 
-        $expected_url = rest_url( Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1 . '/webhooks/telegram' );
+        $expected_url = rest_url( Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1 . '/webhooks/telegram' );
         $current_url  = (string) ( $info['result']['url'] ?? '' );
 
         return rest_ensure_response( array(

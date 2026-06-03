@@ -19,12 +19,12 @@
  *   verifyToken, fetchProfile, typingIndicator, readReceipts,
  *   imageAttach, storyReplies, autoAssign, autoReply, autoReplyMsg
  *
- * @package Synchronized_Messaging_Engine
+ * @package Ppros_Synchronized_Messaging_Engine
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Instagram_Pipe extends Synchronized_Messaging_Engine_Channel_Pipe_Base {
+class Ppros_Synchronized_Messaging_Engine_Instagram_Pipe extends Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
 
     const GRAPH_API = 'https://graph.facebook.com/v19.0/';
 
@@ -33,7 +33,7 @@ class Synchronized_Messaging_Engine_Instagram_Pipe extends Synchronized_Messagin
     }
 
     public function register_routes(): void {
-        $ns = Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
 
         // GET: hub verification, POST: DM events.
         register_rest_route(

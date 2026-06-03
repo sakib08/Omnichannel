@@ -2,12 +2,12 @@
 /**
  * Admin-area registration: menu, assets and capability gating.
  *
- * @package Synchronized_Messaging_Engine
+ * @package Ppros_Synchronized_Messaging_Engine
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Admin {
+class Ppros_Synchronized_Messaging_Engine_Admin {
 
     const MENU_SLUG      = 'synchronized-messaging-engine';
     const HELP_MENU_SLUG = 'synchronized-messaging-engine-help';
@@ -15,7 +15,7 @@ class Synchronized_Messaging_Engine_Admin {
     public function register_menu() {
         $cap = current_user_can( 'manage_options' )
             ? 'manage_options'
-            : Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING;
+            : Ppros_Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING;
 
         add_menu_page(
             __( 'Synchronized Messaging Engine', 'synchronized-messaging-engine' ),
@@ -49,7 +49,7 @@ class Synchronized_Messaging_Engine_Admin {
     }
 
     public function render_app_container() {
-        if ( ! current_user_can( Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
+        if ( ! current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
             && ! current_user_can( 'manage_options' ) ) {
             wp_die( esc_html__( 'You do not have permission to access this page.', 'synchronized-messaging-engine' ) );
         }
@@ -60,7 +60,7 @@ class Synchronized_Messaging_Engine_Admin {
     // ── Help page ──────────────────────────────────────────────────────────
 
     public function render_help_page() {
-        if ( ! current_user_can( Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
+        if ( ! current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
             && ! current_user_can( 'manage_options' ) ) {
             wp_die( esc_html__( 'You do not have permission to access this page.', 'synchronized-messaging-engine' ) );
         }
@@ -308,9 +308,9 @@ class Synchronized_Messaging_Engine_Admin {
 
         $user                = wp_get_current_user();
         $is_admin            = current_user_can( 'manage_options' );
-        $can_access          = current_user_can( Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING );
-        $can_manage_settings = current_user_can( Synchronized_Messaging_Engine_Activator::CAP_MANAGE_SETTINGS );
-        $can_manage_depts    = current_user_can( Synchronized_Messaging_Engine_Activator::CAP_MANAGE_DEPTS );
+        $can_access          = current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING );
+        $can_manage_settings = current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_MANAGE_SETTINGS );
+        $can_manage_depts    = current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_MANAGE_DEPTS );
 
         wp_localize_script(
             'synchronized-messaging-engine-js',

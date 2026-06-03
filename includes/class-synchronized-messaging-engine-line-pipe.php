@@ -14,12 +14,12 @@
  *   enabled, channelAccessToken, channelSecret,
  *   autoReply, autoReplyMsg, typingIndicator
  *
- * @package Synchronized_Messaging_Engine
+ * @package Ppros_Synchronized_Messaging_Engine
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Line_Pipe extends Synchronized_Messaging_Engine_Channel_Pipe_Base {
+class Ppros_Synchronized_Messaging_Engine_Line_Pipe extends Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
 
     const MESSAGING_API = 'https://api.line.me/v2/bot/';
 
@@ -28,7 +28,7 @@ class Synchronized_Messaging_Engine_Line_Pipe extends Synchronized_Messaging_Eng
     }
 
     public function register_routes(): void {
-        $ns = Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
 
         register_rest_route(
             $ns,

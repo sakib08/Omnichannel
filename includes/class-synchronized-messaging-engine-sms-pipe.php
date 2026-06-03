@@ -18,12 +18,12 @@
  *   fromNumber,                     — sending number
  *   autoReply, autoReplyMsg, optOut, optIn, helpKeyword, helpMsg
  *
- * @package Synchronized_Messaging_Engine
+ * @package Ppros_Synchronized_Messaging_Engine
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Sms_Pipe extends Synchronized_Messaging_Engine_Channel_Pipe_Base {
+class Ppros_Synchronized_Messaging_Engine_Sms_Pipe extends Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
 
     // Provider-specific API endpoints.
     const TWILIO_API   = 'https://api.twilio.com/2010-04-01/Accounts/';
@@ -38,7 +38,7 @@ class Synchronized_Messaging_Engine_Sms_Pipe extends Synchronized_Messaging_Engi
     }
 
     public function register_routes(): void {
-        $ns = Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
 
         register_rest_route(
             $ns,
@@ -337,7 +337,7 @@ class Synchronized_Messaging_Engine_Sms_Pipe extends Synchronized_Messaging_Engi
      */
     private function verify_twilio_signature( WP_REST_Request $request, string $auth_token ): bool {
         $signature    = (string) ( $request->get_header( 'x-twilio-signature' ) ?? '' );
-        $url          = rest_url( Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1 . '/webhooks/sms' );
+        $url          = rest_url( Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1 . '/webhooks/sms' );
         $params       = $request->get_body_params();
 
         ksort( $params );

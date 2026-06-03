@@ -2,12 +2,12 @@
 /**
  * Maintains and registers all hooks for the plugin.
  *
- * @package Synchronized_Messaging_Engine
+ * @package Ppros_Synchronized_Messaging_Engine
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Loader {
+class Ppros_Synchronized_Messaging_Engine_Loader {
 
     protected $actions = array();
     protected $filters = array();
