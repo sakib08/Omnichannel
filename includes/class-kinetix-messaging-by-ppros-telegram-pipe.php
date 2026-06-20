@@ -17,21 +17,24 @@
  *   enabled, botToken, botUsername, webhookSecret, startReply, startMsg,
  *   typingIndicator, markdown, autoReply, autoReplyMsg
  *
- * @package Ppros_Synchronized_Messaging_Engine
+ * @package Kinetix_Messaging_By_Ppros
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Ppros_Synchronized_Messaging_Engine_Telegram_Pipe extends Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
+class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
 
     const BOT_API = 'https://api.telegram.org/bot';
+
+    /** @var array|null Update queued for shutdown processing. */
+    private $pending_webhook_update = null;
 
     public function get_channel_slug(): string {
         return 'telegram';
     }
 
     public function register_routes(): void {
-        $ns = Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1;
 
         register_rest_route(
             $ns,
@@ -39,7 +42,7 @@ class Ppros_Synchronized_Messaging_Engine_Telegram_Pipe extends Ppros_Synchroniz
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => array( $this, 'handle_webhook' ),
-                'permission_callback' => '__return_true',
+                'permission_callback' => array( $this, 'check_telegram_webhook_permission' ),
             )
         );
 
@@ -79,28 +82,44 @@ class Ppros_Synchronized_Messaging_Engine_Telegram_Pipe extends Ppros_Synchroniz
         );
     }
 
+    /**
+     * Permission callback for Telegram inbound webhook POST.
+     * Validates the optional secret token header when configured.
+     */
+    public function check_telegram_webhook_permission( WP_REST_Request $request ): bool {
+        if ( ! $this->is_channel_enabled() ) {
+            return false;
+        }
+        $secret = (string) ( $this->get_settings()['webhookSecret'] ?? '' );
+        if ( '' === $secret ) {
+            return false;
+        }
+        $provided = (string) ( $request->get_header( 'x-telegram-bot-api-secret-token' ) ?? '' );
+        return hash_equals( $secret, $provided );
+    }
+
     // ── Inbound webhook ────────────────────────────────────────────────────
 
     public function handle_webhook( WP_REST_Request $request ) {
-        $cfg = $this->get_settings();
-
-        // Verify the optional secret token header.
-        $secret = (string) ( $cfg['webhookSecret'] ?? '' );
-        if ( '' !== $secret ) {
-            $provided = (string) ( $request->get_header( 'x-telegram-bot-api-secret-token' ) ?? '' );
-            if ( ! hash_equals( $secret, $provided ) ) {
-                return new WP_Error( 'sme_unauthorized', 'Invalid secret token.', array( 'status' => 401 ) );
-            }
-        }
-
         $update = $request->get_json_params();
-        if ( ! is_array( $update ) ) {
-            return rest_ensure_response( array( 'ok' => true ) );
+        if ( is_array( $update ) && ! empty( $update ) ) {
+            $this->pending_webhook_update = $update;
+            add_action( 'shutdown', array( $this, 'process_pending_webhook_update' ), 0 );
         }
-
-        $this->dispatch_update( $update, $cfg );
 
         return rest_ensure_response( array( 'ok' => true ) );
+    }
+
+    /**
+     * Process a queued Telegram update after the HTTP response is sent.
+     */
+    public function process_pending_webhook_update(): void {
+        if ( null === $this->pending_webhook_update ) {
+            return;
+        }
+        $update = $this->pending_webhook_update;
+        $this->pending_webhook_update = null;
+        $this->dispatch_update( $update, $this->get_settings() );
     }
 
     /**
@@ -160,7 +179,7 @@ class Ppros_Synchronized_Messaging_Engine_Telegram_Pipe extends Ppros_Synchroniz
         $conversation_id = $this->find_or_create_conversation( $chat_id, $contact_name, $handle, $subject );
 
         if ( is_wp_error( $conversation_id ) ) {
-            error_log( '[SME Telegram] DB error: ' . $conversation_id->get_error_message() );
+            $this->log_debug( '[SME Telegram] DB error: ' . $conversation_id->get_error_message() );
             return;
         }
 
@@ -182,7 +201,7 @@ class Ppros_Synchronized_Messaging_Engine_Telegram_Pipe extends Ppros_Synchroniz
         // Auto-reply.
         $this->maybe_send_auto_reply( $chat_id, $contact_name, (string) $conversation_id );
 
-        do_action( 'sme_inbound_message_received', $conversation_id, 'telegram', array(
+        do_action( 'kinetix_messaging_by_ppros_inbound_message_received', $conversation_id, 'telegram', array(
             'chatId'   => $chat_id,
             'text'     => $text,
             'from'     => $from,
@@ -211,7 +230,7 @@ class Ppros_Synchronized_Messaging_Engine_Telegram_Pipe extends Ppros_Synchroniz
         }
         $token = (string) ( $cfg['botToken'] ?? '' );
         if ( '' === $token ) {
-            return new \WP_Error( 'sme_no_token', __( 'Telegram bot token is not configured.', 'synchronized-messaging-engine' ) );
+            return new \WP_Error( 'sme_no_token', __( 'Telegram bot token is not configured.', 'kinetix-messaging-by-ppros' ) );
         }
 
         $payload = array(
@@ -238,7 +257,11 @@ class Ppros_Synchronized_Messaging_Engine_Telegram_Pipe extends Ppros_Synchroniz
         if ( is_wp_error( $result ) ) {
             return new \WP_Error(
                 'sme_telegram_send_error',
-                sprintf( __( 'Telegram API error: %s', 'synchronized-messaging-engine' ), $result->get_error_message() ),
+                sprintf(
+                    /* translators: %s: Telegram API error message */
+                    __( 'Telegram API error: %s', 'kinetix-messaging-by-ppros' ),
+                    $result->get_error_message()
+                ),
                 array( 'status' => 502 )
             );
         }
@@ -254,22 +277,25 @@ class Ppros_Synchronized_Messaging_Engine_Telegram_Pipe extends Ppros_Synchroniz
         if ( '' === $token ) {
             return new WP_Error(
                 'sme_no_token',
-                __( 'Bot token is not configured. Save the Telegram settings first.', 'synchronized-messaging-engine' ),
+                __( 'Bot token is not configured. Save the Telegram settings first.', 'kinetix-messaging-by-ppros' ),
                 array( 'status' => 400 )
             );
         }
 
-        $webhook_url = rest_url( Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1 . '/webhooks/telegram' );
+        $webhook_url = rest_url( Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1 . '/webhooks/telegram' );
+        $drop_pending = rest_sanitize_boolean( $request->get_param( 'dropPendingUpdates' ) );
         $payload     = array(
-            'url'             => $webhook_url,
-            'allowed_updates' => array( 'message', 'callback_query' ),
-            'drop_pending_updates' => false,
+            'url'                  => $webhook_url,
+            'allowed_updates'      => array( 'message', 'callback_query' ),
+            'drop_pending_updates' => $drop_pending,
         );
 
         $secret = (string) ( $cfg['webhookSecret'] ?? '' );
-        if ( '' !== $secret ) {
-            $payload['secret_token'] = $secret;
+        if ( '' === $secret ) {
+            $secret = wp_generate_password( 32, false, false );
+            $this->update_channel_setting( 'webhookSecret', $secret );
         }
+        $payload['secret_token'] = $secret;
 
         $result = $this->http_post_json(
             self::BOT_API . $token . '/setWebhook',
@@ -279,7 +305,11 @@ class Ppros_Synchronized_Messaging_Engine_Telegram_Pipe extends Ppros_Synchroniz
         if ( is_wp_error( $result ) ) {
             return new WP_Error(
                 'sme_telegram_api_error',
-                sprintf( __( 'Telegram API error: %s', 'synchronized-messaging-engine' ), $result->get_error_message() ),
+                sprintf(
+                    /* translators: %s: Telegram API error message */
+                    __( 'Telegram API error: %s', 'kinetix-messaging-by-ppros' ),
+                    $result->get_error_message()
+                ),
                 array( 'status' => 502 )
             );
         }
@@ -288,7 +318,8 @@ class Ppros_Synchronized_Messaging_Engine_Telegram_Pipe extends Ppros_Synchroniz
             return new WP_Error(
                 'sme_telegram_rejected',
                 sprintf(
-                    __( 'Telegram rejected the webhook: %s', 'synchronized-messaging-engine' ),
+                    /* translators: %s: Telegram webhook rejection reason */
+                    __( 'Telegram rejected the webhook: %s', 'kinetix-messaging-by-ppros' ),
                     $result['description'] ?? 'Unknown error'
                 ),
                 array( 'status' => 502 )
@@ -299,10 +330,11 @@ class Ppros_Synchronized_Messaging_Engine_Telegram_Pipe extends Ppros_Synchroniz
         $info = $this->get_webhook_info( $token );
 
         return rest_ensure_response( array(
-            'ok'         => true,
-            'webhookUrl' => $webhook_url,
-            'telegram'   => $result,
-            'info'       => $info,
+            'ok'            => true,
+            'webhookUrl'    => $webhook_url,
+            'webhookSecret' => $secret,
+            'telegram'      => $result,
+            'info'          => $info,
         ) );
     }
 
@@ -312,7 +344,7 @@ class Ppros_Synchronized_Messaging_Engine_Telegram_Pipe extends Ppros_Synchroniz
         $cfg   = $this->get_settings();
         $token = (string) ( $cfg['botToken'] ?? '' );
         if ( '' === $token ) {
-            return new WP_Error( 'sme_no_token', __( 'Bot token is not configured.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error( 'sme_no_token', __( 'Bot token is not configured.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         $info = $this->get_webhook_info( $token );
@@ -320,12 +352,16 @@ class Ppros_Synchronized_Messaging_Engine_Telegram_Pipe extends Ppros_Synchroniz
         if ( is_wp_error( $info ) ) {
             return new WP_Error(
                 'sme_telegram_api_error',
-                sprintf( __( 'Could not fetch webhook info: %s', 'synchronized-messaging-engine' ), $info->get_error_message() ),
+                sprintf(
+                    /* translators: %s: Telegram API error message */
+                    __( 'Could not fetch webhook info: %s', 'kinetix-messaging-by-ppros' ),
+                    $info->get_error_message()
+                ),
                 array( 'status' => 502 )
             );
         }
 
-        $expected_url = rest_url( Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1 . '/webhooks/telegram' );
+        $expected_url = rest_url( Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1 . '/webhooks/telegram' );
         $current_url  = (string) ( $info['result']['url'] ?? '' );
 
         return rest_ensure_response( array(

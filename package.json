@@ -1,15 +1,30 @@
 {
-  "name": "synchronized-messaging-engine",
+  "name": "kinetix-messaging-by-ppros",
   "version": "1.0.0",
   "main": "index.js",
+  "files": [
+    "build",
+    "src",
+    "includes",
+    "assets",
+    "languages",
+    "bin",
+    "LICENSE",
+    "readme.txt",
+    "package.json",
+    "package-lock.json",
+    "postcss.config.js",
+    "webpack.config.js",
+    "kinetix-messaging-by-ppros.php"
+  ],
   "scripts": {
     "dev": "vite",
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "wp-scripts start",
-    "build": "wp-scripts build",
+    "build": "wp-scripts build && bash bin/copy-assets.sh",
     "clean": "rm -rf build",
-    "bundle": "npm run clean && npm run build && wp-scripts plugin-zip"
+    "bundle": "npm run clean && npm run build && bash bin/copy-assets.sh && wp-scripts plugin-zip"
   },
   "keywords": [],
   "author": "",

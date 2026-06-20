@@ -26,12 +26,12 @@
  *     POST /conversations            — create conversation
  *     POST /messages                 — append a message to a conversation
  *
- * @package Ppros_Synchronized_Messaging_Engine
+ * @package Kinetix_Messaging_By_Ppros
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Ppros_Synchronized_Messaging_Engine_Rest_Api {
+class Kinetix_Messaging_By_Ppros_Rest_Api {
 
     const NAMESPACE_V1 = 'sme/v1';
 
@@ -196,32 +196,32 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
 
     // ─── Permission helpers ──────────────────────────────────────────────────
     public function check_manage_settings() {
-        return current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_MANAGE_SETTINGS )
+        return current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_MANAGE_SETTINGS )
             || current_user_can( 'manage_options' );
     }
 
     public function check_manage_depts() {
-        return current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_MANAGE_DEPTS )
+        return current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_MANAGE_DEPTS )
             || current_user_can( 'manage_options' );
     }
 
     public function check_access_messaging() {
-        return current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
+        return current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_ACCESS_MESSAGING )
             || current_user_can( 'manage_options' );
     }
 
     // ─── Settings handlers ───────────────────────────────────────────────────
     public function get_all_settings() {
-        $settings = get_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
+        $settings = get_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, array() );
         return rest_ensure_response( $this->normalize_settings_output( (array) $settings ) );
     }
 
     public function get_channel_settings( WP_REST_Request $request ) {
         $channel = $request->get_param( 'channel' );
         if ( ! in_array( $channel, self::supported_channels(), true ) ) {
-            return new WP_Error( 'sme_unknown_channel', __( 'Unknown channel.', 'synchronized-messaging-engine' ), array( 'status' => 404 ) );
+            return new WP_Error( 'sme_unknown_channel', __( 'Unknown channel.', 'kinetix-messaging-by-ppros' ), array( 'status' => 404 ) );
         }
-        $settings = (array) get_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
+        $settings = (array) get_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, array() );
         $current  = isset( $settings[ $channel ] ) ? (array) $settings[ $channel ] : array();
         return rest_ensure_response( $this->scrub_secrets_for_output( $current ) );
     }
@@ -229,10 +229,10 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
     public function save_all_settings( WP_REST_Request $request ) {
         $payload = $request->get_json_params();
         if ( ! is_array( $payload ) ) {
-            return new WP_Error( 'sme_invalid_payload', __( 'Expected a JSON object.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error( 'sme_invalid_payload', __( 'Expected a JSON object.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
-        $existing = (array) get_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
+        $existing = (array) get_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, array() );
         $allowed  = self::supported_channels();
 
         foreach ( $payload as $channel => $values ) {
@@ -242,24 +242,24 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
             $current             = isset( $existing[ $channel ] ) ? (array) $existing[ $channel ] : array();
             $existing[ $channel ] = $this->sanitize_channel_payload( array_merge( $current, $values ) );
         }
-        update_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, $existing, false );
+        update_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, $existing, false );
         return rest_ensure_response( $this->normalize_settings_output( $existing ) );
     }
 
     public function save_channel_settings( WP_REST_Request $request ) {
         $channel = $request->get_param( 'channel' );
         if ( ! in_array( $channel, self::supported_channels(), true ) ) {
-            return new WP_Error( 'sme_unknown_channel', __( 'Unknown channel.', 'synchronized-messaging-engine' ), array( 'status' => 404 ) );
+            return new WP_Error( 'sme_unknown_channel', __( 'Unknown channel.', 'kinetix-messaging-by-ppros' ), array( 'status' => 404 ) );
         }
         $payload = $request->get_json_params();
         if ( ! is_array( $payload ) ) {
-            return new WP_Error( 'sme_invalid_payload', __( 'Expected a JSON object.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error( 'sme_invalid_payload', __( 'Expected a JSON object.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
-        $existing            = (array) get_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
+        $existing            = (array) get_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, array() );
         $current             = isset( $existing[ $channel ] ) ? (array) $existing[ $channel ] : array();
         $existing[ $channel ] = $this->sanitize_channel_payload( array_merge( $current, $payload ) );
-        update_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, $existing, false );
+        update_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, $existing, false );
 
         return rest_ensure_response( $this->scrub_secrets_for_output( $existing[ $channel ] ) );
     }
@@ -293,7 +293,7 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
      * the DB and overwritten on save only when the client sends a new value.
      */
     private function scrub_secrets_for_output( array $values ) {
-        $secret_keys = array( 'accessToken', 'authToken', 'channelSecret', 'appSecret', 'smtpPass', 'imapPass', 'serverToken', 'encodingAesKey', 'pageToken', 'botToken' );
+        $secret_keys = array( 'accessToken', 'authToken', 'channelSecret', 'appSecret', 'smtpPass', 'imapPass', 'serverToken', 'encodingAesKey', 'pageToken', 'botToken', 'webhookToken', 'webhookSecret', 'verifyToken' );
         foreach ( $values as $key => $value ) {
             if ( in_array( $key, $secret_keys, true ) && is_string( $value ) && '' !== $value ) {
                 $values[ $key ] = str_repeat( '•', 8 );
@@ -313,10 +313,10 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
     }
 
     // ─── Departments ─────────────────────────────────────────────────────────
+    // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- SME custom tables; table names use $wpdb->prefix only.
     public function list_departments() {
         global $wpdb;
-        $table = $wpdb->prefix . 'sme_departments';
-        $rows  = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY name ASC", ARRAY_A );
+        $rows  = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}sme_departments ORDER BY name ASC", ARRAY_A );
         return rest_ensure_response( array_map( array( $this, 'format_department_row' ), (array) $rows ) );
     }
 
@@ -325,14 +325,13 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
         $name = sanitize_text_field( (string) $request->get_param( 'name' ) );
         $desc = sanitize_textarea_field( (string) $request->get_param( 'description' ) );
         if ( '' === $name ) {
-            return new WP_Error( 'sme_missing_name', __( 'Name is required.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error( 'sme_missing_name', __( 'Name is required.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         $slug  = sanitize_title( $name );
-        $table = $wpdb->prefix . 'sme_departments';
 
         $ok = $wpdb->insert(
-            $table,
+            $wpdb->prefix . 'sme_departments',
             array(
                 'name'        => $name,
                 'slug'        => $slug,
@@ -342,17 +341,16 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
             array( '%s', '%s', '%s', '%s' )
         );
         if ( false === $ok ) {
-            return new WP_Error( 'sme_db_error', __( 'Could not create department.', 'synchronized-messaging-engine' ), array( 'status' => 500 ) );
+            return new WP_Error( 'sme_db_error', __( 'Could not create department.', 'kinetix-messaging-by-ppros' ), array( 'status' => 500 ) );
         }
 
-        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $wpdb->insert_id ), ARRAY_A );
+        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}sme_departments WHERE id = %d", $wpdb->insert_id ), ARRAY_A );
         return rest_ensure_response( $this->format_department_row( $row ) );
     }
 
     public function update_department( WP_REST_Request $request ) {
         global $wpdb;
         $id    = (int) $request->get_param( 'id' );
-        $table = $wpdb->prefix . 'sme_departments';
 
         $data   = array();
         $format = array();
@@ -367,13 +365,13 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
             $format[]            = '%s';
         }
         if ( empty( $data ) ) {
-            return new WP_Error( 'sme_nothing_to_update', __( 'Nothing to update.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error( 'sme_nothing_to_update', __( 'Nothing to update.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
-        $wpdb->update( $table, $data, array( 'id' => $id ), $format, array( '%d' ) );
-        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ), ARRAY_A );
+        $wpdb->update( $wpdb->prefix . 'sme_departments', $data, array( 'id' => $id ), $format, array( '%d' ) );
+        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}sme_departments WHERE id = %d", $id ), ARRAY_A );
         if ( ! $row ) {
-            return new WP_Error( 'sme_not_found', __( 'Department not found.', 'synchronized-messaging-engine' ), array( 'status' => 404 ) );
+            return new WP_Error( 'sme_not_found', __( 'Department not found.', 'kinetix-messaging-by-ppros' ), array( 'status' => 404 ) );
         }
         return rest_ensure_response( $this->format_department_row( $row ) );
     }
@@ -381,8 +379,7 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
     public function delete_department( WP_REST_Request $request ) {
         global $wpdb;
         $id    = (int) $request->get_param( 'id' );
-        $table = $wpdb->prefix . 'sme_departments';
-        $wpdb->delete( $table, array( 'id' => $id ), array( '%d' ) );
+        $wpdb->delete( $wpdb->prefix . 'sme_departments', array( 'id' => $id ), array( '%d' ) );
         $wpdb->delete( $wpdb->prefix . 'sme_agent_departments', array( 'department_id' => $id ), array( '%d' ) );
         return rest_ensure_response( array( 'deleted' => true, 'id' => $id ) );
     }
@@ -405,7 +402,7 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
         global $wpdb;
         $users = get_users(
             array(
-                'role__in' => array( Ppros_Synchronized_Messaging_Engine_Activator::AGENT_ROLE, 'administrator' ),
+                'role__in' => array( Kinetix_Messaging_By_Ppros_Activator::AGENT_ROLE, 'administrator' ),
                 'fields'   => array( 'ID', 'display_name', 'user_email', 'user_login' ),
                 'orderby'  => 'display_name',
                 'order'    => 'ASC',
@@ -417,22 +414,25 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
             return rest_ensure_response( array() );
         }
 
-        $table = $wpdb->prefix . 'sme_agent_departments';
-        $ids   = wp_list_pluck( $users, 'ID' );
-        $in    = implode( ',', array_map( 'intval', $ids ) );
-        $links = array();
-        if ( '' !== $in ) {
-            $links = $wpdb->get_results( "SELECT user_id, department_id FROM {$table} WHERE user_id IN ({$in})", ARRAY_A );
-        }
+        $ids     = array_map( 'intval', wp_list_pluck( $users, 'ID' ) );
+        $id_set  = array_flip( $ids );
+        $links   = $wpdb->get_results(
+            "SELECT user_id, department_id FROM {$wpdb->prefix}sme_agent_departments",
+            ARRAY_A
+        );
         $map = array();
-        foreach ( $links as $link ) {
-            $map[ (int) $link['user_id'] ][] = (int) $link['department_id'];
+        foreach ( (array) $links as $link ) {
+            $uid = (int) $link['user_id'];
+            if ( ! isset( $id_set[ $uid ] ) ) {
+                continue;
+            }
+            $map[ $uid ][] = (int) $link['department_id'];
         }
 
         $out = array();
         foreach ( $users as $user ) {
             $user_obj  = get_user_by( 'id', $user->ID );
-            $is_agent  = $user_obj && in_array( Ppros_Synchronized_Messaging_Engine_Activator::AGENT_ROLE, (array) $user_obj->roles, true );
+            $is_agent  = $user_obj && in_array( Kinetix_Messaging_By_Ppros_Activator::AGENT_ROLE, (array) $user_obj->roles, true );
             $out[]     = array(
                 'id'            => (int) $user->ID,
                 'name'          => (string) $user->display_name,
@@ -450,21 +450,20 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
         global $wpdb;
         $user_id = (int) $request->get_param( 'id' );
         if ( $user_id <= 0 || ! get_user_by( 'id', $user_id ) ) {
-            return new WP_Error( 'sme_not_found', __( 'Agent not found.', 'synchronized-messaging-engine' ), array( 'status' => 404 ) );
+            return new WP_Error( 'sme_not_found', __( 'Agent not found.', 'kinetix-messaging-by-ppros' ), array( 'status' => 404 ) );
         }
 
         $department_ids = (array) $request->get_param( 'departmentIds' );
         $department_ids = array_values( array_unique( array_map( 'intval', $department_ids ) ) );
 
-        $table = $wpdb->prefix . 'sme_agent_departments';
-        $wpdb->delete( $table, array( 'user_id' => $user_id ), array( '%d' ) );
+        $wpdb->delete( $wpdb->prefix . 'sme_agent_departments', array( 'user_id' => $user_id ), array( '%d' ) );
 
         foreach ( $department_ids as $dept_id ) {
             if ( $dept_id <= 0 ) {
                 continue;
             }
             $wpdb->insert(
-                $table,
+                $wpdb->prefix . 'sme_agent_departments',
                 array(
                     'user_id'       => $user_id,
                     'department_id' => $dept_id,
@@ -500,7 +499,6 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
      */
     public function poll( WP_REST_Request $request ) {
         global $wpdb;
-        $table = $wpdb->prefix . 'sme_conversations';
 
         $row = $wpdb->get_row(
             "SELECT
@@ -508,7 +506,7 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
                 MAX(created_at) AS conv_ts,
                 SUM(unread_count) AS unread,
                 COUNT(*) AS conv_count
-             FROM {$table}",
+             FROM {$wpdb->prefix}sme_conversations",
             ARRAY_A
         );
 
@@ -522,23 +520,43 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
 
     public function list_conversations( WP_REST_Request $request ) {
         global $wpdb;
-        $table   = $wpdb->prefix . 'sme_conversations';
         $channel = (string) $request->get_param( 'channel' );
         $status  = (string) $request->get_param( 'status' );
 
-        $where  = array( '1=1' );
-        $params = array();
-        if ( '' !== $channel && 'all' !== $channel ) {
-            $where[]  = 'channel = %s';
-            $params[] = $channel;
-        }
-        if ( '' !== $status && 'all' !== $status ) {
-            $where[]  = 'status = %s';
-            $params[] = $status;
-        }
+        $has_channel = '' !== $channel && 'all' !== $channel;
+        $has_status  = '' !== $status && 'all' !== $status;
 
-        $sql  = "SELECT * FROM {$table} WHERE " . implode( ' AND ', $where ) . ' ORDER BY updated_at DESC LIMIT 200';
-        $rows = empty( $params ) ? $wpdb->get_results( $sql, ARRAY_A ) : $wpdb->get_results( $wpdb->prepare( $sql, $params ), ARRAY_A );
+        if ( $has_channel && $has_status ) {
+            $rows = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT * FROM {$wpdb->prefix}sme_conversations WHERE channel = %s AND status = %s ORDER BY updated_at DESC LIMIT 200",
+                    $channel,
+                    $status
+                ),
+                ARRAY_A
+            );
+        } elseif ( $has_channel ) {
+            $rows = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT * FROM {$wpdb->prefix}sme_conversations WHERE channel = %s ORDER BY updated_at DESC LIMIT 200",
+                    $channel
+                ),
+                ARRAY_A
+            );
+        } elseif ( $has_status ) {
+            $rows = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT * FROM {$wpdb->prefix}sme_conversations WHERE status = %s ORDER BY updated_at DESC LIMIT 200",
+                    $status
+                ),
+                ARRAY_A
+            );
+        } else {
+            $rows = $wpdb->get_results(
+                "SELECT * FROM {$wpdb->prefix}sme_conversations ORDER BY updated_at DESC LIMIT 200",
+                ARRAY_A
+            );
+        }
 
         return rest_ensure_response( array_map( array( $this, 'format_conversation_row' ), (array) $rows ) );
     }
@@ -547,13 +565,12 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
         global $wpdb;
         $cid      = (int) $request->get_param( 'id' );
         $after_id = (int) $request->get_param( 'after_id' ); // 0 = fetch all
-        $table    = $wpdb->prefix . 'sme_messages';
 
         if ( $after_id > 0 ) {
             // Incremental fetch: only messages newer than the given ID.
             $rows = $wpdb->get_results(
                 $wpdb->prepare(
-                    "SELECT * FROM {$table} WHERE conversation_id = %d AND id > %d ORDER BY sent_at ASC",
+                    "SELECT * FROM {$wpdb->prefix}sme_messages WHERE conversation_id = %d AND id > %d ORDER BY sent_at ASC",
                     $cid,
                     $after_id
                 ),
@@ -562,7 +579,7 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
         } else {
             $rows = $wpdb->get_results(
                 $wpdb->prepare(
-                    "SELECT * FROM {$table} WHERE conversation_id = %d ORDER BY sent_at ASC",
+                    "SELECT * FROM {$wpdb->prefix}sme_messages WHERE conversation_id = %d ORDER BY sent_at ASC",
                     $cid
                 ),
                 ARRAY_A
@@ -574,10 +591,9 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
 
     public function create_conversation( WP_REST_Request $request ) {
         global $wpdb;
-        $table   = $wpdb->prefix . 'sme_conversations';
         $channel = sanitize_key( (string) $request->get_param( 'channel' ) );
         if ( ! in_array( $channel, self::supported_channels(), true ) ) {
-            return new WP_Error( 'sme_unknown_channel', __( 'Unknown channel.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error( 'sme_unknown_channel', __( 'Unknown channel.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         $data = array(
@@ -595,21 +611,20 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
             'updated_at'     => current_time( 'mysql' ),
         );
 
-        $wpdb->insert( $table, $data );
-        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $wpdb->insert_id ), ARRAY_A );
+        $wpdb->insert( $wpdb->prefix . 'sme_conversations', $data );
+        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}sme_conversations WHERE id = %d", $wpdb->insert_id ), ARRAY_A );
         return rest_ensure_response( $this->format_conversation_row( $row ) );
     }
 
     public function create_message( WP_REST_Request $request ) {
         global $wpdb;
-        $table = $wpdb->prefix . 'sme_messages';
         $cid   = (int) $request->get_param( 'conversationId' );
         if ( $cid <= 0 ) {
-            return new WP_Error( 'sme_missing_conversation', __( 'conversationId is required.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error( 'sme_missing_conversation', __( 'conversationId is required.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
         $body = (string) $request->get_param( 'body' );
         if ( '' === trim( $body ) ) {
-            return new WP_Error( 'sme_empty_body', __( 'Message body is required.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error( 'sme_empty_body', __( 'Message body is required.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         $sender_type = sanitize_key( (string) ( $request->get_param( 'senderType' ) ?: 'agent' ) );
@@ -626,7 +641,7 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
             'sent_at'         => current_time( 'mysql' ),
         );
 
-        $wpdb->insert( $table, $data );
+        $wpdb->insert( $wpdb->prefix . 'sme_messages', $data );
         $wpdb->update(
             $wpdb->prefix . 'sme_conversations',
             array(
@@ -638,18 +653,17 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
             array( '%d' )
         );
 
-        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $wpdb->insert_id ), ARRAY_A );
+        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}sme_messages WHERE id = %d", $wpdb->insert_id ), ARRAY_A );
         return rest_ensure_response( $this->format_message_row( $row ) );
     }
 
     public function update_conversation( WP_REST_Request $request ) {
         global $wpdb;
         $id    = (int) $request->get_param( 'id' );
-        $table = $wpdb->prefix . 'sme_conversations';
 
-        $existing = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ), ARRAY_A );
+        $existing = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}sme_conversations WHERE id = %d", $id ), ARRAY_A );
         if ( ! $existing ) {
-            return new WP_Error( 'sme_not_found', __( 'Conversation not found.', 'synchronized-messaging-engine' ), array( 'status' => 404 ) );
+            return new WP_Error( 'sme_not_found', __( 'Conversation not found.', 'kinetix-messaging-by-ppros' ), array( 'status' => 404 ) );
         }
 
         $data   = array();
@@ -683,12 +697,13 @@ class Ppros_Synchronized_Messaging_Engine_Rest_Api {
         if ( ! empty( $data ) ) {
             $data['updated_at'] = current_time( 'mysql' );
             $format[]           = '%s';
-            $wpdb->update( $table, $data, array( 'id' => $id ), $format, array( '%d' ) );
+            $wpdb->update( $wpdb->prefix . 'sme_conversations', $data, array( 'id' => $id ), $format, array( '%d' ) );
         }
 
-        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ), ARRAY_A );
+        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}sme_conversations WHERE id = %d", $id ), ARRAY_A );
         return rest_ensure_response( $this->format_conversation_row( $row ) );
     }
+    // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
 
     private function format_conversation_row( $row ) {
         if ( ! $row ) {

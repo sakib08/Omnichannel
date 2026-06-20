@@ -28,7 +28,7 @@ const CHANNEL_DEFAULTS = {
     csat: false, handover: false, secondaryAppId: "",
   },
   email: {
-    enabled: false, inboxName: "Customer Support", inboxEmail: "", senderName: "",
+    enabled: false, inboxName: "Customer Support", inboxEmail: "", senderName: "", webhookToken: "",
     replyTo: "", smtpPreset: "gmail", smtpHost: "smtp.gmail.com", smtpPort: "587",
     smtpUser: "", smtpPass: "", smtpTls: true, smtpVerifySsl: true,
     imapHost: "imap.gmail.com", imapPort: "993", imapUser: "", imapPass: "",
@@ -38,14 +38,14 @@ const CHANNEL_DEFAULTS = {
     signatureBody: "Best regards,\nThe Support Team", outOfOffice: false, oooBody: "",
   },
   whatsapp: {
-    enabled: false, wabaid: "", phoneNumberId: "", accessToken: "", verifyToken: "",
+    enabled: false, wabaid: "", phoneNumberId: "", accessToken: "", appSecret: "", verifyToken: "",
     displayPhone: "", ctaMessage: "Hello! I'd like to chat with support.", btnStyle: "floating",
     btnLabel: "Chat on WhatsApp", readReceipts: true, media: true, autoAssign: true,
     bizHours: false, autoReply: false, autoReplyMsg: "", template: "none",
     optOut: true, optIn: true, businessId: "", qualityTier: "MEDIUM",
   },
   telegram: {
-    enabled: false, botToken: "", botUsername: "", botName: "",
+    enabled: false, botToken: "", botUsername: "", botName: "", webhookSecret: "",
     startMessage: "Hello, I need support!", widgetStyle: "floating", btnLabel: "Chat on Telegram",
     widgetPos: "bottom-right", allowGroups: false, typingIndicator: true, markdown: true,
     startReply: true, startMsg: "Hi there! Welcome to support.\n\nHow can we help you today?",
@@ -54,7 +54,7 @@ const CHANNEL_DEFAULTS = {
     rateGlobal: "30", ratePerChat: "1", deleteClosed: false, anonymise: false,
   },
   sms: {
-    enabled: false, provider: "twilio", accountSid: "", authToken: "",
+    enabled: false, provider: "twilio", accountSid: "", authToken: "", webhookToken: "",
     vonageKey: "", vonageSecret: "", genericKey: "", genericSecret: "",
     fromNumber: "", numberType: "local", perAgentNumber: false, mms: true,
     charWarn: true, autoSplit: true, unicode: false, delivery: true, retry: false,

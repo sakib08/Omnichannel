@@ -18,12 +18,12 @@
  *   enabled, authToken, botName, senderId, avatarUrl,
  *   fetchProfile, deliveryReceipts, media, autoAssign, autoReplyMsg
  *
- * @package Ppros_Synchronized_Messaging_Engine
+ * @package Kinetix_Messaging_By_Ppros
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Ppros_Synchronized_Messaging_Engine_Viber_Pipe extends Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
+class Kinetix_Messaging_By_Ppros_Viber_Pipe extends Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
 
     const API_BASE = 'https://chatapi.viber.com/pa/';
 
@@ -32,7 +32,7 @@ class Ppros_Synchronized_Messaging_Engine_Viber_Pipe extends Ppros_Synchronized_
     }
 
     public function register_routes(): void {
-        $ns = Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1;
 
         register_rest_route(
             $ns,
@@ -40,7 +40,7 @@ class Ppros_Synchronized_Messaging_Engine_Viber_Pipe extends Ppros_Synchronized_
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => array( $this, 'handle_webhook' ),
-                'permission_callback' => '__return_true',
+                'permission_callback' => array( $this, 'check_viber_webhook_permission' ),
             )
         );
 
@@ -72,19 +72,25 @@ class Ppros_Synchronized_Messaging_Engine_Viber_Pipe extends Ppros_Synchronized_
 
     // ── Inbound webhook ────────────────────────────────────────────────────
 
+    /**
+     * Permission callback for Viber inbound webhook POST.
+     */
+    public function check_viber_webhook_permission( WP_REST_Request $request ): bool {
+        if ( ! $this->is_channel_enabled() ) {
+            return false;
+        }
+        $token = (string) ( $this->get_settings()['authToken'] ?? '' );
+        if ( '' === $token ) {
+            return false;
+        }
+        $sig_header = (string) ( $request->get_header( 'x-viber-content-signature' ) ?? '' );
+        $expected   = hash_hmac( 'sha256', $request->get_body(), $token );
+        return hash_equals( $expected, $sig_header );
+    }
+
     public function handle_webhook( WP_REST_Request $request ) {
         $cfg      = $this->get_settings();
         $raw_body = $request->get_body();
-        $token    = (string) ( $cfg['authToken'] ?? '' );
-
-        // Verify X-Viber-Content-Signature (HMAC-SHA256).
-        if ( '' !== $token ) {
-            $sig_header = (string) ( $request->get_header( 'x-viber-content-signature' ) ?? '' );
-            $expected   = hash_hmac( 'sha256', $raw_body, $token );
-            if ( ! hash_equals( $expected, $sig_header ) ) {
-                return new WP_Error( 'sme_unauthorized', 'Viber signature mismatch.', array( 'status' => 401 ) );
-            }
-        }
 
         $payload = json_decode( $raw_body, true );
         if ( ! is_array( $payload ) ) {
@@ -144,7 +150,7 @@ class Ppros_Synchronized_Messaging_Engine_Viber_Pipe extends Ppros_Synchronized_
         );
 
         if ( is_wp_error( $conversation_id ) ) {
-            error_log( '[SME Viber] DB error: ' . $conversation_id->get_error_message() );
+            $this->log_debug( '[SME Viber] DB error: ' . $conversation_id->get_error_message() );
             return;
         }
 
@@ -159,7 +165,7 @@ class Ppros_Synchronized_Messaging_Engine_Viber_Pipe extends Ppros_Synchronized_
 
         $this->maybe_send_auto_reply( $user_id, $contact_name, (string) $conversation_id );
 
-        do_action( 'sme_inbound_message_received', $conversation_id, 'viber', array(
+        do_action( 'kinetix_messaging_by_ppros_inbound_message_received', $conversation_id, 'viber', array(
             'userId' => $user_id, 'text' => $text, 'msgType' => $msg_type,
         ) );
     }
@@ -194,7 +200,7 @@ class Ppros_Synchronized_Messaging_Engine_Viber_Pipe extends Ppros_Synchronized_
         if ( '' === $token ) {
             return new \WP_Error(
                 'sme_viber_not_configured',
-                __( 'Viber authentication token is not configured.', 'synchronized-messaging-engine' )
+                __( 'Viber authentication token is not configured.', 'kinetix-messaging-by-ppros' )
             );
         }
 
@@ -217,7 +223,11 @@ class Ppros_Synchronized_Messaging_Engine_Viber_Pipe extends Ppros_Synchronized_
         if ( is_wp_error( $result ) ) {
             return new \WP_Error(
                 'sme_viber_send_error',
-                sprintf( __( 'Viber API error: %s', 'synchronized-messaging-engine' ), $result->get_error_message() ),
+                sprintf(
+                    /* translators: %s: Viber API error message */
+                    __( 'Viber API error: %s', 'kinetix-messaging-by-ppros' ),
+                    $result->get_error_message()
+                ),
                 array( 'status' => 502 )
             );
         }
@@ -239,10 +249,10 @@ class Ppros_Synchronized_Messaging_Engine_Viber_Pipe extends Ppros_Synchronized_
         $cfg   = $this->get_settings();
         $token = (string) ( $cfg['authToken'] ?? '' );
         if ( '' === $token ) {
-            return new WP_Error( 'sme_no_token', __( 'Viber auth token is not configured.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error( 'sme_no_token', __( 'Viber auth token is not configured.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
-        $webhook_url = rest_url( Ppros_Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1 . '/webhooks/viber' );
+        $webhook_url = rest_url( Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1 . '/webhooks/viber' );
 
         $result = $this->http_post_json(
             self::API_BASE . 'set_webhook',

@@ -6,5 +6,5 @@ render(
   <StrictMode>
     <App />
   </StrictMode>,
-  document.getElementById("synchronized-messaging-engine")
+  document.getElementById("kinetix-messaging-by-ppros")
 );

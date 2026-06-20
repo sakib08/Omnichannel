@@ -7,12 +7,12 @@
  * each concrete channel pipe only needs to implement its own routes and
  * API logic.
  *
- * @package Ppros_Synchronized_Messaging_Engine
+ * @package Kinetix_Messaging_By_Ppros
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-abstract class Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
+abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
 
     // ── Each subclass must declare these ─────────────────────────────────────
 
@@ -29,20 +29,110 @@ abstract class Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
      * Subclasses may override to add cron hooks; calling parent::register_hooks()
      * is not required but the default just adds the rest_api_init action.
      */
-    public function register_hooks( Ppros_Synchronized_Messaging_Engine_Loader $loader ): void {
+    public function register_hooks( Kinetix_Messaging_By_Ppros_Loader $loader ): void {
         $loader->add_action( 'rest_api_init', $this, 'register_routes' );
     }
 
     // ── Shared permission callbacks ───────────────────────────────────────
 
+    /**
+     * Log a debug message when WP_DEBUG is enabled.
+     *
+     * @param string $message Log message.
+     */
+    protected function log_debug( string $message ): void {
+        if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG ) {
+            return;
+        }
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug only when WP_DEBUG is true.
+        error_log( $message );
+    }
+
     public function check_access(): bool {
-        return current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
+        return current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_ACCESS_MESSAGING )
             || current_user_can( 'manage_options' );
     }
 
     public function check_manage_settings(): bool {
-        return current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_MANAGE_SETTINGS )
+        return current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_MANAGE_SETTINGS )
             || current_user_can( 'manage_options' );
+    }
+
+    // ── Inbound webhook permission helpers ───────────────────────────────────
+
+    /** Whether this channel is enabled in plugin settings. */
+    protected function is_channel_enabled(): bool {
+        $cfg = $this->get_settings();
+        return ! empty( $cfg['enabled'] );
+    }
+
+    /**
+     * Permission callback for Meta webhook hub verification (GET).
+     * Used by WhatsApp, Messenger, and Instagram.
+     */
+    public function check_meta_hub_verify_permission( WP_REST_Request $request ): bool {
+        if ( ! $this->is_channel_enabled() ) {
+            return false;
+        }
+        $verify_token = (string) ( $this->get_settings()['verifyToken'] ?? '' );
+        if ( '' === $verify_token ) {
+            return false;
+        }
+        $mode  = (string) ( $request->get_param( 'hub_mode' ) ?? '' );
+        $token = (string) ( $request->get_param( 'hub_verify_token' ) ?? '' );
+        return 'subscribe' === $mode && hash_equals( $verify_token, $token );
+    }
+
+    /**
+     * Verify Meta X-Hub-Signature-256 using the configured app secret.
+     */
+    protected function verify_meta_hub_signature( WP_REST_Request $request, string $app_secret ): bool {
+        if ( '' === $app_secret ) {
+            return false;
+        }
+        $sig_header = (string) ( $request->get_header( 'x-hub-signature-256' ) ?? '' );
+        if ( '' === $sig_header ) {
+            return false;
+        }
+        $expected = 'sha256=' . hash_hmac( 'sha256', $request->get_body(), $app_secret );
+        return hash_equals( $expected, $sig_header );
+    }
+
+    /**
+     * Permission callback for Meta inbound webhook POST (Messenger, Instagram, WhatsApp).
+     */
+    public function check_meta_inbound_webhook_permission( WP_REST_Request $request ): bool {
+        if ( ! $this->is_channel_enabled() ) {
+            return false;
+        }
+        $app_secret = (string) ( $this->get_settings()['appSecret'] ?? '' );
+        return $this->verify_meta_hub_signature( $request, $app_secret );
+    }
+
+    /**
+     * Validate a shared webhook token sent via X-SME-Token header or token query/body param.
+     */
+    protected function verify_webhook_token( WP_REST_Request $request, string $stored_token ): bool {
+        if ( '' === $stored_token ) {
+            return false;
+        }
+        $provided = (string) ( $request->get_header( 'x-sme-token' )
+            ?? $request->get_param( 'token' )
+            ?? '' );
+        return hash_equals( $stored_token, $provided );
+    }
+
+    /**
+     * Persist a single key on this channel's settings array in wp_options.
+     */
+    protected function update_channel_setting( string $key, $value ): void {
+        $all  = (array) get_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, array() );
+        $slug = $this->get_channel_slug();
+        if ( ! isset( $all[ $slug ] ) || ! is_array( $all[ $slug ] ) ) {
+            $all[ $slug ] = array();
+        }
+        $all[ $slug ][ $key ] = $value;
+        update_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, $all, false );
     }
 
     // ── Settings accessor ─────────────────────────────────────────────────
@@ -52,7 +142,7 @@ abstract class Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
      * Credentials are NOT scrubbed here (this runs server-side only).
      */
     protected function get_settings(): array {
-        $all = (array) get_option( Ppros_Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
+        $all = (array) get_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, array() );
         $slug = $this->get_channel_slug();
         return isset( $all[ $slug ] ) ? (array) $all[ $slug ] : array();
     }
@@ -77,13 +167,14 @@ abstract class Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
         string $subject = ''
     ) {
         global $wpdb;
-        $table   = $wpdb->prefix . 'sme_conversations';
         $channel = $this->get_channel_slug();
+
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- SME custom tables; no WordPress core API exists.
 
         // Match by external_id + channel for open conversations.
         $cid = (int) $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT id FROM {$table}
+                "SELECT id FROM {$wpdb->prefix}sme_conversations
                  WHERE channel = %s AND external_id = %s AND status != 'closed'
                  ORDER BY updated_at DESC LIMIT 1",
                 $channel,
@@ -96,8 +187,8 @@ abstract class Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
         }
 
         // Create a new conversation.
-        $ok = $wpdb->insert(
-            $table,
+        $ok = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $wpdb->prefix . 'sme_conversations',
             array(
                 'channel'        => $channel,
                 'external_id'    => $external_id,
@@ -116,9 +207,10 @@ abstract class Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
         );
 
         if ( false === $ok ) {
-            return new \WP_Error( 'sme_db_error', __( 'Could not create conversation.', 'synchronized-messaging-engine' ) );
+            return new \WP_Error( 'sme_db_error', __( 'Could not create conversation.', 'kinetix-messaging-by-ppros' ) );
         }
 
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         return (int) $wpdb->insert_id;
     }
 
@@ -142,6 +234,8 @@ abstract class Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
         string $external_id = ''
     ): int {
         global $wpdb;
+
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- SME custom tables; no WordPress core API exists.
 
         // Deduplicate by external message ID.
         if ( '' !== $external_id ) {
@@ -185,6 +279,8 @@ abstract class Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
             array( '%s', '%s' ),
             array( '%d' )
         );
+
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
         return $message_id;
     }
@@ -265,7 +361,7 @@ abstract class Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
                 'sme_channel_disabled',
                 sprintf(
                     /* translators: %s: channel slug */
-                    __( '%s channel is not enabled.', 'synchronized-messaging-engine' ),
+                    __( '%s channel is not enabled.', 'kinetix-messaging-by-ppros' ),
                     $this->get_channel_slug()
                 ),
                 array( 'status' => 503 )
@@ -277,7 +373,7 @@ abstract class Ppros_Synchronized_Messaging_Engine_Channel_Pipe_Base {
         $text            = sanitize_textarea_field( (string) $request->get_param( 'text' ) );
 
         if ( '' === trim( $text ) ) {
-            return new WP_Error( 'sme_empty_body', __( 'Message text is required.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error( 'sme_empty_body', __( 'Message text is required.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         $result = $this->send_message( $recipient_id, $text, $cfg );

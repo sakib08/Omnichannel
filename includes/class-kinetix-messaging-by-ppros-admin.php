@@ -2,24 +2,24 @@
 /**
  * Admin-area registration: menu, assets and capability gating.
  *
- * @package Ppros_Synchronized_Messaging_Engine
+ * @package Kinetix_Messaging_By_Ppros
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Ppros_Synchronized_Messaging_Engine_Admin {
+class Kinetix_Messaging_By_Ppros_Admin {
 
-    const MENU_SLUG      = 'synchronized-messaging-engine';
-    const HELP_MENU_SLUG = 'synchronized-messaging-engine-help';
+    const MENU_SLUG      = 'kinetix-messaging-by-ppros';
+    const HELP_MENU_SLUG = 'kinetix-messaging-by-ppros-help';
 
     public function register_menu() {
         $cap = current_user_can( 'manage_options' )
             ? 'manage_options'
-            : Ppros_Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING;
+            : Kinetix_Messaging_By_Ppros_Activator::CAP_ACCESS_MESSAGING;
 
         add_menu_page(
-            __( 'Synchronized Messaging Engine', 'synchronized-messaging-engine' ),
-            __( 'Messaging Engine', 'synchronized-messaging-engine' ),
+            __( 'Kinetix Messaging by Ppros', 'kinetix-messaging-by-ppros' ),
+            __( 'Kinetix Messaging', 'kinetix-messaging-by-ppros' ),
             $cap,
             self::MENU_SLUG,
             array( $this, 'render_app_container' ),
@@ -30,8 +30,8 @@ class Ppros_Synchronized_Messaging_Engine_Admin {
         // Rename the auto-generated first submenu entry to "Inbox".
         add_submenu_page(
             self::MENU_SLUG,
-            __( 'Inbox — Messaging Engine', 'synchronized-messaging-engine' ),
-            __( 'Inbox', 'synchronized-messaging-engine' ),
+            __( 'Inbox — Messaging Engine', 'kinetix-messaging-by-ppros' ),
+            __( 'Inbox', 'kinetix-messaging-by-ppros' ),
             $cap,
             self::MENU_SLUG,
             array( $this, 'render_app_container' )
@@ -40,8 +40,8 @@ class Ppros_Synchronized_Messaging_Engine_Admin {
         // Help submenu.
         add_submenu_page(
             self::MENU_SLUG,
-            __( 'Help & Documentation — Messaging Engine', 'synchronized-messaging-engine' ),
-            __( 'Help', 'synchronized-messaging-engine' ),
+            __( 'Help & Documentation — Kinetix Messaging', 'kinetix-messaging-by-ppros' ),
+            __( 'Help', 'kinetix-messaging-by-ppros' ),
             $cap,
             self::HELP_MENU_SLUG,
             array( $this, 'render_help_page' )
@@ -49,25 +49,25 @@ class Ppros_Synchronized_Messaging_Engine_Admin {
     }
 
     public function render_app_container() {
-        if ( ! current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
+        if ( ! current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_ACCESS_MESSAGING )
             && ! current_user_can( 'manage_options' ) ) {
-            wp_die( esc_html__( 'You do not have permission to access this page.', 'synchronized-messaging-engine' ) );
+            wp_die( esc_html__( 'You do not have permission to access this page.', 'kinetix-messaging-by-ppros' ) );
         }
 
-        echo '<div id="synchronized-messaging-engine"></div>';
+        echo '<div id="kinetix-messaging-by-ppros"></div>';
     }
 
     // ── Help page ──────────────────────────────────────────────────────────
 
     public function render_help_page() {
-        if ( ! current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
+        if ( ! current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_ACCESS_MESSAGING )
             && ! current_user_can( 'manage_options' ) ) {
-            wp_die( esc_html__( 'You do not have permission to access this page.', 'synchronized-messaging-engine' ) );
+            wp_die( esc_html__( 'You do not have permission to access this page.', 'kinetix-messaging-by-ppros' ) );
         }
 
         $webhook_base = esc_url( rest_url( 'sme/v1/webhooks/' ) );
         $rest_base    = esc_url( rest_url( 'sme/v1/' ) );
-        $plugin_ver   = PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_VERSION ?? '1.0.0';
+        $plugin_ver   = KINETIX_MESSAGING_BY_PPROS_VERSION ?? '1.0.0';
         ?>
         <style>
             .sme-help { max-width: 960px; margin: 24px auto; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; }
@@ -103,7 +103,7 @@ class Ppros_Synchronized_Messaging_Engine_Admin {
         </style>
 
         <div class="sme-help wrap">
-            <h1>&#128233; Messaging Engine — Help &amp; Documentation</h1>
+            <h1>&#128233; Kinetix Messaging — Help &amp; Documentation</h1>
             <p class="sme-version">Version <?php echo esc_html( $plugin_ver ); ?> &nbsp;|&nbsp; REST Base: <code><?php echo esc_html( $rest_base ); ?></code></p>
 
             <!-- Table of Contents -->
@@ -124,7 +124,7 @@ class Ppros_Synchronized_Messaging_Engine_Admin {
             <p>Follow these four steps to go from install to receiving live messages:</p>
             <ol>
                 <li><strong>Activate the plugin</strong> — the database tables are created automatically on first activation.</li>
-                <li><strong>Open Settings</strong> — click <em>Messaging Engine → Inbox</em> then the ⚙ gear icon inside the app, or go directly to <em>Settings</em> inside the React app sidebar.</li>
+                <li><strong>Open Settings</strong> — click <em>Kinetix Messaging → Inbox</em> then the ⚙ gear icon inside the app, or go directly to <em>Settings</em> inside the React app sidebar.</li>
                 <li><strong>Enable at least one channel</strong> — paste in your API credentials and flip the <em>Enable</em> toggle, then click <strong>Save changes</strong>.</li>
                 <li><strong>Register the webhook</strong> — each channel has a <em>Webhook</em> tab with a one-click <em>Register Webhook</em> button (Telegram) or a Callback URL to paste into the platform's developer console (WhatsApp, Messenger, LINE, etc.).</li>
             </ol>
@@ -202,7 +202,7 @@ class Ppros_Synchronized_Messaging_Engine_Admin {
                 <li><strong>Is the webhook registered?</strong> For Telegram: use the <em>Register Webhook</em> button on the Webhook tab; the status card confirms success. For other channels: paste the URL into the developer console.</li>
                 <li><strong>Is the site on HTTPS?</strong> All platforms require a valid SSL certificate. Self-signed certs are rejected.</li>
                 <li><strong>Can the platform reach your site?</strong> If you are on <code>localhost</code> or behind a VPN/firewall, platforms cannot deliver. Use a tunnel (e.g. <a href="https://ngrok.com" target="_blank">ngrok</a>) during development.</li>
-                <li><strong>Check PHP error logs</strong> — the plugin writes <code>error_log()</code> entries prefixed with <code>[SME ChannelName]</code> for every DB error or unexpected payload.</li>
+                <li><strong>Check PHP error logs</strong> — when <code>WP_DEBUG</code> is enabled, the plugin writes debug entries prefixed with <code>[SME ChannelName]</code> for DB errors or unexpected payloads.</li>
                 <li><strong>Are pretty permalinks enabled?</strong> The REST API requires <em>Settings → Permalinks</em> to be set to anything other than <em>Plain</em>.</li>
             </ol>
 
@@ -262,7 +262,7 @@ class Ppros_Synchronized_Messaging_Engine_Admin {
             </table>
             <div class="sme-tip"><p>&#128161; Capabilities are added to roles during plugin <strong>activation</strong>. If you added an admin user <em>after</em> installing the plugin, deactivate and re-activate the plugin once to grant capabilities.</p></div>
 
-            <p style="margin-top:40px;color:#94a3b8;font-size:.8rem;">Synchronized Messaging Engine v<?php echo esc_html( $plugin_ver ); ?></p>
+            <p style="margin-top:40px;color:#94a3b8;font-size:.8rem;">Kinetix Messaging by Ppros v<?php echo esc_html( $plugin_ver ); ?></p>
         </div>
         <?php
     }
@@ -273,34 +273,30 @@ class Ppros_Synchronized_Messaging_Engine_Admin {
             return;
         }
 
-        $asset_file_path = PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'build/index.asset.php';
+        $asset_file_path = KINETIX_MESSAGING_BY_PPROS_DIR . 'build/index.asset.php';
         if ( ! file_exists( $asset_file_path ) ) {
             return;
         }
         $asset_file = include $asset_file_path;
 
-        // Tabler Icons webfont — loaded as a separate stylesheet so webpack
-        // only bundles app CSS (Tailwind).  Serve from CDN; if a local copy
-        // exists in the plugin's node_modules it is used as a fallback via
-        // the wp_add_inline_style trick only when the CDN request fails in
-        // environments without internet access (handled client-side).
+        // Tabler Icons webfont — bundled locally (WordPress.org disallows external CDNs).
         wp_enqueue_style(
-            'tabler-icons',
-            'https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.44.0/dist/tabler-icons.min.css',
+            'kmbp-tabler-icons',
+            KINETIX_MESSAGING_BY_PPROS_URL . 'assets/tabler-icons/tabler-icons.min.css',
             array(),
             '3.44.0'
         );
 
         wp_enqueue_style(
-            'synchronized-messaging-engine-css',
-            PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_URL . 'build/index.css',
-            array( 'tabler-icons' ),
+            'kinetix-messaging-by-ppros-css',
+            KINETIX_MESSAGING_BY_PPROS_URL . 'build/index.css',
+            array( 'kmbp-tabler-icons' ),
             $asset_file['version']
         );
 
         wp_enqueue_script(
-            'synchronized-messaging-engine-js',
-            PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_URL . 'build/index.js',
+            'kinetix-messaging-by-ppros-js',
+            KINETIX_MESSAGING_BY_PPROS_URL . 'build/index.js',
             $asset_file['dependencies'],
             $asset_file['version'],
             true
@@ -308,13 +304,13 @@ class Ppros_Synchronized_Messaging_Engine_Admin {
 
         $user                = wp_get_current_user();
         $is_admin            = current_user_can( 'manage_options' );
-        $can_access          = current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING );
-        $can_manage_settings = current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_MANAGE_SETTINGS );
-        $can_manage_depts    = current_user_can( Ppros_Synchronized_Messaging_Engine_Activator::CAP_MANAGE_DEPTS );
+        $can_access          = current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_ACCESS_MESSAGING );
+        $can_manage_settings = current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_MANAGE_SETTINGS );
+        $can_manage_depts    = current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_MANAGE_DEPTS );
 
         wp_localize_script(
-            'synchronized-messaging-engine-js',
-            'SMEBoot',
+            'kinetix-messaging-by-ppros-js',
+            'KinetixMessagingBoot',
             array(
                 'restUrl' => esc_url_raw( rest_url( 'sme/v1/' ) ),
                 'nonce'   => wp_create_nonce( 'wp_rest' ),

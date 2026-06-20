@@ -1,12 +1,55 @@
 import { useState } from "react";
 import { InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
-import { webhookUrl, siteHost } from "../../api/client.js";
+import api, { webhookUrl, siteHost, currentUser } from "../../api/client.js";
+
+function stripSecrets(values) {
+  const out = { ...values };
+  for (const key of Object.keys(out)) {
+    if (typeof out[key] === "string" && /^•+$/.test(out[key])) {
+      delete out[key];
+    }
+  }
+  return out;
+}
 
 export default function EmailSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("inbox");
+  const [smtpTesting, setSmtpTesting] = useState(false);
+  const [smtpTestResult, setSmtpTestResult] = useState(null);
+  const [imapTesting, setImapTesting] = useState(false);
+  const [imapTestResult, setImapTestResult] = useState(null);
   const S = (k, v) => setCfg({ ...cfg, [k]: v });
   const color = TOKEN.email.color;
+
+  const handleSendTestEmail = async () => {
+    setSmtpTesting(true);
+    setSmtpTestResult(null);
+    try {
+      await api.saveChannel("email", stripSecrets(cfg));
+      const result = await api.testEmailConnection("smtp");
+      const to = result.sentTo || cfg.smtpUser || cfg.inboxEmail || currentUser.email;
+      setSmtpTestResult({ ok: true, message: `Test email sent to ${to} ✓` });
+    } catch (err) {
+      setSmtpTestResult({ ok: false, message: err.message || "SMTP test failed" });
+    } finally {
+      setSmtpTesting(false);
+    }
+  };
+
+  const handleTestImap = async () => {
+    setImapTesting(true);
+    setImapTestResult(null);
+    try {
+      await api.saveChannel("email", stripSecrets(cfg));
+      await api.testEmailConnection("imap");
+      setImapTestResult({ ok: true, message: "IMAP connection successful ✓" });
+    } catch (err) {
+      setImapTestResult({ ok: false, message: err.message || "IMAP test failed" });
+    } finally {
+      setImapTesting(false);
+    }
+  };
  
   return (
     <div className="space-y-5">
@@ -41,6 +84,7 @@ export default function EmailSettings({ cfg, setCfg }) {
           <SectionDivider label="Email Forwarding / Piping" />
           <Input label="Forward-to address (copy into your mailbox forwarder)" value={`inbound@${siteHost}`} readOnly mono helper="Direct your email provider's forwarding rule to this address." />
           <Input label="Inbound webhook (alternative)" value={webhookUrl("email")} readOnly mono />
+          <Input label="Webhook token" value={cfg.webhookToken} onChange={v => S("webhookToken", v)} placeholder="your_webhook_token" type="password" helper="Required for inbound webhook POSTs. Send as X-SME-Token header or ?token= query param." />
         </div>
       )}
  
@@ -74,9 +118,20 @@ export default function EmailSettings({ cfg, setCfg }) {
           <Row label="Verify SSL certificate" desc="Disable only for self-signed certs in development.">
             <Toggle checked={cfg.smtpVerifySsl} onChange={v => S("smtpVerifySsl", v)} color={color} />
           </Row>
-          <button style={{ background: color }} className="mt-1 px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity">
-            Send test email
+          <button
+            type="button"
+            style={{ background: color }}
+            disabled={smtpTesting || !cfg.smtpHost}
+            onClick={handleSendTestEmail}
+            className="mt-1 px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {smtpTesting ? "Sending…" : "Send test email"}
           </button>
+          {smtpTestResult && (
+            <div className={`text-sm font-medium px-4 py-2 rounded-xl ${smtpTestResult.ok ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+              {smtpTestResult.message}
+            </div>
+          )}
         </div>
       )}
  
@@ -100,6 +155,20 @@ export default function EmailSettings({ cfg, setCfg }) {
           <Row label="Delete from mailbox after import" desc="Remove email from IMAP folder after it has been pulled.">
             <Toggle checked={cfg.imapDelete} onChange={v => S("imapDelete", v)} color={color} />
           </Row>
+          <button
+            type="button"
+            style={{ background: color }}
+            disabled={imapTesting || !cfg.imapHost}
+            onClick={handleTestImap}
+            className="mt-1 px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {imapTesting ? "Testing…" : "Test IMAP connection"}
+          </button>
+          {imapTestResult && (
+            <div className={`text-sm font-medium px-4 py-2 rounded-xl ${imapTestResult.ok ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+              {imapTestResult.message}
+            </div>
+          )}
         </div>
       )}
  
