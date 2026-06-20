@@ -198,7 +198,7 @@ export default function TelegramSettings({ cfg, setCfg }) {
                 <span className={`w-2.5 h-2.5 rounded-full ${webhookInfo.registered && webhookInfo.urlMatch ? "bg-green-400" : webhookInfo.registered ? "bg-amber-400" : "bg-red-400"}`} />
                 <span className={`text-sm font-semibold ${webhookInfo.registered && webhookInfo.urlMatch ? "text-green-400" : webhookInfo.registered ? "text-amber-400" : "text-red-400"}`}>
                   {!webhookInfo.registered
-                    ? "Not registered — Telegram doesn't know where to send messages"
+                    ? "Not registered — click Register Webhook"
                     : webhookInfo.urlMatch
                       ? "Active — pointing at this site ✓"
                       : "Registered but pointing at a different URL"}
@@ -241,7 +241,7 @@ export default function TelegramSettings({ cfg, setCfg }) {
                   )}
                   {/timed out|timeout|connection refused|could not resolve/i.test(webhookInfo.lastError) && (
                     <p className="text-xs text-amber-300 mt-2">
-                      Telegram could not reach your server when this error was recorded. Confirm the site is online over <strong>HTTPS</strong>, the host firewall allows inbound HTTPS, then click <strong>Register Webhook</strong> and <strong>Clear pending queue</strong>. Send a new test message and click <strong>Check Status</strong> again — the timestamp below should update if delivery is working.
+                      Telegram cannot reach your server on port 443. Ask your hosting provider to allow inbound HTTPS from Telegram/datacenter IPs, or move the site to a host with better international routing.
                     </p>
                   )}
                 </div>
