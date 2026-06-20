@@ -211,6 +211,15 @@ export default function TelegramSettings({ cfg, setCfg }) {
                 </p>
               )}
 
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className={`px-2 py-0.5 rounded-md border ${webhookInfo.hasWebhookSecret ? "border-green-500/30 text-green-400 bg-green-500/10" : "border-amber-500/30 text-amber-400 bg-amber-500/10"}`}>
+                  {webhookInfo.hasWebhookSecret ? "Webhook secret saved" : "No webhook secret — click Register Webhook"}
+                </span>
+                <span className={`px-2 py-0.5 rounded-md border ${webhookInfo.channelEnabled ? "border-green-500/30 text-green-400 bg-green-500/10" : "border-slate-600 text-slate-400 bg-slate-800/60"}`}>
+                  {webhookInfo.channelEnabled ? "Channel enabled" : "Channel disabled (updates accepted but ignored)"}
+                </span>
+              </div>
+
               {webhookInfo.pendingUpdateCount > 0 && (
                 <p className="text-xs text-amber-400">
                   ⚠ {webhookInfo.pendingUpdateCount} pending update{webhookInfo.pendingUpdateCount !== 1 ? "s" : ""} queued by Telegram
@@ -224,6 +233,16 @@ export default function TelegramSettings({ cfg, setCfg }) {
                   <p className="text-xs text-red-300">{webhookInfo.lastError}</p>
                   {webhookInfo.lastErrorAt && (
                     <p className="text-xs text-slate-500 mt-1">{new Date(webhookInfo.lastErrorAt * 1000).toLocaleString()}</p>
+                  )}
+                  {/401|403|unauthorized|forbidden/i.test(webhookInfo.lastError) && (
+                    <p className="text-xs text-amber-300 mt-2">
+                      Telegram was rejected by this site. Click <strong>Register Webhook</strong> again so the secret token matches, and ensure no security plugin blocks <code className="font-mono">/wp-json/sme/v1/webhooks/telegram</code>.
+                    </p>
+                  )}
+                  {/timed out|timeout|connection refused|could not resolve/i.test(webhookInfo.lastError) && (
+                    <p className="text-xs text-amber-300 mt-2">
+                      Telegram could not reach your server when this error was recorded. Confirm the site is online over <strong>HTTPS</strong>, the host firewall allows inbound HTTPS, then click <strong>Register Webhook</strong> and <strong>Clear pending queue</strong>. Send a new test message and click <strong>Check Status</strong> again — the timestamp below should update if delivery is working.
+                    </p>
                   )}
                 </div>
               )}

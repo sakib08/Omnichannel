@@ -34,7 +34,7 @@ From the plugin root directory:
 2. Run `npm install`
 3. Run `npm run build`
 
-This compiles `src/` into `build/index.js`, `build/index.css`, and related files, and copies Tabler icon fonts into `assets/tabler-icons/`.
+This compiles `src/` into `build/index.js`, `build/index.css`, and related files, and copies Tabler icon fonts into `assets/tabler-icons/` (via a local build script; shell scripts are not shipped in the WordPress.org ZIP).
 
 To create a distributable ZIP locally: `npm run bundle`
 

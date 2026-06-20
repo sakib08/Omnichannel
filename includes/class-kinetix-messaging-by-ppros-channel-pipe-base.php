@@ -67,6 +67,18 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
     }
 
     /**
+     * Read an HTTP request header with a $_SERVER fallback for reverse proxies.
+     */
+    protected function get_request_header( WP_REST_Request $request, string $name ): string {
+        $value = (string) ( $request->get_header( $name ) ?? '' );
+        if ( '' !== $value ) {
+            return $value;
+        }
+        $server_key = 'HTTP_' . strtoupper( str_replace( '-', '_', $name ) );
+        return (string) ( $_SERVER[ $server_key ] ?? '' );
+    }
+
+    /**
      * Permission callback for Meta webhook hub verification (GET).
      * Used by WhatsApp, Messenger, and Instagram.
      */

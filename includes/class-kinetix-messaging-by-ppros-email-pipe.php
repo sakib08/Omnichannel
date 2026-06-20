@@ -261,7 +261,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
      * @param array  $cfg      Email channel settings from wp_options.
      * @return true|\WP_Error
      */
-    public function send_via_smtp( string $to, string $to_name, string $subject, string $html_body, array $cfg = array() ): bool {
+    public function send_via_smtp( string $to, string $to_name, string $subject, string $html_body, array $cfg = array() ) {
         if ( empty( $cfg ) ) {
             $cfg = $this->get_settings();
         }

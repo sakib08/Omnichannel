@@ -8,11 +8,9 @@
     "includes",
     "assets",
     "languages",
-    "bin",
     "LICENSE",
     "readme.txt",
     "package.json",
-    "package-lock.json",
     "postcss.config.js",
     "webpack.config.js",
     "kinetix-messaging-by-ppros.php"

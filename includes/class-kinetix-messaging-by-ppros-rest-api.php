@@ -281,7 +281,11 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
             } elseif ( is_numeric( $value ) ) {
                 $out[ $key ] = $value + 0;
             } else {
-                $out[ $key ] = sanitize_textarea_field( (string) $value );
+                $value = sanitize_textarea_field( (string) $value );
+                if ( preg_match( '/^•+$/u', $value ) ) {
+                    continue;
+                }
+                $out[ $key ] = $value;
             }
         }
         return $out;

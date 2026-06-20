@@ -29,6 +29,9 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
     /** @var array|null Update queued for shutdown processing. */
     private $pending_webhook_update = null;
 
+    /** @var bool Whether the webhook response flush hook was registered. */
+    private $webhook_response_flush_registered = false;
+
     public function get_channel_slug(): string {
         return 'telegram';
     }
@@ -42,7 +45,9 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => array( $this, 'handle_webhook' ),
-                'permission_callback' => array( $this, 'check_telegram_webhook_permission' ),
+                // Auth is enforced inside handle_webhook() so failures return 403 with
+                // actionable JSON instead of WordPress's generic rest_forbidden 401.
+                'permission_callback' => '__return_true',
             )
         );
 
@@ -83,31 +88,76 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
     }
 
     /**
-     * Permission callback for Telegram inbound webhook POST.
-     * Validates the optional secret token header when configured.
+     * Validate the Telegram secret token header.
+     *
+     * @return true|\WP_Error
      */
-    public function check_telegram_webhook_permission( WP_REST_Request $request ): bool {
-        if ( ! $this->is_channel_enabled() ) {
-            return false;
-        }
+    private function validate_telegram_webhook_secret( WP_REST_Request $request ) {
         $secret = (string) ( $this->get_settings()['webhookSecret'] ?? '' );
         if ( '' === $secret ) {
-            return false;
+            return new WP_Error(
+                'sme_telegram_no_secret',
+                __( 'Webhook secret is not configured. Open Telegram settings and click Register Webhook.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 403 )
+            );
         }
-        $provided = (string) ( $request->get_header( 'x-telegram-bot-api-secret-token' ) ?? '' );
-        return hash_equals( $secret, $provided );
+
+        $provided = $this->get_request_header( $request, 'x-telegram-bot-api-secret-token' );
+        if ( '' === $provided || ! hash_equals( $secret, $provided ) ) {
+            return new WP_Error(
+                'sme_telegram_bad_secret',
+                __( 'Invalid or missing X-Telegram-Bot-Api-Secret-Token. Re-register the webhook from Telegram settings so Telegram receives the current secret.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 403 )
+            );
+        }
+
+        return true;
     }
 
     // ── Inbound webhook ────────────────────────────────────────────────────
 
     public function handle_webhook( WP_REST_Request $request ) {
+        $auth = $this->validate_telegram_webhook_secret( $request );
+        if ( is_wp_error( $auth ) ) {
+            return $auth;
+        }
+
         $update = $request->get_json_params();
         if ( is_array( $update ) && ! empty( $update ) ) {
             $this->pending_webhook_update = $update;
-            add_action( 'shutdown', array( $this, 'process_pending_webhook_update' ), 0 );
+            $this->register_webhook_shutdown_processing();
         }
 
         return rest_ensure_response( array( 'ok' => true ) );
+    }
+
+    /**
+     * Flush the HTTP response before heavy webhook work so Telegram does not time out.
+     */
+    private function register_webhook_shutdown_processing(): void {
+        if ( $this->webhook_response_flush_registered ) {
+            add_action( 'shutdown', array( $this, 'process_pending_webhook_update' ), 0 );
+            return;
+        }
+
+        $this->webhook_response_flush_registered = true;
+        add_action( 'shutdown', array( $this, 'flush_webhook_http_response' ), -1 );
+        add_action( 'shutdown', array( $this, 'process_pending_webhook_update' ), 0 );
+    }
+
+    /**
+     * Send the buffered REST response to the client before DB/API work runs.
+     */
+    public function flush_webhook_http_response(): void {
+        if ( function_exists( 'fastcgi_finish_request' ) ) {
+            fastcgi_finish_request();
+            return;
+        }
+
+        if ( ob_get_level() > 0 ) {
+            ob_end_flush();
+        }
+        flush();
     }
 
     /**
@@ -119,7 +169,14 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
         }
         $update = $this->pending_webhook_update;
         $this->pending_webhook_update = null;
-        $this->dispatch_update( $update, $this->get_settings() );
+
+        $cfg = $this->get_settings();
+        if ( empty( $cfg['enabled'] ) ) {
+            $this->log_debug( '[SME Telegram] Webhook update ignored because the Telegram channel is disabled.' );
+            return;
+        }
+
+        $this->dispatch_update( $update, $cfg );
     }
 
     /**
@@ -334,7 +391,7 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
             'webhookUrl'    => $webhook_url,
             'webhookSecret' => $secret,
             'telegram'      => $result,
-            'info'          => $info,
+            'info'          => $this->format_webhook_status( $info, $this->get_settings() ),
         ) );
     }
 
@@ -361,20 +418,33 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
             );
         }
 
-        $expected_url = rest_url( Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1 . '/webhooks/telegram' );
-        $current_url  = (string) ( $info['result']['url'] ?? '' );
+        return rest_ensure_response( $this->format_webhook_status( $info, $cfg ) );
+    }
 
-        return rest_ensure_response( array(
-            'ok'          => true,
-            'registered'  => $current_url !== '',
-            'urlMatch'    => rtrim( $current_url, '/' ) === rtrim( $expected_url, '/' ),
-            'webhookUrl'  => $current_url,
-            'expectedUrl' => $expected_url,
-            'pendingUpdateCount' => (int) ( $info['result']['pending_update_count'] ?? 0 ),
-            'lastError'   => $info['result']['last_error_message'] ?? null,
-            'lastErrorAt' => $info['result']['last_error_date'] ?? null,
-            'raw'         => $info['result'] ?? array(),
-        ) );
+    /**
+     * Normalize Telegram getWebhookInfo for the admin UI.
+     *
+     * @param array|\WP_Error $info
+     * @param array           $cfg
+     * @return array
+     */
+    private function format_webhook_status( $info, array $cfg ): array {
+        $expected_url = rest_url( Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1 . '/webhooks/telegram' );
+        $current_url  = is_wp_error( $info ) ? '' : (string) ( $info['result']['url'] ?? '' );
+
+        return array(
+            'ok'                 => true,
+            'registered'         => $current_url !== '',
+            'urlMatch'           => rtrim( $current_url, '/' ) === rtrim( $expected_url, '/' ),
+            'webhookUrl'         => $current_url,
+            'expectedUrl'        => $expected_url,
+            'channelEnabled'     => ! empty( $cfg['enabled'] ),
+            'hasWebhookSecret'   => '' !== (string) ( $cfg['webhookSecret'] ?? '' ),
+            'pendingUpdateCount' => is_wp_error( $info ) ? 0 : (int) ( $info['result']['pending_update_count'] ?? 0 ),
+            'lastError'          => is_wp_error( $info ) ? null : ( $info['result']['last_error_message'] ?? null ),
+            'lastErrorAt'        => is_wp_error( $info ) ? null : ( $info['result']['last_error_date'] ?? null ),
+            'raw'                => is_wp_error( $info ) ? array() : ( $info['result'] ?? array() ),
+        );
     }
 
     /**
