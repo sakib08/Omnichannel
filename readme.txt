@@ -4,7 +4,7 @@ Tags: messaging, omnichannel, telegram, whatsapp, email
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -135,7 +135,8 @@ Inbound email may also be pushed to your site via a webhook URL you configure in
 3. Open **Kinetix Messaging → Inbox** and configure your channel settings.
 
 == Changelog ==
-
+= 1.0.2 =
+# followed Wp guidline
 = 1.0.1 =
 * Initial release.
 * Document external messaging APIs and SMS providers in readme.
