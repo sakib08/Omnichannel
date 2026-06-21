@@ -4,7 +4,6 @@
  * Description: A powerful plugin that synchronizes messaging across multiple platforms, ensuring seamless communication and enhanced user engagement.
  * Version: 1.0.1
  * @author    PluginPros - https://pluginpros.co
- * @category  WooCommerce
  * Author: pluginpros
  * Author URI: https://pluginpros.co
  * Tested up to: 7.0

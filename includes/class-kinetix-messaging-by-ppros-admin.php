@@ -24,7 +24,7 @@ class Kinetix_Messaging_By_Ppros_Admin {
             self::MENU_SLUG,
             array( $this, 'render_app_container' ),
             'dashicons-email-alt',
-            6
+            58
         );
 
         // Rename the auto-generated first submenu entry to "Inbox".
@@ -69,46 +69,13 @@ class Kinetix_Messaging_By_Ppros_Admin {
         $rest_base    = esc_url( rest_url( 'sme/v1/' ) );
         $plugin_ver   = KINETIX_MESSAGING_BY_PPROS_VERSION ?? '1.0.0';
         ?>
-        <style>
-            .sme-help { max-width: 960px; margin: 24px auto; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; }
-            .sme-help h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 4px; color: #0f172a; }
-            .sme-help .sme-version { font-size: 12px; color: #94a3b8; margin-bottom: 32px; }
-            .sme-help h2 { font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 32px 0 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
-            .sme-help h3 { font-size: .95rem; font-weight: 600; color: #334155; margin: 20px 0 8px; }
-            .sme-help p, .sme-help li { font-size: .9rem; line-height: 1.7; color: #475569; }
-            .sme-help ul, .sme-help ol { padding-left: 20px; margin: 8px 0; }
-            .sme-help code { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 5px; padding: 2px 7px; font-size: .82rem; color: #4f46e5; font-family: "SFMono-Regular", Consolas, monospace; }
-            .sme-help pre { background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 16px 20px; overflow-x: auto; font-size: .82rem; font-family: "SFMono-Regular", Consolas, monospace; line-height: 1.6; margin: 10px 0 16px; }
-            .sme-help pre code { background: none; border: none; color: inherit; padding: 0; font-size: inherit; }
-            .sme-help .sme-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin: 16px 0; }
-            .sme-help .sme-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; }
-            .sme-help .sme-card strong { display: block; font-size: .9rem; color: #0f172a; margin-bottom: 6px; }
-            .sme-help .sme-card span { font-size: .82rem; color: #64748b; }
-            .sme-help .sme-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: .75rem; font-weight: 600; }
-            .sme-help .sme-badge-green  { background: #dcfce7; color: #166534; }
-            .sme-help .sme-badge-blue   { background: #dbeafe; color: #1d4ed8; }
-            .sme-help .sme-badge-purple { background: #ede9fe; color: #6d28d9; }
-            .sme-help .sme-badge-amber  { background: #fef3c7; color: #92400e; }
-            .sme-help .sme-tip  { background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 12px 0; }
-            .sme-help .sme-warn { background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 12px 0; }
-            .sme-help .sme-tip p, .sme-help .sme-warn p { margin: 0; font-size: .875rem; }
-            .sme-help table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: .85rem; }
-            .sme-help th { background: #f1f5f9; text-align: left; padding: 8px 12px; font-weight: 600; color: #334155; border-bottom: 2px solid #e2e8f0; }
-            .sme-help td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; color: #475569; vertical-align: top; }
-            .sme-help tr:last-child td { border-bottom: none; }
-            .sme-help .sme-toc { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 24px; margin-bottom: 32px; }
-            .sme-help .sme-toc a { color: #4f46e5; text-decoration: none; font-size: .875rem; }
-            .sme-help .sme-toc a:hover { text-decoration: underline; }
-            .sme-help .sme-toc li { margin: 4px 0; }
-        </style>
-
         <div class="sme-help wrap">
             <h1>&#128233; Kinetix Messaging — Help &amp; Documentation</h1>
             <p class="sme-version">Version <?php echo esc_html( $plugin_ver ); ?> &nbsp;|&nbsp; REST Base: <code><?php echo esc_html( $rest_base ); ?></code></p>
 
             <!-- Table of Contents -->
             <div class="sme-toc">
-                <strong style="display:block;margin-bottom:8px;color:#0f172a;">Contents</strong>
+                <strong class="sme-toc-title">Contents</strong>
                 <ol>
                     <li><a href="#sme-quick-start">Quick Start</a></li>
                     <li><a href="#sme-channels">Channel Setup</a></li>
@@ -139,35 +106,35 @@ class Kinetix_Messaging_By_Ppros_Admin {
                     <span>IMAP polling or inbound webhook (Mailgun / SendGrid / Postmark). SMTP for outbound replies.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#25D366">&#9899;</span> WhatsApp Business</strong>
+                    <strong><span class="sme-dot-whatsapp">&#9899;</span> WhatsApp Business</strong>
                     <span>Meta Business Cloud API. Requires a verified WhatsApp Business Account (WABA) and a System User token.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#0866FF">&#9899;</span> Messenger</strong>
+                    <strong><span class="sme-dot-messenger">&#9899;</span> Messenger</strong>
                     <span>Facebook Page + Meta app. Needs pages_messaging permission and App Review for production.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#229ED9">&#9899;</span> Telegram</strong>
+                    <strong><span class="sme-dot-telegram">&#9899;</span> Telegram</strong>
                     <span>Bot created via @BotFather. One-click webhook registration from the Webhook tab.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#E1306C">&#9899;</span> Instagram DM</strong>
+                    <strong><span class="sme-dot-instagram">&#9899;</span> Instagram DM</strong>
                     <span>Professional Instagram Account linked to a Facebook Page. Requires instagram_manage_messages + App Review.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#6366F1">&#9899;</span> SMS</strong>
+                    <strong><span class="sme-dot-sms">&#9899;</span> SMS</strong>
                     <span>Supports Twilio, Vonage, Sinch, Plivo, Telnyx, and MessageBird. One shared webhook for all providers.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#06C755">&#9899;</span> LINE</strong>
+                    <strong><span class="sme-dot-line">&#9899;</span> LINE</strong>
                     <span>LINE Messaging API. Channel Access Token from LINE Developers console.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#7360F2">&#9899;</span> Viber</strong>
+                    <strong><span class="sme-dot-viber">&#9899;</span> Viber</strong>
                     <span>Viber Bot / Business Messages. Auth token from the Viber Admin Panel. One-click webhook via the Webhook tab or cURL.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#07C160">&#9899;</span> WeChat</strong>
+                    <strong><span class="sme-dot-wechat">&#9899;</span> WeChat</strong>
                     <span>WeChat Official Account (Service Account). Server URL + Token + AES Key from the WeChat admin portal.</span>
                 </div>
             </div>
@@ -245,7 +212,7 @@ class Kinetix_Messaging_By_Ppros_Admin {
                     <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>viber/send</code></td>                     <td>Agent</td>    <td>Send a Viber message.</td></tr>
                     <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>viber/set-webhook</code></td>              <td>Admin</td>    <td>Register the Viber webhook via the Chat API.</td></tr>
                     <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>wechat/send</code></td>                    <td>Agent</td>    <td>Send a WeChat message.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-amber">ANY</span></td>   <td><code>webhooks/{channel}</code></td>             <td>None</td>     <td>Inbound webhook delivery (open, verified by each channel's own mechanism).</td></tr>
+                    <tr><td><span class="sme-badge sme-badge-amber">ANY</span></td>   <td><code>webhooks/{channel}</code></td>             <td>Channel secret</td>     <td>Inbound webhook delivery; each channel verifies its own signature or secret token.</td></tr>
                 </tbody>
             </table>
 
@@ -262,14 +229,24 @@ class Kinetix_Messaging_By_Ppros_Admin {
             </table>
             <div class="sme-tip"><p>&#128161; Capabilities are added to roles during plugin <strong>activation</strong>. If you added an admin user <em>after</em> installing the plugin, deactivate and re-activate the plugin once to grant capabilities.</p></div>
 
-            <p style="margin-top:40px;color:#94a3b8;font-size:.8rem;">Kinetix Messaging by Ppros v<?php echo esc_html( $plugin_ver ); ?></p>
+            <p class="sme-footer">Kinetix Messaging by Ppros v<?php echo esc_html( $plugin_ver ); ?></p>
         </div>
         <?php
     }
 
     public function enqueue_assets( $hook_suffix ) {
-        // Only load on our own admin page to avoid polluting every screen.
+        // Only load on our own admin pages to avoid polluting every screen.
         if ( false === strpos( (string) $hook_suffix, self::MENU_SLUG ) ) {
+            return;
+        }
+
+        if ( false !== strpos( (string) $hook_suffix, self::HELP_MENU_SLUG ) ) {
+            wp_enqueue_style(
+                'kinetix-messaging-by-ppros-help',
+                KINETIX_MESSAGING_BY_PPROS_URL . 'assets/css/admin-help.css',
+                array(),
+                KINETIX_MESSAGING_BY_PPROS_VERSION
+            );
             return;
         }
 

@@ -1,5 +1,5 @@
 === Kinetix Messaging by Ppros ===
-Contributors: pluginpros
+Contributors: pluginpros, sakib08
 Tags: messaging, omnichannel, telegram, whatsapp, email
 Requires at least: 6.0
 Tested up to: 7.0
@@ -114,9 +114,19 @@ Used when the SMS channel is enabled. Exactly one provider is used, based on the
 
 = Email (administrator-configured) =
 
-The email channel does not use a fixed third-party API endpoint. When enabled, the site administrator supplies their own SMTP and/or IMAP server hostname and credentials. The plugin connects only to those administrator-configured mail servers to send outbound email or poll for inbound messages (every 5 minutes via WordPress cron, when IMAP is configured). Inbound email may also be pushed to your site via a webhook URL you configure in services such as Mailgun, SendGrid, Postmark, or SparkPost; those providers are chosen and configured by the site administrator, not by this plugin.
+The email channel does not use a fixed third-party API endpoint. When enabled, the site administrator supplies their own SMTP and/or IMAP server hostname and credentials. The plugin connects only to those administrator-configured mail servers to send outbound email or poll for inbound messages (every 5 minutes via WordPress cron, when IMAP is configured).
 
-**Data sent:** depends on the mail server or inbound-parse provider the administrator configures (typically sender/recipient addresses, subject, and message body).
+Inbound email may also be pushed to your site via a webhook URL you configure in an inbound-parse or route service chosen by the site administrator. Common options include:
+
+**Mailgun** — **Data sent:** sender/recipient addresses, subject, message body, and attachments (as configured in your Mailgun route). **Service provided by Sinch Mailgun:** [Terms of Service](https://www.mailgun.com/legal/terms-of-service/), [Privacy Policy](https://www.mailgun.com/legal/privacy-policy/).
+
+**SendGrid** — **Data sent:** sender/recipient addresses, subject, message body, and attachments (as configured in your Inbound Parse webhook). **Service provided by Twilio SendGrid:** [Terms of Service](https://www.twilio.com/en-us/legal/tos), [Privacy Policy](https://www.twilio.com/en-us/legal/privacy).
+
+**Postmark** — **Data sent:** sender/recipient addresses, subject, and message body (as configured in your Postmark inbound webhook). **Service provided by ActiveCampaign, LLC (Postmark):** [Terms of Service](https://postmarkapp.com/terms-of-service), [Privacy Policy](https://postmarkapp.com/privacy-policy).
+
+**SparkPost** — **Data sent:** sender/recipient addresses, subject, and message body (as configured in your SparkPost relay webhook). **Service provided by Message Systems, LLC (SparkPost):** [Terms of Use](https://www.sparkpost.com/policies/tos/), [Privacy Policy](https://www.sparkpost.com/policies/privacy/).
+
+**Data sent (general):** depends on the mail server or inbound-parse provider the administrator configures (typically sender/recipient addresses, subject, and message body).
 
 == Installation ==
 

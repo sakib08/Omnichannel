@@ -45,9 +45,7 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => array( $this, 'handle_webhook' ),
-                // Auth is enforced inside handle_webhook() so failures return 403 with
-                // actionable JSON instead of WordPress's generic rest_forbidden 401.
-                'permission_callback' => '__return_true',
+                'permission_callback' => array( $this, 'check_telegram_webhook_permission' ),
             )
         );
 
@@ -88,6 +86,19 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
     }
 
     /**
+     * Permission callback for Telegram inbound webhook POST.
+     *
+     * @return true|bool|\WP_Error
+     */
+    public function check_telegram_webhook_permission( WP_REST_Request $request ) {
+        if ( ! $this->is_channel_enabled() ) {
+            return false;
+        }
+
+        return $this->validate_telegram_webhook_secret( $request );
+    }
+
+    /**
      * Validate the Telegram secret token header.
      *
      * @return true|\WP_Error
@@ -117,11 +128,6 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
     // ── Inbound webhook ────────────────────────────────────────────────────
 
     public function handle_webhook( WP_REST_Request $request ) {
-        $auth = $this->validate_telegram_webhook_secret( $request );
-        if ( is_wp_error( $auth ) ) {
-            return $auth;
-        }
-
         $update = $request->get_json_params();
         if ( is_array( $update ) && ! empty( $update ) ) {
             $this->pending_webhook_update = $update;
