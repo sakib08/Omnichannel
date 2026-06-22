@@ -17,12 +17,12 @@
  * Access token is fetched on demand and cached for 90 minutes in a
  * WordPress transient (sme_wechat_access_token).
  *
- * @package Synchronized_Messaging_Engine
+ * @package Kinetix_Messaging_By_Ppros
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Wechat_Pipe extends Synchronized_Messaging_Engine_Channel_Pipe_Base {
+class Kinetix_Messaging_By_Ppros_Wechat_Pipe extends Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
 
     const API_BASE = 'https://api.weixin.qq.com/cgi-bin/';
     const TOKEN_TRANSIENT = 'sme_wechat_access_token';
@@ -32,7 +32,7 @@ class Synchronized_Messaging_Engine_Wechat_Pipe extends Synchronized_Messaging_E
     }
 
     public function register_routes(): void {
-        $ns = Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1;
 
         register_rest_route(
             $ns,
@@ -41,12 +41,12 @@ class Synchronized_Messaging_Engine_Wechat_Pipe extends Synchronized_Messaging_E
                 array(
                     'methods'             => WP_REST_Server::READABLE,
                     'callback'            => array( $this, 'handle_webhook_verify' ),
-                    'permission_callback' => '__return_true',
+                    'permission_callback' => array( $this, 'check_wechat_webhook_verify_permission' ),
                 ),
                 array(
                     'methods'             => WP_REST_Server::CREATABLE,
                     'callback'            => array( $this, 'handle_webhook' ),
-                    'permission_callback' => '__return_true',
+                    'permission_callback' => array( $this, 'check_wechat_inbound_webhook_permission' ),
                 ),
             )
         );
@@ -69,23 +69,46 @@ class Synchronized_Messaging_Engine_Wechat_Pipe extends Synchronized_Messaging_E
 
     // ── URL verification (GET) ────────────────────────────────────────────
 
-    public function handle_webhook_verify( WP_REST_Request $request ) {
-        $cfg       = $this->get_settings();
-        $token     = (string) ( $cfg['serverToken'] ?? '' );
+    /**
+     * Verify WeChat URL signature (GET and POST query params).
+     */
+    protected function verify_wechat_signature( WP_REST_Request $request, string $token ): bool {
+        if ( '' === $token ) {
+            return false;
+        }
         $signature = (string) ( $request->get_param( 'signature' ) ?? '' );
         $timestamp = (string) ( $request->get_param( 'timestamp' ) ?? '' );
         $nonce     = (string) ( $request->get_param( 'nonce' ) ?? '' );
-        $echostr   = (string) ( $request->get_param( 'echostr' ) ?? '' );
-
-        $tmp = array( $token, $timestamp, $nonce );
+        $tmp       = array( $token, $timestamp, $nonce );
         sort( $tmp );
-        $computed = sha1( implode( '', $tmp ) );
+        return hash_equals( sha1( implode( '', $tmp ) ), $signature );
+    }
 
-        if ( hash_equals( $computed, $signature ) ) {
-            return new WP_REST_Response( $echostr, 200, array( 'Content-Type' => 'text/plain' ) );
+    /**
+     * Permission callback for WeChat URL verification (GET).
+     */
+    public function check_wechat_webhook_verify_permission( WP_REST_Request $request ): bool {
+        if ( ! $this->is_channel_enabled() ) {
+            return false;
         }
+        $token = (string) ( $this->get_settings()['serverToken'] ?? '' );
+        return $this->verify_wechat_signature( $request, $token );
+    }
 
-        return new WP_Error( 'sme_forbidden', 'Signature verification failed.', array( 'status' => 403 ) );
+    /**
+     * Permission callback for WeChat inbound webhook POST.
+     */
+    public function check_wechat_inbound_webhook_permission( WP_REST_Request $request ): bool {
+        if ( ! $this->is_channel_enabled() ) {
+            return false;
+        }
+        $token = (string) ( $this->get_settings()['serverToken'] ?? '' );
+        return $this->verify_wechat_signature( $request, $token );
+    }
+
+    public function handle_webhook_verify( WP_REST_Request $request ) {
+        $echostr = (string) ( $request->get_param( 'echostr' ) ?? '' );
+        return new WP_REST_Response( $echostr, 200, array( 'Content-Type' => 'text/plain' ) );
     }
 
     // ── Inbound webhook (POST XML) ────────────────────────────────────────
@@ -93,19 +116,6 @@ class Synchronized_Messaging_Engine_Wechat_Pipe extends Synchronized_Messaging_E
     public function handle_webhook( WP_REST_Request $request ) {
         $cfg     = $this->get_settings();
         $raw_xml = $request->get_body();
-
-        // Verify signature.
-        $token    = (string) ( $cfg['serverToken'] ?? '' );
-        $sig      = (string) ( $request->get_param( 'signature' ) ?? '' );
-        $ts       = (string) ( $request->get_param( 'timestamp' ) ?? '' );
-        $nonce    = (string) ( $request->get_param( 'nonce' ) ?? '' );
-        $tmp      = array( $token, $ts, $nonce );
-        sort( $tmp );
-        $computed = sha1( implode( '', $tmp ) );
-
-        if ( '' !== $token && ! hash_equals( $computed, $sig ) ) {
-            return new WP_Error( 'sme_unauthorized', 'Signature mismatch.', array( 'status' => 401 ) );
-        }
 
         if ( '' === trim( $raw_xml ) ) {
             return new WP_REST_Response( 'success', 200 );
@@ -137,7 +147,7 @@ class Synchronized_Messaging_Engine_Wechat_Pipe extends Synchronized_Messaging_E
         );
 
         if ( is_wp_error( $conversation_id ) ) {
-            error_log( '[SME WeChat] DB error: ' . $conversation_id->get_error_message() );
+            $this->log_debug( '[SME WeChat] DB error: ' . $conversation_id->get_error_message() );
             return new WP_REST_Response( 'success', 200 );
         }
 
@@ -155,7 +165,7 @@ class Synchronized_Messaging_Engine_Wechat_Pipe extends Synchronized_Messaging_E
             $this->send_message( $open_id, (string) $cfg['autoReplyMsg'], $cfg );
         }
 
-        do_action( 'sme_inbound_message_received', $conversation_id, 'wechat', array(
+        do_action( 'kinetix_messaging_by_ppros_inbound_message_received', $conversation_id, 'wechat', array(
             'openId' => $open_id, 'text' => $text, 'msgType' => $msg_type,
         ) );
 
@@ -201,7 +211,11 @@ class Synchronized_Messaging_Engine_Wechat_Pipe extends Synchronized_Messaging_E
         if ( is_wp_error( $result ) ) {
             return new \WP_Error(
                 'sme_wechat_send_error',
-                sprintf( __( 'WeChat API error: %s', 'synchronized-messaging-engine' ), $result->get_error_message() ),
+                sprintf(
+                    /* translators: %s: WeChat API error message */
+                    __( 'WeChat API error: %s', 'kinetix-messaging-by-ppros' ),
+                    $result->get_error_message()
+                ),
                 array( 'status' => 502 )
             );
         }
@@ -236,7 +250,7 @@ class Synchronized_Messaging_Engine_Wechat_Pipe extends Synchronized_Messaging_E
         if ( '' === $app_id || '' === $secret ) {
             return new \WP_Error(
                 'sme_wechat_not_configured',
-                __( 'WeChat appId and appSecret are required.', 'synchronized-messaging-engine' )
+                __( 'WeChat appId and appSecret are required.', 'kinetix-messaging-by-ppros' )
             );
         }
 

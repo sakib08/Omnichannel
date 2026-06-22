@@ -14,12 +14,12 @@
  *   enabled, channelAccessToken, channelSecret,
  *   autoReply, autoReplyMsg, typingIndicator
  *
- * @package Synchronized_Messaging_Engine
+ * @package Kinetix_Messaging_By_Ppros
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Line_Pipe extends Synchronized_Messaging_Engine_Channel_Pipe_Base {
+class Kinetix_Messaging_By_Ppros_Line_Pipe extends Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
 
     const MESSAGING_API = 'https://api.line.me/v2/bot/';
 
@@ -28,7 +28,7 @@ class Synchronized_Messaging_Engine_Line_Pipe extends Synchronized_Messaging_Eng
     }
 
     public function register_routes(): void {
-        $ns = Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1;
 
         register_rest_route(
             $ns,
@@ -36,7 +36,7 @@ class Synchronized_Messaging_Engine_Line_Pipe extends Synchronized_Messaging_Eng
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => array( $this, 'handle_webhook' ),
-                'permission_callback' => '__return_true',
+                'permission_callback' => array( $this, 'check_line_webhook_permission' ),
             )
         );
 
@@ -58,19 +58,25 @@ class Synchronized_Messaging_Engine_Line_Pipe extends Synchronized_Messaging_Eng
 
     // ── Inbound webhook ────────────────────────────────────────────────────
 
+    /**
+     * Permission callback for LINE inbound webhook POST.
+     */
+    public function check_line_webhook_permission( WP_REST_Request $request ): bool {
+        if ( ! $this->is_channel_enabled() ) {
+            return false;
+        }
+        $channel_secret = (string) ( $this->get_settings()['channelSecret'] ?? '' );
+        if ( '' === $channel_secret ) {
+            return false;
+        }
+        $signature = (string) ( $request->get_header( 'x-line-signature' ) ?? '' );
+        $expected  = base64_encode( hash_hmac( 'sha256', $request->get_body(), $channel_secret, true ) );
+        return hash_equals( $expected, $signature );
+    }
+
     public function handle_webhook( WP_REST_Request $request ) {
         $cfg        = $this->get_settings();
         $raw_body   = $request->get_body();
-        $channel_secret = (string) ( $cfg['channelSecret'] ?? '' );
-
-        // Verify X-Line-Signature (HMAC-SHA256).
-        if ( '' !== $channel_secret ) {
-            $signature = (string) ( $request->get_header( 'x-line-signature' ) ?? '' );
-            $expected  = base64_encode( hash_hmac( 'sha256', $raw_body, $channel_secret, true ) );
-            if ( ! hash_equals( $expected, $signature ) ) {
-                return new WP_Error( 'sme_unauthorized', 'LINE signature mismatch.', array( 'status' => 401 ) );
-            }
-        }
 
         $payload = json_decode( $raw_body, true );
         if ( ! is_array( $payload ) ) {
@@ -127,7 +133,7 @@ class Synchronized_Messaging_Engine_Line_Pipe extends Synchronized_Messaging_Eng
         $conversation_id = $this->find_or_create_conversation( $user_id, $contact_name, $user_id, $subject );
 
         if ( is_wp_error( $conversation_id ) ) {
-            error_log( '[SME LINE] DB error: ' . $conversation_id->get_error_message() );
+            $this->log_debug( '[SME LINE] DB error: ' . $conversation_id->get_error_message() );
             return;
         }
 
@@ -147,7 +153,7 @@ class Synchronized_Messaging_Engine_Line_Pipe extends Synchronized_Messaging_Eng
 
         $this->maybe_send_auto_reply( $user_id, $contact_name, (string) $conversation_id );
 
-        do_action( 'sme_inbound_message_received', $conversation_id, 'line', array(
+        do_action( 'kinetix_messaging_by_ppros_inbound_message_received', $conversation_id, 'line', array(
             'userId' => $user_id, 'text' => $text, 'msgType' => $msg_type,
         ) );
     }
@@ -197,7 +203,7 @@ class Synchronized_Messaging_Engine_Line_Pipe extends Synchronized_Messaging_Eng
         if ( '' === $token ) {
             return new \WP_Error(
                 'sme_line_not_configured',
-                __( 'LINE Channel Access Token is not configured.', 'synchronized-messaging-engine' )
+                __( 'LINE Channel Access Token is not configured.', 'kinetix-messaging-by-ppros' )
             );
         }
 
@@ -215,7 +221,11 @@ class Synchronized_Messaging_Engine_Line_Pipe extends Synchronized_Messaging_Eng
         if ( is_wp_error( $result ) ) {
             return new \WP_Error(
                 'sme_line_send_error',
-                sprintf( __( 'LINE API error: %s', 'synchronized-messaging-engine' ), $result->get_error_message() ),
+                sprintf(
+                    /* translators: %s: LINE API error message */
+                    __( 'LINE API error: %s', 'kinetix-messaging-by-ppros' ),
+                    $result->get_error_message()
+                ),
                 array( 'status' => 502 )
             );
         }

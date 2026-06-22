@@ -51,6 +51,12 @@ export default function SmsSettings({ cfg, setCfg }) {
             { value: "telnyx", label: "Telnyx" },
           ]} />
 
+          {cfg.provider !== "twilio" && (
+            <div className="col-span-2">
+              <Input label="Webhook token" value={cfg.webhookToken} onChange={v => S("webhookToken", v)} placeholder="your_webhook_token" type="password" helper="Required for non-Twilio providers. Append ?token=VALUE to the webhook URL or send X-SME-Token header." />
+            </div>
+          )}
+
           {cfg.provider === "twilio" && (
             <div className="grid grid-cols-2 gap-4 pt-1">
               <div className="col-span-2">

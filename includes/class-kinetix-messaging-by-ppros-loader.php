@@ -2,12 +2,12 @@
 /**
  * Maintains and registers all hooks for the plugin.
  *
- * @package Synchronized_Messaging_Engine
+ * @package Kinetix_Messaging_By_Ppros
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Loader {
+class Kinetix_Messaging_By_Ppros_Loader {
 
     protected $actions = array();
     protected $filters = array();

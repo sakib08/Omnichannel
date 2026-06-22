@@ -2,36 +2,36 @@
 /**
  * Admin-area registration: menu, assets and capability gating.
  *
- * @package Synchronized_Messaging_Engine
+ * @package Kinetix_Messaging_By_Ppros
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Admin {
+class Kinetix_Messaging_By_Ppros_Admin {
 
-    const MENU_SLUG      = 'synchronized-messaging-engine';
-    const HELP_MENU_SLUG = 'synchronized-messaging-engine-help';
+    const MENU_SLUG      = 'kinetix-messaging-by-ppros';
+    const HELP_MENU_SLUG = 'kinetix-messaging-by-ppros-help';
 
     public function register_menu() {
         $cap = current_user_can( 'manage_options' )
             ? 'manage_options'
-            : Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING;
+            : Kinetix_Messaging_By_Ppros_Activator::CAP_ACCESS_MESSAGING;
 
         add_menu_page(
-            __( 'Synchronized Messaging Engine', 'synchronized-messaging-engine' ),
-            __( 'Messaging Engine', 'synchronized-messaging-engine' ),
+            __( 'Kinetix Messaging by Ppros', 'kinetix-messaging-by-ppros' ),
+            __( 'Kinetix Messaging', 'kinetix-messaging-by-ppros' ),
             $cap,
             self::MENU_SLUG,
             array( $this, 'render_app_container' ),
             'dashicons-email-alt',
-            6
+            58
         );
 
         // Rename the auto-generated first submenu entry to "Inbox".
         add_submenu_page(
             self::MENU_SLUG,
-            __( 'Inbox — Messaging Engine', 'synchronized-messaging-engine' ),
-            __( 'Inbox', 'synchronized-messaging-engine' ),
+            __( 'Inbox — Messaging Engine', 'kinetix-messaging-by-ppros' ),
+            __( 'Inbox', 'kinetix-messaging-by-ppros' ),
             $cap,
             self::MENU_SLUG,
             array( $this, 'render_app_container' )
@@ -40,8 +40,8 @@ class Synchronized_Messaging_Engine_Admin {
         // Help submenu.
         add_submenu_page(
             self::MENU_SLUG,
-            __( 'Help & Documentation — Messaging Engine', 'synchronized-messaging-engine' ),
-            __( 'Help', 'synchronized-messaging-engine' ),
+            __( 'Help & Documentation — Kinetix Messaging', 'kinetix-messaging-by-ppros' ),
+            __( 'Help', 'kinetix-messaging-by-ppros' ),
             $cap,
             self::HELP_MENU_SLUG,
             array( $this, 'render_help_page' )
@@ -49,66 +49,33 @@ class Synchronized_Messaging_Engine_Admin {
     }
 
     public function render_app_container() {
-        if ( ! current_user_can( Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
+        if ( ! current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_ACCESS_MESSAGING )
             && ! current_user_can( 'manage_options' ) ) {
-            wp_die( esc_html__( 'You do not have permission to access this page.', 'synchronized-messaging-engine' ) );
+            wp_die( esc_html__( 'You do not have permission to access this page.', 'kinetix-messaging-by-ppros' ) );
         }
 
-        echo '<div id="synchronized-messaging-engine"></div>';
+        echo '<div id="kinetix-messaging-by-ppros"></div>';
     }
 
     // ── Help page ──────────────────────────────────────────────────────────
 
     public function render_help_page() {
-        if ( ! current_user_can( Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
+        if ( ! current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_ACCESS_MESSAGING )
             && ! current_user_can( 'manage_options' ) ) {
-            wp_die( esc_html__( 'You do not have permission to access this page.', 'synchronized-messaging-engine' ) );
+            wp_die( esc_html__( 'You do not have permission to access this page.', 'kinetix-messaging-by-ppros' ) );
         }
 
         $webhook_base = esc_url( rest_url( 'sme/v1/webhooks/' ) );
         $rest_base    = esc_url( rest_url( 'sme/v1/' ) );
-        $plugin_ver   = PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_VERSION ?? '1.0.0';
+        $plugin_ver   = KINETIX_MESSAGING_BY_PPROS_VERSION ?? '1.0.0';
         ?>
-        <style>
-            .sme-help { max-width: 960px; margin: 24px auto; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; }
-            .sme-help h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 4px; color: #0f172a; }
-            .sme-help .sme-version { font-size: 12px; color: #94a3b8; margin-bottom: 32px; }
-            .sme-help h2 { font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 32px 0 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
-            .sme-help h3 { font-size: .95rem; font-weight: 600; color: #334155; margin: 20px 0 8px; }
-            .sme-help p, .sme-help li { font-size: .9rem; line-height: 1.7; color: #475569; }
-            .sme-help ul, .sme-help ol { padding-left: 20px; margin: 8px 0; }
-            .sme-help code { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 5px; padding: 2px 7px; font-size: .82rem; color: #4f46e5; font-family: "SFMono-Regular", Consolas, monospace; }
-            .sme-help pre { background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 16px 20px; overflow-x: auto; font-size: .82rem; font-family: "SFMono-Regular", Consolas, monospace; line-height: 1.6; margin: 10px 0 16px; }
-            .sme-help pre code { background: none; border: none; color: inherit; padding: 0; font-size: inherit; }
-            .sme-help .sme-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin: 16px 0; }
-            .sme-help .sme-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; }
-            .sme-help .sme-card strong { display: block; font-size: .9rem; color: #0f172a; margin-bottom: 6px; }
-            .sme-help .sme-card span { font-size: .82rem; color: #64748b; }
-            .sme-help .sme-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: .75rem; font-weight: 600; }
-            .sme-help .sme-badge-green  { background: #dcfce7; color: #166534; }
-            .sme-help .sme-badge-blue   { background: #dbeafe; color: #1d4ed8; }
-            .sme-help .sme-badge-purple { background: #ede9fe; color: #6d28d9; }
-            .sme-help .sme-badge-amber  { background: #fef3c7; color: #92400e; }
-            .sme-help .sme-tip  { background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 12px 0; }
-            .sme-help .sme-warn { background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 12px 0; }
-            .sme-help .sme-tip p, .sme-help .sme-warn p { margin: 0; font-size: .875rem; }
-            .sme-help table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: .85rem; }
-            .sme-help th { background: #f1f5f9; text-align: left; padding: 8px 12px; font-weight: 600; color: #334155; border-bottom: 2px solid #e2e8f0; }
-            .sme-help td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; color: #475569; vertical-align: top; }
-            .sme-help tr:last-child td { border-bottom: none; }
-            .sme-help .sme-toc { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 24px; margin-bottom: 32px; }
-            .sme-help .sme-toc a { color: #4f46e5; text-decoration: none; font-size: .875rem; }
-            .sme-help .sme-toc a:hover { text-decoration: underline; }
-            .sme-help .sme-toc li { margin: 4px 0; }
-        </style>
-
         <div class="sme-help wrap">
-            <h1>&#128233; Messaging Engine — Help &amp; Documentation</h1>
+            <h1>&#128233; Kinetix Messaging — Help &amp; Documentation</h1>
             <p class="sme-version">Version <?php echo esc_html( $plugin_ver ); ?> &nbsp;|&nbsp; REST Base: <code><?php echo esc_html( $rest_base ); ?></code></p>
 
             <!-- Table of Contents -->
             <div class="sme-toc">
-                <strong style="display:block;margin-bottom:8px;color:#0f172a;">Contents</strong>
+                <strong class="sme-toc-title">Contents</strong>
                 <ol>
                     <li><a href="#sme-quick-start">Quick Start</a></li>
                     <li><a href="#sme-channels">Channel Setup</a></li>
@@ -124,7 +91,7 @@ class Synchronized_Messaging_Engine_Admin {
             <p>Follow these four steps to go from install to receiving live messages:</p>
             <ol>
                 <li><strong>Activate the plugin</strong> — the database tables are created automatically on first activation.</li>
-                <li><strong>Open Settings</strong> — click <em>Messaging Engine → Inbox</em> then the ⚙ gear icon inside the app, or go directly to <em>Settings</em> inside the React app sidebar.</li>
+                <li><strong>Open Settings</strong> — click <em>Kinetix Messaging → Inbox</em> then the ⚙ gear icon inside the app, or go directly to <em>Settings</em> inside the React app sidebar.</li>
                 <li><strong>Enable at least one channel</strong> — paste in your API credentials and flip the <em>Enable</em> toggle, then click <strong>Save changes</strong>.</li>
                 <li><strong>Register the webhook</strong> — each channel has a <em>Webhook</em> tab with a one-click <em>Register Webhook</em> button (Telegram) or a Callback URL to paste into the platform's developer console (WhatsApp, Messenger, LINE, etc.).</li>
             </ol>
@@ -139,35 +106,35 @@ class Synchronized_Messaging_Engine_Admin {
                     <span>IMAP polling or inbound webhook (Mailgun / SendGrid / Postmark). SMTP for outbound replies.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#25D366">&#9899;</span> WhatsApp Business</strong>
+                    <strong><span class="sme-dot-whatsapp">&#9899;</span> WhatsApp Business</strong>
                     <span>Meta Business Cloud API. Requires a verified WhatsApp Business Account (WABA) and a System User token.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#0866FF">&#9899;</span> Messenger</strong>
+                    <strong><span class="sme-dot-messenger">&#9899;</span> Messenger</strong>
                     <span>Facebook Page + Meta app. Needs pages_messaging permission and App Review for production.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#229ED9">&#9899;</span> Telegram</strong>
+                    <strong><span class="sme-dot-telegram">&#9899;</span> Telegram</strong>
                     <span>Bot created via @BotFather. One-click webhook registration from the Webhook tab.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#E1306C">&#9899;</span> Instagram DM</strong>
+                    <strong><span class="sme-dot-instagram">&#9899;</span> Instagram DM</strong>
                     <span>Professional Instagram Account linked to a Facebook Page. Requires instagram_manage_messages + App Review.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#6366F1">&#9899;</span> SMS</strong>
+                    <strong><span class="sme-dot-sms">&#9899;</span> SMS</strong>
                     <span>Supports Twilio, Vonage, Sinch, Plivo, Telnyx, and MessageBird. One shared webhook for all providers.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#06C755">&#9899;</span> LINE</strong>
+                    <strong><span class="sme-dot-line">&#9899;</span> LINE</strong>
                     <span>LINE Messaging API. Channel Access Token from LINE Developers console.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#7360F2">&#9899;</span> Viber</strong>
+                    <strong><span class="sme-dot-viber">&#9899;</span> Viber</strong>
                     <span>Viber Bot / Business Messages. Auth token from the Viber Admin Panel. One-click webhook via the Webhook tab or cURL.</span>
                 </div>
                 <div class="sme-card">
-                    <strong><span style="color:#07C160">&#9899;</span> WeChat</strong>
+                    <strong><span class="sme-dot-wechat">&#9899;</span> WeChat</strong>
                     <span>WeChat Official Account (Service Account). Server URL + Token + AES Key from the WeChat admin portal.</span>
                 </div>
             </div>
@@ -202,7 +169,7 @@ class Synchronized_Messaging_Engine_Admin {
                 <li><strong>Is the webhook registered?</strong> For Telegram: use the <em>Register Webhook</em> button on the Webhook tab; the status card confirms success. For other channels: paste the URL into the developer console.</li>
                 <li><strong>Is the site on HTTPS?</strong> All platforms require a valid SSL certificate. Self-signed certs are rejected.</li>
                 <li><strong>Can the platform reach your site?</strong> If you are on <code>localhost</code> or behind a VPN/firewall, platforms cannot deliver. Use a tunnel (e.g. <a href="https://ngrok.com" target="_blank">ngrok</a>) during development.</li>
-                <li><strong>Check PHP error logs</strong> — the plugin writes <code>error_log()</code> entries prefixed with <code>[SME ChannelName]</code> for every DB error or unexpected payload.</li>
+                <li><strong>Check PHP error logs</strong> — when <code>WP_DEBUG</code> is enabled, the plugin writes debug entries prefixed with <code>[SME ChannelName]</code> for DB errors or unexpected payloads.</li>
                 <li><strong>Are pretty permalinks enabled?</strong> The REST API requires <em>Settings → Permalinks</em> to be set to anything other than <em>Plain</em>.</li>
             </ol>
 
@@ -245,7 +212,7 @@ class Synchronized_Messaging_Engine_Admin {
                     <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>viber/send</code></td>                     <td>Agent</td>    <td>Send a Viber message.</td></tr>
                     <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>viber/set-webhook</code></td>              <td>Admin</td>    <td>Register the Viber webhook via the Chat API.</td></tr>
                     <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>wechat/send</code></td>                    <td>Agent</td>    <td>Send a WeChat message.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-amber">ANY</span></td>   <td><code>webhooks/{channel}</code></td>             <td>None</td>     <td>Inbound webhook delivery (open, verified by each channel's own mechanism).</td></tr>
+                    <tr><td><span class="sme-badge sme-badge-amber">ANY</span></td>   <td><code>webhooks/{channel}</code></td>             <td>Channel secret</td>     <td>Inbound webhook delivery; each channel verifies its own signature or secret token.</td></tr>
                 </tbody>
             </table>
 
@@ -262,45 +229,51 @@ class Synchronized_Messaging_Engine_Admin {
             </table>
             <div class="sme-tip"><p>&#128161; Capabilities are added to roles during plugin <strong>activation</strong>. If you added an admin user <em>after</em> installing the plugin, deactivate and re-activate the plugin once to grant capabilities.</p></div>
 
-            <p style="margin-top:40px;color:#94a3b8;font-size:.8rem;">Synchronized Messaging Engine v<?php echo esc_html( $plugin_ver ); ?></p>
+            <p class="sme-footer">Kinetix Messaging by Ppros v<?php echo esc_html( $plugin_ver ); ?></p>
         </div>
         <?php
     }
 
     public function enqueue_assets( $hook_suffix ) {
-        // Only load on our own admin page to avoid polluting every screen.
+        // Only load on our own admin pages to avoid polluting every screen.
         if ( false === strpos( (string) $hook_suffix, self::MENU_SLUG ) ) {
             return;
         }
 
-        $asset_file_path = PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_DIR . 'build/index.asset.php';
+        if ( false !== strpos( (string) $hook_suffix, self::HELP_MENU_SLUG ) ) {
+            wp_enqueue_style(
+                'kinetix-messaging-by-ppros-help',
+                KINETIX_MESSAGING_BY_PPROS_URL . 'assets/css/admin-help.css',
+                array(),
+                KINETIX_MESSAGING_BY_PPROS_VERSION
+            );
+            return;
+        }
+
+        $asset_file_path = KINETIX_MESSAGING_BY_PPROS_DIR . 'build/index.asset.php';
         if ( ! file_exists( $asset_file_path ) ) {
             return;
         }
         $asset_file = include $asset_file_path;
 
-        // Tabler Icons webfont — loaded as a separate stylesheet so webpack
-        // only bundles app CSS (Tailwind).  Serve from CDN; if a local copy
-        // exists in the plugin's node_modules it is used as a fallback via
-        // the wp_add_inline_style trick only when the CDN request fails in
-        // environments without internet access (handled client-side).
+        // Tabler Icons webfont — bundled locally (WordPress.org disallows external CDNs).
         wp_enqueue_style(
-            'tabler-icons',
-            'https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.44.0/dist/tabler-icons.min.css',
+            'kmbp-tabler-icons',
+            KINETIX_MESSAGING_BY_PPROS_URL . 'assets/tabler-icons/tabler-icons.min.css',
             array(),
             '3.44.0'
         );
 
         wp_enqueue_style(
-            'synchronized-messaging-engine-css',
-            PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_URL . 'build/index.css',
-            array( 'tabler-icons' ),
+            'kinetix-messaging-by-ppros-css',
+            KINETIX_MESSAGING_BY_PPROS_URL . 'build/index.css',
+            array( 'kmbp-tabler-icons' ),
             $asset_file['version']
         );
 
         wp_enqueue_script(
-            'synchronized-messaging-engine-js',
-            PLUGIN_PROS_SYNCHRONIZED_MESSAGING_ENGINE_PLUGIN_URL . 'build/index.js',
+            'kinetix-messaging-by-ppros-js',
+            KINETIX_MESSAGING_BY_PPROS_URL . 'build/index.js',
             $asset_file['dependencies'],
             $asset_file['version'],
             true
@@ -308,13 +281,13 @@ class Synchronized_Messaging_Engine_Admin {
 
         $user                = wp_get_current_user();
         $is_admin            = current_user_can( 'manage_options' );
-        $can_access          = current_user_can( Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING );
-        $can_manage_settings = current_user_can( Synchronized_Messaging_Engine_Activator::CAP_MANAGE_SETTINGS );
-        $can_manage_depts    = current_user_can( Synchronized_Messaging_Engine_Activator::CAP_MANAGE_DEPTS );
+        $can_access          = current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_ACCESS_MESSAGING );
+        $can_manage_settings = current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_MANAGE_SETTINGS );
+        $can_manage_depts    = current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_MANAGE_DEPTS );
 
         wp_localize_script(
-            'synchronized-messaging-engine-js',
-            'SMEBoot',
+            'kinetix-messaging-by-ppros-js',
+            'KinetixMessagingBoot',
             array(
                 'restUrl' => esc_url_raw( rest_url( 'sme/v1/' ) ),
                 'nonce'   => wp_create_nonce( 'wp_rest' ),

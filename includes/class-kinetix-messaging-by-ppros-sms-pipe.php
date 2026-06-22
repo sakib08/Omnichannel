@@ -18,12 +18,12 @@
  *   fromNumber,                     — sending number
  *   autoReply, autoReplyMsg, optOut, optIn, helpKeyword, helpMsg
  *
- * @package Synchronized_Messaging_Engine
+ * @package Kinetix_Messaging_By_Ppros
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Sms_Pipe extends Synchronized_Messaging_Engine_Channel_Pipe_Base {
+class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
 
     // Provider-specific API endpoints.
     const TWILIO_API   = 'https://api.twilio.com/2010-04-01/Accounts/';
@@ -38,7 +38,7 @@ class Synchronized_Messaging_Engine_Sms_Pipe extends Synchronized_Messaging_Engi
     }
 
     public function register_routes(): void {
-        $ns = Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1;
 
         register_rest_route(
             $ns,
@@ -46,7 +46,7 @@ class Synchronized_Messaging_Engine_Sms_Pipe extends Synchronized_Messaging_Engi
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => array( $this, 'handle_webhook' ),
-                'permission_callback' => '__return_true',
+                'permission_callback' => array( $this, 'check_sms_webhook_permission' ),
             )
         );
 
@@ -68,18 +68,29 @@ class Synchronized_Messaging_Engine_Sms_Pipe extends Synchronized_Messaging_Engi
 
     // ── Inbound webhook ────────────────────────────────────────────────────
 
+    /**
+     * Permission callback for SMS inbound webhook POST.
+     */
+    public function check_sms_webhook_permission( WP_REST_Request $request ): bool {
+        if ( ! $this->is_channel_enabled() ) {
+            return false;
+        }
+        $cfg      = $this->get_settings();
+        $provider = strtolower( (string) ( $cfg['provider'] ?? 'twilio' ) );
+        if ( 'twilio' === $provider ) {
+            $auth_token = (string) ( $cfg['authToken'] ?? '' );
+            if ( '' === $auth_token ) {
+                return false;
+            }
+            return $this->verify_twilio_signature( $request, $auth_token );
+        }
+        return $this->verify_webhook_token( $request, (string) ( $cfg['webhookToken'] ?? '' ) );
+    }
+
     public function handle_webhook( WP_REST_Request $request ) {
         $cfg      = $this->get_settings();
         $provider = strtolower( (string) ( $cfg['provider'] ?? 'twilio' ) );
         $params   = $request->get_body_params();  // form-encoded
-
-        // Verify Twilio signature if configured.
-        if ( 'twilio' === $provider ) {
-            $auth_token = (string) ( $cfg['authToken'] ?? '' );
-            if ( '' !== $auth_token && ! $this->verify_twilio_signature( $request, $auth_token ) ) {
-                return new WP_Error( 'sme_unauthorized', 'Twilio signature mismatch.', array( 'status' => 401 ) );
-            }
-        }
 
         $normalised = $this->normalise_inbound( $params, $provider );
         if ( null === $normalised ) {
@@ -96,7 +107,7 @@ class Synchronized_Messaging_Engine_Sms_Pipe extends Synchronized_Messaging_Engi
         $conversation_id = $this->find_or_create_conversation( $from, $contact_name, $from, $subject );
 
         if ( is_wp_error( $conversation_id ) ) {
-            error_log( '[SME SMS] DB error: ' . $conversation_id->get_error_message() );
+            $this->log_debug( '[SME SMS] DB error: ' . $conversation_id->get_error_message() );
         } else {
             $this->store_message(
                 $conversation_id,
@@ -109,7 +120,7 @@ class Synchronized_Messaging_Engine_Sms_Pipe extends Synchronized_Messaging_Engi
 
             $this->maybe_send_auto_reply( $from, $contact_name, (string) $conversation_id );
 
-            do_action( 'sme_inbound_message_received', $conversation_id, 'sms', array(
+            do_action( 'kinetix_messaging_by_ppros_inbound_message_received', $conversation_id, 'sms', array(
                 'from' => $from, 'to' => $to, 'body' => $body, 'provider' => $provider,
             ) );
         }
@@ -217,7 +228,7 @@ class Synchronized_Messaging_Engine_Sms_Pipe extends Synchronized_Messaging_Engi
         $auth = (string) ( $cfg['authToken'] ?? '' );
         $from = (string) ( $cfg['fromNumber'] ?? '' );
         if ( '' === $sid || '' === $auth || '' === $from ) {
-            return new \WP_Error( 'sme_twilio_not_configured', __( 'Twilio Account SID, Auth Token, and From Number are required.', 'synchronized-messaging-engine' ) );
+            return new \WP_Error( 'sme_twilio_not_configured', __( 'Twilio Account SID, Auth Token, and From Number are required.', 'kinetix-messaging-by-ppros' ) );
         }
         $result = $this->http(
             self::TWILIO_API . $sid . '/Messages.json',
@@ -241,7 +252,7 @@ class Synchronized_Messaging_Engine_Sms_Pipe extends Synchronized_Messaging_Engi
         $secret = (string) ( $cfg['vonageSecret'] ?? '' );
         $from   = (string) ( $cfg['fromNumber'] ?? '' );
         if ( '' === $key || '' === $secret ) {
-            return new \WP_Error( 'sme_vonage_not_configured', __( 'Vonage API Key and Secret are required.', 'synchronized-messaging-engine' ) );
+            return new \WP_Error( 'sme_vonage_not_configured', __( 'Vonage API Key and Secret are required.', 'kinetix-messaging-by-ppros' ) );
         }
         $result = $this->http_post_json(
             self::VONAGE_API,
@@ -337,7 +348,7 @@ class Synchronized_Messaging_Engine_Sms_Pipe extends Synchronized_Messaging_Engi
      */
     private function verify_twilio_signature( WP_REST_Request $request, string $auth_token ): bool {
         $signature    = (string) ( $request->get_header( 'x-twilio-signature' ) ?? '' );
-        $url          = rest_url( Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1 . '/webhooks/sms' );
+        $url          = rest_url( Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1 . '/webhooks/sms' );
         $params       = $request->get_body_params();
 
         ksort( $params );

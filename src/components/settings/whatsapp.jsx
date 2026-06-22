@@ -44,6 +44,7 @@ export default function WhatsAppSettings({ cfg, setCfg }) {
             <div className="col-span-2">
               <Input label="Permanent Access Token" value={cfg.accessToken} onChange={v => S("accessToken", v)} placeholder="EAAxxxxxxxxxxxxxxxxxxxxxxx..." type="password" helper="Generate a system user token from Meta Business Settings for uninterrupted access." />
             </div>
+            <Input label="App Secret" value={cfg.appSecret} onChange={v => S("appSecret", v)} placeholder="••••••••••••••••••••••" type="password" helper="Required. Used to verify X-Hub-Signature-256 on inbound webhooks." />
             <Input label="Webhook Verify Token" value={cfg.verifyToken} onChange={v => S("verifyToken", v)} placeholder="your_webhook_verify_token" helper="Any secret string you choose." />
             <Input label="Display phone number" value={cfg.displayPhone} onChange={v => S("displayPhone", v)} placeholder="+1 555 000 0000" />
           </div>

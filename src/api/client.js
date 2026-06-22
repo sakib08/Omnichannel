@@ -1,8 +1,8 @@
-// Thin REST client around the SMEBoot bootstrap object that the WP admin
+// Thin REST client around the KinetixMessagingBoot bootstrap object that the WP admin
 // page exposes via wp_localize_script.  Falls back to sensible defaults so
 // the module is still importable when developing outside the WP admin shell.
 
-const boot = typeof window !== "undefined" && window.SMEBoot ? window.SMEBoot : {};
+const boot = typeof window !== "undefined" && window.KinetixMessagingBoot ? window.KinetixMessagingBoot : {};
 
 export const restUrl = (boot.restUrl || "/wp-json/sme/v1/").replace(/\/?$/, "/");
 
@@ -19,6 +19,29 @@ export const siteOrigin = (() => {
 /** Hostname only, e.g. "example.com" */
 export const siteHost = (() => {
   try { return new URL(restUrl).hostname; } catch (_) { return "yourdomain.com"; }
+})();
+
+/** True when the site URL is unlikely to be reachable by external webhook providers. */
+export const isLocalWebhookSite = (() => {
+  try {
+    const u = new URL(restUrl);
+    const host = u.hostname.toLowerCase();
+    if (u.protocol !== "https:") return true;
+    if (
+      host === "localhost" ||
+      host.endsWith(".test") ||
+      host.endsWith(".local") ||
+      host.endsWith(".localhost") ||
+      host.startsWith("127.") ||
+      host.startsWith("192.168.") ||
+      host.startsWith("10.")
+    ) {
+      return true;
+    }
+  } catch (_) {
+    return false;
+  }
+  return false;
 })();
 export const restNonce = boot.nonce || "";
 export const currentUser = boot.user || { id: 0, name: "Guest", email: "", roles: [] };
@@ -117,7 +140,7 @@ export const api = {
   },
 
   /** Register a Telegram webhook with a single API call. */
-  registerTelegramWebhook: () => request("telegram/set-webhook", { method: "POST" }),
+  registerTelegramWebhook: (body = {}) => request("telegram/set-webhook", { method: "POST", body }),
   /** Fetch live webhook status from Telegram (getWebhookInfo). */
   getTelegramWebhookInfo: () => request("telegram/webhook-info"),
   /** Register Viber webhook via the Viber Chat API. */

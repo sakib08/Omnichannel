@@ -1,8 +1,25 @@
 import { useState, useEffect, useCallback } from "react";
 import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
-import { webhookUrl } from "../../api/client.js";
+import { webhookUrl, isLocalWebhookSite } from "../../api/client.js";
 import api from "../../api/client.js";
+
+function stripSecrets(values) {
+  const out = { ...values };
+  for (const key of Object.keys(out)) {
+    if (typeof out[key] === "string" && /^•+$/.test(out[key])) {
+      delete out[key];
+    }
+  }
+  return out;
+}
+
+function randomWebhookSecret() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+  }
+  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+}
 
 export default function TelegramSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("bot");
@@ -31,13 +48,32 @@ export default function TelegramSettings({ cfg, setCfg }) {
     if (tab === "webhook") fetchWebhookInfo();
   }, [tab, fetchWebhookInfo]);
 
-  const handleRegisterWebhook = async () => {
+  const handleRegisterWebhook = async (dropPendingUpdates = false) => {
+    if (!cfg.botToken?.trim()) {
+      setRegisterResult({ ok: false, message: "Enter your bot token in Bot Setup first." });
+      return;
+    }
     setRegisterBusy(true);
     setRegisterResult(null);
     try {
-      const data = await api.registerTelegramWebhook();
+      const secret = cfg.webhookSecret && !/^•+$/.test(cfg.webhookSecret)
+        ? cfg.webhookSecret
+        : randomWebhookSecret();
+      if (secret !== cfg.webhookSecret) {
+        S("webhookSecret", secret);
+      }
+      await api.saveChannel("telegram", stripSecrets({ ...cfg, webhookSecret: secret }));
+      const data = await api.registerTelegramWebhook({ dropPendingUpdates });
+      if (data.webhookSecret) {
+        S("webhookSecret", data.webhookSecret);
+      }
       setWebhookInfo(data.info || null);
-      setRegisterResult({ ok: true, message: "Webhook registered successfully ✓" });
+      setRegisterResult({
+        ok: true,
+        message: dropPendingUpdates
+          ? "Webhook registered and pending queue cleared ✓"
+          : "Webhook registered successfully ✓",
+      });
     } catch (err) {
       setRegisterResult({ ok: false, message: err.message || "Registration failed" });
     } finally {
@@ -88,24 +124,51 @@ export default function TelegramSettings({ cfg, setCfg }) {
  
       {tab === "webhook" && (
         <div className="space-y-4">
+          {isLocalWebhookSite && (
+            <InfoBox type="warning">
+              Your site URL is <strong>{webhookUrl("telegram")}</strong>. Telegram servers on the public internet cannot reach local or HTTP-only addresses like <code>.test</code> or <code>localhost</code>. That causes <em>Connection timed out</em> and pending updates.
+              <br /><br />
+              Use a public <strong>HTTPS</strong> URL (staging or production), or tunnel local dev with <strong>ngrok</strong> / Cloudflare Tunnel and set WordPress <em>Site URL</em> to that HTTPS address before registering the webhook.
+            </InfoBox>
+          )}
           <InfoBox type="info">
-            Telegram delivers messages by calling your webhook URL. Click <strong>Register Webhook</strong> to point your bot at this plugin automatically — no cURL required.
+            Telegram delivers messages by calling your webhook URL. Click <strong>Register Webhook</strong> to save your Telegram settings, generate a webhook secret if needed, and point your bot at this site automatically.
           </InfoBox>
 
           {/* Webhook URL */}
           <Input label="Webhook URL (this site)" value={webhookUrl("telegram")} readOnly mono />
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Input label="Webhook Secret" value={cfg.webhookSecret} onChange={v => S("webhookSecret", v)} placeholder="Auto-generated on register" type="password" helper="Validated on every inbound webhook. Leave blank to auto-generate when you register." />
+            </div>
+            <button
+              type="button"
+              onClick={() => S("webhookSecret", randomWebhookSecret())}
+              className="mb-1 px-4 py-2 rounded-xl text-sm font-medium text-slate-300 border border-slate-700 hover:bg-slate-800 transition-colors shrink-0"
+            >
+              Generate
+            </button>
+          </div>
 
           {/* One-click register */}
           <div className="flex items-center gap-3 flex-wrap">
             <button
               style={{ background: color }}
               disabled={registerBusy || !cfg.botToken}
-              onClick={handleRegisterWebhook}
+              onClick={() => handleRegisterWebhook(false)}
               className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {registerBusy ? (
                 <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Registering…</>
               ) : "Register Webhook"}
+            </button>
+            <button
+              onClick={() => handleRegisterWebhook(true)}
+              disabled={registerBusy || !cfg.botToken}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 border border-slate-700 hover:bg-slate-800 transition-colors disabled:opacity-50"
+              title="Re-register and discard queued Telegram updates"
+            >
+              Clear pending queue
             </button>
             <button
               onClick={fetchWebhookInfo}
@@ -135,7 +198,7 @@ export default function TelegramSettings({ cfg, setCfg }) {
                 <span className={`w-2.5 h-2.5 rounded-full ${webhookInfo.registered && webhookInfo.urlMatch ? "bg-green-400" : webhookInfo.registered ? "bg-amber-400" : "bg-red-400"}`} />
                 <span className={`text-sm font-semibold ${webhookInfo.registered && webhookInfo.urlMatch ? "text-green-400" : webhookInfo.registered ? "text-amber-400" : "text-red-400"}`}>
                   {!webhookInfo.registered
-                    ? "Not registered — Telegram doesn't know where to send messages"
+                    ? "Not registered — click Register Webhook"
                     : webhookInfo.urlMatch
                       ? "Active — pointing at this site ✓"
                       : "Registered but pointing at a different URL"}
@@ -148,9 +211,19 @@ export default function TelegramSettings({ cfg, setCfg }) {
                 </p>
               )}
 
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className={`px-2 py-0.5 rounded-md border ${webhookInfo.hasWebhookSecret ? "border-green-500/30 text-green-400 bg-green-500/10" : "border-amber-500/30 text-amber-400 bg-amber-500/10"}`}>
+                  {webhookInfo.hasWebhookSecret ? "Webhook secret saved" : "No webhook secret — click Register Webhook"}
+                </span>
+                <span className={`px-2 py-0.5 rounded-md border ${webhookInfo.channelEnabled ? "border-green-500/30 text-green-400 bg-green-500/10" : "border-slate-600 text-slate-400 bg-slate-800/60"}`}>
+                  {webhookInfo.channelEnabled ? "Channel enabled" : "Channel disabled (updates accepted but ignored)"}
+                </span>
+              </div>
+
               {webhookInfo.pendingUpdateCount > 0 && (
                 <p className="text-xs text-amber-400">
                   ⚠ {webhookInfo.pendingUpdateCount} pending update{webhookInfo.pendingUpdateCount !== 1 ? "s" : ""} queued by Telegram
+                  {isLocalWebhookSite ? " — your site URL is not publicly reachable" : ""}
                 </p>
               )}
 
@@ -160,6 +233,16 @@ export default function TelegramSettings({ cfg, setCfg }) {
                   <p className="text-xs text-red-300">{webhookInfo.lastError}</p>
                   {webhookInfo.lastErrorAt && (
                     <p className="text-xs text-slate-500 mt-1">{new Date(webhookInfo.lastErrorAt * 1000).toLocaleString()}</p>
+                  )}
+                  {/401|403|unauthorized|forbidden/i.test(webhookInfo.lastError) && (
+                    <p className="text-xs text-amber-300 mt-2">
+                      Telegram was rejected by this site. Click <strong>Register Webhook</strong> again so the secret token matches, and ensure no security plugin blocks <code className="font-mono">/wp-json/sme/v1/webhooks/telegram</code>.
+                    </p>
+                  )}
+                  {/timed out|timeout|connection refused|could not resolve/i.test(webhookInfo.lastError) && (
+                    <p className="text-xs text-amber-300 mt-2">
+                      Telegram cannot reach your server on port 443. Ask your hosting provider to allow inbound HTTPS from Telegram/datacenter IPs, or move the site to a host with better international routing.
+                    </p>
                   )}
                 </div>
               )}
@@ -173,7 +256,7 @@ export default function TelegramSettings({ cfg, setCfg }) {
           )}
 
           <SectionDivider label="Manual cURL (alternative)" />
-          <CodeSnippet lang="bash" code={`curl -X POST \\\n  https://api.telegram.org/bot${cfg.botToken||"<YOUR_BOT_TOKEN>"}/setWebhook \\\n  -d "url=${webhookUrl("telegram")}" \\\n  -d "allowed_updates=[message,callback_query]"`} />
+          <CodeSnippet lang="bash" code={`curl -X POST \\\n  https://api.telegram.org/bot${cfg.botToken||"<YOUR_BOT_TOKEN>"}/setWebhook \\\n  -d "url=${webhookUrl("telegram")}" \\\n  -d "secret_token=${cfg.webhookSecret||"<WEBHOOK_SECRET>"}" \\\n  -d "allowed_updates=[message,callback_query]"`} />
 
           <SectionDivider label="Sample Incoming Update" />
           <CodeSnippet lang="json" code={`{\n  "update_id": 123456789,\n  "message": {\n    "message_id": 1,\n    "from": { "id": 987654, "first_name": "Sarah" },\n    "chat": { "id": 987654, "type": "private" },\n    "text": "Hello! I need help."\n  }\n}`} />

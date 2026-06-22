@@ -22,12 +22,12 @@
  * Manual IMAP poll trigger (for testing / debugging)
  *   POST /wp-json/sme/v1/email/poll  (requires sme_manage_settings)
  *
- * @package Synchronized_Messaging_Engine
+ * @package Kinetix_Messaging_By_Ppros
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Email_Pipe {
+class Kinetix_Messaging_By_Ppros_Email_Pipe {
 
     // ── Cron event tag ───────────────────────────────────────────────────────
     const CRON_HOOK = 'sme_imap_poll';
@@ -36,14 +36,14 @@ class Synchronized_Messaging_Engine_Email_Pipe {
     const CRON_SCHEDULE = 'sme_every_5_minutes';
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  Registration helpers called from the main Synchronized_Messaging_Engine
+    //  Registration helpers called from the main Kinetix_Messaging_By_Ppros
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Register all WordPress hooks that this class needs.
-     * Called once from Synchronized_Messaging_Engine::define_email_pipe_hooks().
+     * Called once from Kinetix_Messaging_By_Ppros::define_email_pipe_hooks().
      */
-    public function register_hooks( Synchronized_Messaging_Engine_Loader $loader ) {
+    public function register_hooks( Kinetix_Messaging_By_Ppros_Loader $loader ) {
         // REST routes
         $loader->add_action( 'rest_api_init', $this, 'register_routes' );
 
@@ -81,7 +81,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
     public function add_cron_schedule( array $schedules ): array {
         $schedules[ self::CRON_SCHEDULE ] = array(
             'interval' => 5 * MINUTE_IN_SECONDS,
-            'display'  => __( 'Every 5 minutes (SME email poll)', 'synchronized-messaging-engine' ),
+            'display'  => __( 'Every 5 minutes (SME email poll)', 'kinetix-messaging-by-ppros' ),
         );
         return $schedules;
     }
@@ -91,7 +91,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
     // ─────────────────────────────────────────────────────────────────────────
 
     public function register_routes() {
-        $ns = Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1;
 
         // ── Outbound send ────────────────────────────────────────────────────
         register_rest_route(
@@ -118,7 +118,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => array( $this, 'handle_inbound_webhook' ),
-                'permission_callback' => '__return_true',
+                'permission_callback' => array( $this, 'check_inbound_webhook_permission' ),
             )
         );
 
@@ -157,13 +157,39 @@ class Synchronized_Messaging_Engine_Email_Pipe {
     // ─────────────────────────────────────────────────────────────────────────
 
     public function check_access(): bool {
-        return current_user_can( Synchronized_Messaging_Engine_Activator::CAP_ACCESS_MESSAGING )
+        return current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_ACCESS_MESSAGING )
             || current_user_can( 'manage_options' );
     }
 
     public function check_manage_settings(): bool {
-        return current_user_can( Synchronized_Messaging_Engine_Activator::CAP_MANAGE_SETTINGS )
+        return current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_MANAGE_SETTINGS )
             || current_user_can( 'manage_options' );
+    }
+
+    /**
+     * Permission callback for inbound email webhook POST.
+     * Requires the channel to be enabled and validates the shared webhook token when set.
+     */
+    public function check_inbound_webhook_permission( WP_REST_Request $request ): bool {
+        $cfg = $this->get_settings();
+        if ( empty( $cfg['enabled'] ) ) {
+            return false;
+        }
+        $stored_token = (string) ( $cfg['webhookToken'] ?? '' );
+        return $this->verify_email_webhook_token( $request, $stored_token );
+    }
+
+    /**
+     * Validate the inbound email webhook token.
+     */
+    private function verify_email_webhook_token( WP_REST_Request $request, string $stored_token ): bool {
+        if ( '' === $stored_token ) {
+            return false;
+        }
+        $provided_token = (string) ( $request->get_header( 'x-sme-token' )
+            ?? $request->get_param( 'token' )
+            ?? '' );
+        return hash_equals( $stored_token, $provided_token );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -180,7 +206,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
         $cfg = $this->get_settings();
 
         if ( empty( $cfg['enabled'] ) ) {
-            return new WP_Error( 'sme_email_disabled', __( 'Email channel is not enabled.', 'synchronized-messaging-engine' ), array( 'status' => 503 ) );
+            return new WP_Error( 'sme_email_disabled', __( 'Email channel is not enabled.', 'kinetix-messaging-by-ppros' ), array( 'status' => 503 ) );
         }
 
         $conversation_id = (int) $request->get_param( 'conversationId' );
@@ -190,7 +216,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
         $body            = wp_kses_post( (string) $request->get_param( 'body' ) );
 
         if ( ! is_email( $to ) ) {
-            return new WP_Error( 'sme_invalid_to', __( 'Invalid recipient email address.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error( 'sme_invalid_to', __( 'Invalid recipient email address.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         $result = $this->send_via_smtp( $to, $to_name, $subject, $body, $cfg );
@@ -235,7 +261,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
      * @param array  $cfg      Email channel settings from wp_options.
      * @return true|\WP_Error
      */
-    public function send_via_smtp( string $to, string $to_name, string $subject, string $html_body, array $cfg = array() ): bool {
+    public function send_via_smtp( string $to, string $to_name, string $subject, string $html_body, array $cfg = array() ) {
         if ( empty( $cfg ) ) {
             $cfg = $this->get_settings();
         }
@@ -259,15 +285,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
             }
 
             // Auto-detect encryption from port when not explicitly set.
-            $encryption = (string) ( $cfg['smtpEncryption'] ?? '' );
-            if ( '' === $encryption ) {
-                $encryption = ( 465 === $mail->Port ) ? 'ssl' : 'tls';
-            }
-            $mail->SMTPSecure = ( 'ssl' === $encryption )
-                ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
-                : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-
-            $mail->CharSet = 'UTF-8';
+            $this->apply_smtp_encryption( $mail, $cfg );
 
             // ── Sender ───────────────────────────────────────────────────────
             $from_email = ! empty( $cfg['inboxEmail'] ) ? (string) $cfg['inboxEmail'] : (string) ( $cfg['smtpUser'] ?? '' );
@@ -296,7 +314,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
                 'sme_smtp_error',
                 sprintf(
                     /* translators: %s: error message */
-                    __( 'SMTP error: %s', 'synchronized-messaging-engine' ),
+                    __( 'SMTP error: %s', 'kinetix-messaging-by-ppros' ),
                     $e->getMessage()
                 ),
                 array( 'status' => 502 )
@@ -316,26 +334,10 @@ class Synchronized_Messaging_Engine_Email_Pipe {
      *
      * Security: callers must include a `X-SME-Token` header (or `token` body
      * param) matching the `webhookToken` stored in email settings.
-     * When `webhookToken` is empty the endpoint is open — NOT recommended for
-     * production; always set a token.
+     * The webhook is rejected when the token is not configured or does not match.
      */
     public function handle_inbound_webhook( WP_REST_Request $request ) {
         $cfg = $this->get_settings();
-
-        if ( empty( $cfg['enabled'] ) ) {
-            return new WP_Error( 'sme_email_disabled', __( 'Email channel is not enabled.', 'synchronized-messaging-engine' ), array( 'status' => 503 ) );
-        }
-
-        // ── Token verification ────────────────────────────────────────────────
-        $stored_token = (string) ( $cfg['webhookToken'] ?? '' );
-        if ( '' !== $stored_token ) {
-            $provided_token = (string) ( $request->get_header( 'x-sme-token' )
-                ?? $request->get_param( 'token' )
-                ?? '' );
-            if ( ! hash_equals( $stored_token, $provided_token ) ) {
-                return new WP_Error( 'sme_unauthorized', __( 'Invalid webhook token.', 'synchronized-messaging-engine' ), array( 'status' => 401 ) );
-            }
-        }
 
         // ── Normalise payload from various provider formats ───────────────────
         $email_data = $this->normalise_webhook_payload( $request );
@@ -385,7 +387,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
         }
 
         if ( ! is_email( $from_email ) ) {
-            return new WP_Error( 'sme_invalid_payload', __( 'Could not parse sender address.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error( 'sme_invalid_payload', __( 'Could not parse sender address.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         // ── Recipient ─────────────────────────────────────────────────────────
@@ -402,7 +404,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
             $body_html = wpautop( esc_html( $body_plain ) );
         }
         if ( '' === $body_html && '' === $body_plain ) {
-            return new WP_Error( 'sme_invalid_payload', __( 'Email body is empty.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error( 'sme_invalid_payload', __( 'Email body is empty.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         // ── Threading headers ─────────────────────────────────────────────────
@@ -441,12 +443,12 @@ class Synchronized_Messaging_Engine_Email_Pipe {
 
         if ( is_wp_error( $results ) ) {
             // Log and bail; avoid crashing the cron runner.
-            error_log( '[SME Email Pipe] IMAP poll error: ' . $results->get_error_message() );
+            $this->log_debug( '[SME Email Pipe] IMAP poll error: ' . $results->get_error_message() );
             return;
         }
 
         if ( ! empty( $results ) ) {
-            error_log( sprintf( '[SME Email Pipe] IMAP poll: processed %d new message(s).', count( $results ) ) );
+            $this->log_debug( sprintf( '[SME Email Pipe] IMAP poll: processed %d new message(s).', count( $results ) ) );
         }
     }
 
@@ -457,7 +459,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
         $cfg = $this->get_settings();
 
         if ( empty( $cfg['imapHost'] ) ) {
-            return new WP_Error( 'sme_imap_not_configured', __( 'IMAP is not configured.', 'synchronized-messaging-engine' ), array( 'status' => 400 ) );
+            return new WP_Error( 'sme_imap_not_configured', __( 'IMAP is not configured.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         $results = $this->poll_imap( $cfg );
@@ -486,7 +488,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
         if ( ! function_exists( 'imap_open' ) ) {
             return new \WP_Error(
                 'sme_imap_extension_missing',
-                __( 'The PHP IMAP extension is not installed on this server.', 'synchronized-messaging-engine' ),
+                __( 'The PHP IMAP extension is not installed on this server.', 'kinetix-messaging-by-ppros' ),
                 array( 'status' => 500 )
             );
         }
@@ -500,7 +502,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
         $user       = (string) ( $cfg['imapUser'] ?? '' );
         $pass       = (string) ( $cfg['imapPass'] ?? '' );
         $encryption = strtolower( (string) ( $cfg['imapEncryption'] ?? 'ssl' ) );
-        $mailbox    = (string) ( $cfg['imapMailbox'] ?? 'INBOX' );
+        $mailbox    = (string) ( $cfg['imapFolder'] ?? $cfg['imapMailbox'] ?? 'INBOX' );
 
         // Build IMAP connection string.
         $flags = '/imap';
@@ -686,7 +688,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
 
     /**
      * REST handler — POST /email/test-connection
-     * Tests SMTP or IMAP connectivity without sending anything.
+     * Tests SMTP (sends a test message) or IMAP connectivity.
      */
     public function handle_test_connection( WP_REST_Request $request ) {
         $type = (string) $request->get_param( 'type' );
@@ -699,36 +701,107 @@ class Synchronized_Messaging_Engine_Email_Pipe {
         return $this->test_imap( $cfg );
     }
 
-    private function test_smtp( array $cfg ) {
-        require_once ABSPATH . WPINC . '/PHPMailer/PHPMailer.php';
-        require_once ABSPATH . WPINC . '/PHPMailer/SMTP.php';
-        require_once ABSPATH . WPINC . '/PHPMailer/Exception.php';
-
-        $mail = new \PHPMailer\PHPMailer\PHPMailer( true );
-        $mail->isSMTP();
-        $mail->Host      = (string) ( $cfg['smtpHost'] ?? '' );
-        $mail->Port      = (int) ( $cfg['smtpPort'] ?? 587 );
-        $mail->Username  = (string) ( $cfg['smtpUser'] ?? '' );
-        $mail->Password  = (string) ( $cfg['smtpPass'] ?? '' );
-        $mail->SMTPAuth  = ! empty( $mail->Username );
-
-        $enc = strtolower( (string) ( $cfg['smtpEncryption'] ?? '' ) );
-        $mail->SMTPSecure = ( 'ssl' === $enc )
-            ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
-            : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-
-        try {
-            $mail->SmtpConnect();
-            $mail->smtpClose();
-            return rest_ensure_response( array( 'ok' => true, 'type' => 'smtp' ) );
-        } catch ( \PHPMailer\PHPMailer\Exception $e ) {
-            return new WP_Error( 'sme_smtp_test_failed', $e->getMessage(), array( 'status' => 502 ) );
+    /**
+     * Resolve SMTP encryption from explicit setting, UI toggles, or port.
+     */
+    private function resolve_smtp_encryption( array $cfg, int $port ): string {
+        $encryption = strtolower( (string) ( $cfg['smtpEncryption'] ?? '' ) );
+        if ( '' !== $encryption ) {
+            return $encryption;
         }
+        if ( array_key_exists( 'smtpTls', $cfg ) && empty( $cfg['smtpTls'] ) ) {
+            return '';
+        }
+        if ( 465 === $port ) {
+            return 'ssl';
+        }
+        if ( 25 === $port ) {
+            return '';
+        }
+        return 'tls';
+    }
+
+    /**
+     * Apply encryption options to a PHPMailer SMTP instance.
+     */
+    private function apply_smtp_encryption( \PHPMailer\PHPMailer\PHPMailer $mail, array $cfg ): void {
+        $encryption = $this->resolve_smtp_encryption( $cfg, (int) $mail->Port );
+        if ( '' === $encryption ) {
+            $mail->SMTPSecure   = '';
+            $mail->SMTPAutoTLS  = false;
+        } elseif ( 'ssl' === $encryption ) {
+            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+        } else {
+            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        }
+
+        if ( array_key_exists( 'smtpVerifySsl', $cfg ) && empty( $cfg['smtpVerifySsl'] ) ) {
+            $mail->SMTPOptions = array(
+                'ssl' => array(
+                    'verify_peer'       => false,
+                    'verify_peer_name'  => false,
+                    'allow_self_signed' => true,
+                ),
+            );
+        }
+
+        $mail->CharSet = 'UTF-8';
+    }
+
+    private function test_smtp( array $cfg ) {
+        if ( '' === (string) ( $cfg['smtpHost'] ?? '' ) ) {
+            return new WP_Error(
+                'sme_smtp_not_configured',
+                __( 'SMTP host is not configured.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $to = '';
+        if ( is_email( (string) ( $cfg['smtpUser'] ?? '' ) ) ) {
+            $to = (string) $cfg['smtpUser'];
+        } elseif ( is_email( (string) ( $cfg['inboxEmail'] ?? '' ) ) ) {
+            $to = (string) $cfg['inboxEmail'];
+        } else {
+            $user = wp_get_current_user();
+            $to   = (string) $user->user_email;
+        }
+
+        if ( ! is_email( $to ) ) {
+            return new WP_Error(
+                'sme_no_test_recipient',
+                __( 'Set a valid SMTP username or inbox email to receive the test message.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $subject = sprintf(
+            /* translators: %s: site name */
+            __( 'SMTP test — %s', 'kinetix-messaging-by-ppros' ),
+            get_bloginfo( 'name' )
+        );
+        $body = '<p>' . esc_html__(
+            'This is a test email from Kinetix Messaging. Your SMTP settings are working.',
+            'kinetix-messaging-by-ppros'
+        ) . '</p>';
+
+        $result = $this->send_via_smtp( $to, '', $subject, $body, $cfg );
+        if ( is_wp_error( $result ) ) {
+            return $result;
+        }
+
+        return rest_ensure_response(
+            array(
+                'ok'     => true,
+                'type'   => 'smtp',
+                'sentTo' => $to,
+            )
+        );
     }
 
     private function test_imap( array $cfg ) {
         if ( ! function_exists( 'imap_open' ) ) {
-            return new WP_Error( 'sme_imap_extension_missing', __( 'PHP IMAP extension not installed.', 'synchronized-messaging-engine' ), array( 'status' => 500 ) );
+            return new WP_Error( 'sme_imap_extension_missing', __( 'PHP IMAP extension not installed.', 'kinetix-messaging-by-ppros' ), array( 'status' => 500 ) );
         }
 
         $host       = (string) ( $cfg['imapHost'] ?? '' );
@@ -736,7 +809,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
         $user       = (string) ( $cfg['imapUser'] ?? '' );
         $pass       = (string) ( $cfg['imapPass'] ?? '' );
         $encryption = strtolower( (string) ( $cfg['imapEncryption'] ?? 'ssl' ) );
-        $mailbox    = (string) ( $cfg['imapMailbox'] ?? 'INBOX' );
+        $mailbox    = (string) ( $cfg['imapFolder'] ?? $cfg['imapMailbox'] ?? 'INBOX' );
 
         $flags = '/imap';
         if ( 'ssl' === $encryption ) {
@@ -785,7 +858,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
         $in_reply_to = (string) ( $email_data['in_reply_to'] ?? '' );
 
         if ( ! is_email( $from_email ) ) {
-            return new \WP_Error( 'sme_invalid_from', __( 'Invalid sender address.', 'synchronized-messaging-engine' ) );
+            return new \WP_Error( 'sme_invalid_from', __( 'Invalid sender address.', 'kinetix-messaging-by-ppros' ) );
         }
 
         $body = '' !== $body_html ? $body_html : wpautop( esc_html( $body_plain ) );
@@ -835,7 +908,7 @@ class Synchronized_Messaging_Engine_Email_Pipe {
          * @param int   $conversation_id
          * @param array $email_data
          */
-        do_action( 'sme_inbound_email_received', $conversation_id, $email_data );
+        do_action( 'kinetix_messaging_by_ppros_inbound_email_received', $conversation_id, $email_data );
 
         return $conversation_id;
     }
@@ -862,13 +935,14 @@ class Synchronized_Messaging_Engine_Email_Pipe {
         string $in_reply_to
     ) {
         global $wpdb;
-        $table = $wpdb->prefix . 'sme_conversations';
+
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- SME custom tables; no WordPress core API exists.
 
         // 1. Thread by in-reply-to.
         if ( '' !== $in_reply_to ) {
             $cid = (int) $wpdb->get_var(
                 $wpdb->prepare(
-                    "SELECT id FROM {$table} WHERE channel = 'email' AND external_id = %s AND status != 'closed' LIMIT 1",
+                    "SELECT id FROM {$wpdb->prefix}sme_conversations WHERE channel = 'email' AND external_id = %s AND status != 'closed' LIMIT 1",
                     $in_reply_to
                 )
             );
@@ -879,9 +953,9 @@ class Synchronized_Messaging_Engine_Email_Pipe {
 
         // 2. Thread by from + normalised subject (strip Re:/Fwd: prefixes).
         $normalised_subject = preg_replace( '/^(re|fwd?)\s*:\s*/i', '', $subject );
-        $cid = (int) $wpdb->get_var(
+        $cid = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->prepare(
-                "SELECT id FROM {$table}
+                "SELECT id FROM {$wpdb->prefix}sme_conversations
                  WHERE channel = 'email'
                    AND contact_handle = %s
                    AND subject LIKE %s
@@ -897,8 +971,8 @@ class Synchronized_Messaging_Engine_Email_Pipe {
         }
 
         // 3. Create a new conversation.
-        $ok = $wpdb->insert(
-            $table,
+        $ok = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $wpdb->prefix . 'sme_conversations',
             array(
                 'channel'        => 'email',
                 'external_id'    => $message_id,
@@ -917,9 +991,10 @@ class Synchronized_Messaging_Engine_Email_Pipe {
         );
 
         if ( false === $ok ) {
-            return new \WP_Error( 'sme_db_error', __( 'Could not create conversation.', 'synchronized-messaging-engine' ) );
+            return new \WP_Error( 'sme_db_error', __( 'Could not create conversation.', 'kinetix-messaging-by-ppros' ) );
         }
 
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         return (int) $wpdb->insert_id;
     }
 
@@ -943,6 +1018,8 @@ class Synchronized_Messaging_Engine_Email_Pipe {
         string $external_id = ''
     ): int {
         global $wpdb;
+
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- SME custom tables; no WordPress core API exists.
 
         $current_user = wp_get_current_user();
 
@@ -975,6 +1052,8 @@ class Synchronized_Messaging_Engine_Email_Pipe {
             array( '%d' )
         );
 
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
         return $message_id;
     }
 
@@ -985,12 +1064,14 @@ class Synchronized_Messaging_Engine_Email_Pipe {
      */
     private function find_message_by_external_id( string $external_id ): int {
         global $wpdb;
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- SME custom tables; no WordPress core API exists.
         return (int) $wpdb->get_var(
             $wpdb->prepare(
                 "SELECT id FROM {$wpdb->prefix}sme_messages WHERE external_id = %s LIMIT 1",
                 $external_id
             )
         );
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     }
 
     /**
@@ -1000,12 +1081,14 @@ class Synchronized_Messaging_Engine_Email_Pipe {
      */
     private function get_conversation_id_for_message( int $message_id ): int {
         global $wpdb;
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- SME custom tables; no WordPress core API exists.
         return (int) $wpdb->get_var(
             $wpdb->prepare(
                 "SELECT conversation_id FROM {$wpdb->prefix}sme_messages WHERE id = %d LIMIT 1",
                 $message_id
             )
         );
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1013,12 +1096,25 @@ class Synchronized_Messaging_Engine_Email_Pipe {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
+     * Log a debug message when WP_DEBUG is enabled.
+     *
+     * @param string $message Log message.
+     */
+    private function log_debug( string $message ): void {
+        if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG ) {
+            return;
+        }
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug only when WP_DEBUG is true.
+        error_log( $message );
+    }
+
+    /**
      * Return the `email` sub-array from wp_options (plain credentials, not scrubbed).
      *
      * @return array
      */
     private function get_settings(): array {
-        $all = (array) get_option( Synchronized_Messaging_Engine_Activator::SETTINGS_OPTION, array() );
+        $all = (array) get_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, array() );
         return isset( $all['email'] ) ? (array) $all['email'] : array();
     }
 }

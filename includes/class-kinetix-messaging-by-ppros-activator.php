@@ -10,12 +10,12 @@
  *  - Seed default platform settings in wp_options so the React app has
  *    something to read on first load.
  *
- * @package Synchronized_Messaging_Engine
+ * @package Kinetix_Messaging_By_Ppros
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Activator {
+class Kinetix_Messaging_By_Ppros_Activator {
 
     const DB_VERSION_OPTION    = 'sme_db_version';
     const DB_VERSION           = '1.0.0';
@@ -31,12 +31,12 @@ class Synchronized_Messaging_Engine_Activator {
         self::migrate_settings_keys();
         self::seed_default_settings();
         self::seed_default_departments();
-        Synchronized_Messaging_Engine_Email_Pipe::schedule_cron();
+        Kinetix_Messaging_By_Ppros_Email_Pipe::schedule_cron();
     }
 
     public static function deactivate() {
         // Unschedule the IMAP poll cron on deactivation.
-        Synchronized_Messaging_Engine_Email_Pipe::unschedule_cron();
+        Kinetix_Messaging_By_Ppros_Email_Pipe::unschedule_cron();
         // Roles/caps and data are intentionally left in place on deactivation
         // so the admin doesn't lose history.  Removed only on uninstall.
     }
@@ -128,7 +128,7 @@ class Synchronized_Messaging_Engine_Activator {
         if ( null === $existing ) {
             add_role(
                 self::AGENT_ROLE,
-                __( 'Messaging Agent', 'synchronized-messaging-engine' ),
+                __( 'Messaging Agent', 'kinetix-messaging-by-ppros' ),
                 array(
                     'read'                       => true,
                     self::CAP_ACCESS_MESSAGING   => true,
@@ -197,11 +197,12 @@ class Synchronized_Messaging_Engine_Activator {
                 'verifyToken'    => '',
             ),
             'email' => array(
-                'enabled'    => false,
-                'inboxName'  => '',
-                'inboxEmail' => '',
-                'senderName' => '',
-                'smtpHost'   => '',
+                'enabled'      => false,
+                'inboxName'    => '',
+                'inboxEmail'   => '',
+                'senderName'   => '',
+                'webhookToken' => '',
+                'smtpHost'     => '',
                 'smtpPort'   => '587',
                 'smtpUser'   => '',
                 'smtpPass'   => '',
@@ -215,20 +216,23 @@ class Synchronized_Messaging_Engine_Activator {
                 'wabaid'        => '',
                 'phoneNumberId' => '',
                 'accessToken'   => '',
+                'appSecret'     => '',
                 'verifyToken'   => '',
                 'displayPhone'  => '',
             ),
             'telegram' => array(
-                'enabled'     => false,
-                'botToken'    => '',
-                'botUsername' => '',
-                'botName'     => '',
+                'enabled'       => false,
+                'botToken'      => '',
+                'botUsername'   => '',
+                'botName'       => '',
+                'webhookSecret' => '',
             ),
             'sms' => array(
-                'enabled'    => false,
-                'provider'   => 'twilio',
-                'accountSid' => '',
-                'authToken'  => '',
+                'enabled'      => false,
+                'provider'     => 'twilio',
+                'accountSid'   => '',
+                'authToken'    => '',
+                'webhookToken' => '',
                 'fromNumber' => '',
             ),
             'line' => array(
@@ -262,8 +266,8 @@ class Synchronized_Messaging_Engine_Activator {
      */
     private static function seed_default_departments() {
         global $wpdb;
-        $table = $wpdb->prefix . 'sme_departments';
-        $existing = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- SME custom tables; no WordPress core API exists.
+        $existing = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}sme_departments" );
         if ( $existing > 0 ) {
             return;
         }
@@ -275,8 +279,8 @@ class Synchronized_Messaging_Engine_Activator {
         );
 
         foreach ( $seed as $row ) {
-            $wpdb->insert(
-                $table,
+            $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+                $wpdb->prefix . 'sme_departments',
                 array(
                     'name'        => $row['name'],
                     'slug'        => $row['slug'],
@@ -286,5 +290,6 @@ class Synchronized_Messaging_Engine_Activator {
                 array( '%s', '%s', '%s', '%s' )
             );
         }
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     }
 }

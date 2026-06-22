@@ -1,0 +1,209 @@
+.sme-help {
+	max-width: 960px;
+	margin: 24px auto;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	color: #1e293b;
+}
+
+.sme-help h1 {
+	font-size: 1.6rem;
+	font-weight: 700;
+	margin-bottom: 4px;
+	color: #0f172a;
+}
+
+.sme-help .sme-version {
+	font-size: 12px;
+	color: #94a3b8;
+	margin-bottom: 32px;
+}
+
+.sme-help h2 {
+	font-size: 1.1rem;
+	font-weight: 700;
+	color: #1e293b;
+	margin: 32px 0 12px;
+	border-bottom: 2px solid #e2e8f0;
+	padding-bottom: 8px;
+}
+
+.sme-help h3 {
+	font-size: .95rem;
+	font-weight: 600;
+	color: #334155;
+	margin: 20px 0 8px;
+}
+
+.sme-help p,
+.sme-help li {
+	font-size: .9rem;
+	line-height: 1.7;
+	color: #475569;
+}
+
+.sme-help ul,
+.sme-help ol {
+	padding-left: 20px;
+	margin: 8px 0;
+}
+
+.sme-help code {
+	background: #f1f5f9;
+	border: 1px solid #e2e8f0;
+	border-radius: 5px;
+	padding: 2px 7px;
+	font-size: .82rem;
+	color: #4f46e5;
+	font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+.sme-help pre {
+	background: #0f172a;
+	color: #e2e8f0;
+	border-radius: 10px;
+	padding: 16px 20px;
+	overflow-x: auto;
+	font-size: .82rem;
+	font-family: "SFMono-Regular", Consolas, monospace;
+	line-height: 1.6;
+	margin: 10px 0 16px;
+}
+
+.sme-help pre code {
+	background: none;
+	border: none;
+	color: inherit;
+	padding: 0;
+	font-size: inherit;
+}
+
+.sme-help .sme-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+	gap: 16px;
+	margin: 16px 0;
+}
+
+.sme-help .sme-card {
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 12px;
+	padding: 16px 20px;
+}
+
+.sme-help .sme-card strong {
+	display: block;
+	font-size: .9rem;
+	color: #0f172a;
+	margin-bottom: 6px;
+}
+
+.sme-help .sme-card span {
+	font-size: .82rem;
+	color: #64748b;
+}
+
+.sme-help .sme-badge {
+	display: inline-block;
+	padding: 2px 10px;
+	border-radius: 20px;
+	font-size: .75rem;
+	font-weight: 600;
+}
+
+.sme-help .sme-badge-green  { background: #dcfce7; color: #166534; }
+.sme-help .sme-badge-blue   { background: #dbeafe; color: #1d4ed8; }
+.sme-help .sme-badge-purple { background: #ede9fe; color: #6d28d9; }
+.sme-help .sme-badge-amber  { background: #fef3c7; color: #92400e; }
+
+.sme-help .sme-tip {
+	background: #eff6ff;
+	border-left: 4px solid #3b82f6;
+	border-radius: 0 8px 8px 0;
+	padding: 12px 16px;
+	margin: 12px 0;
+}
+
+.sme-help .sme-warn {
+	background: #fffbeb;
+	border-left: 4px solid #f59e0b;
+	border-radius: 0 8px 8px 0;
+	padding: 12px 16px;
+	margin: 12px 0;
+}
+
+.sme-help .sme-tip p,
+.sme-help .sme-warn p {
+	margin: 0;
+	font-size: .875rem;
+}
+
+.sme-help table {
+	border-collapse: collapse;
+	width: 100%;
+	margin: 12px 0;
+	font-size: .85rem;
+}
+
+.sme-help th {
+	background: #f1f5f9;
+	text-align: left;
+	padding: 8px 12px;
+	font-weight: 600;
+	color: #334155;
+	border-bottom: 2px solid #e2e8f0;
+}
+
+.sme-help td {
+	padding: 8px 12px;
+	border-bottom: 1px solid #f1f5f9;
+	color: #475569;
+	vertical-align: top;
+}
+
+.sme-help tr:last-child td {
+	border-bottom: none;
+}
+
+.sme-help .sme-toc {
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 12px;
+	padding: 16px 24px;
+	margin-bottom: 32px;
+}
+
+.sme-help .sme-toc-title {
+	display: block;
+	margin-bottom: 8px;
+	color: #0f172a;
+}
+
+.sme-help .sme-toc a {
+	color: #4f46e5;
+	text-decoration: none;
+	font-size: .875rem;
+}
+
+.sme-help .sme-toc a:hover {
+	text-decoration: underline;
+}
+
+.sme-help .sme-toc li {
+	margin: 4px 0;
+}
+
+.sme-help .sme-footer {
+	margin-top: 40px;
+	color: #94a3b8;
+	font-size: .8rem;
+}
+
+.sme-help .sme-dot-whatsapp  { color: #25D366; }
+.sme-help .sme-dot-messenger { color: #0866FF; }
+.sme-help .sme-dot-telegram  { color: #229ED9; }
+.sme-help .sme-dot-instagram { color: #E1306C; }
+.sme-help .sme-dot-sms       { color: #6366F1; }
+.sme-help .sme-dot-line      { color: #06C755; }
+.sme-help .sme-dot-viber     { color: #7360F2; }
+.sme-help .sme-dot-wechat    { color: #07C160; }

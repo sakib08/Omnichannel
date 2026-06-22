@@ -11,15 +11,15 @@
  *            Agents POST { conversationId, recipientId (phone), text }.
  *
  * Settings keys (stored under sme_platform_settings['whatsapp']):
- *   enabled, accessToken, phoneNumberId, wabaid, verifyToken,
+ *   enabled, accessToken, phoneNumberId, wabaid, verifyToken, appSecret,
  *   displayPhone, autoReply, autoReplyMsg, readReceipts
  *
- * @package Synchronized_Messaging_Engine
+ * @package Kinetix_Messaging_By_Ppros
  */
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-class Synchronized_Messaging_Engine_Whatsapp_Pipe extends Synchronized_Messaging_Engine_Channel_Pipe_Base {
+class Kinetix_Messaging_By_Ppros_Whatsapp_Pipe extends Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
 
     const GRAPH_API = 'https://graph.facebook.com/v19.0/';
 
@@ -28,7 +28,7 @@ class Synchronized_Messaging_Engine_Whatsapp_Pipe extends Synchronized_Messaging
     }
 
     public function register_routes(): void {
-        $ns = Synchronized_Messaging_Engine_Rest_Api::NAMESPACE_V1;
+        $ns = Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1;
 
         // GET: webhook hub verification.
         register_rest_route(
@@ -38,12 +38,12 @@ class Synchronized_Messaging_Engine_Whatsapp_Pipe extends Synchronized_Messaging
                 array(
                     'methods'             => WP_REST_Server::READABLE,
                     'callback'            => array( $this, 'handle_webhook_verify' ),
-                    'permission_callback' => '__return_true',
+                    'permission_callback' => array( $this, 'check_meta_hub_verify_permission' ),
                 ),
                 array(
                     'methods'             => WP_REST_Server::CREATABLE,
                     'callback'            => array( $this, 'handle_webhook' ),
-                    'permission_callback' => '__return_true',
+                    'permission_callback' => array( $this, 'check_meta_inbound_webhook_permission' ),
                 ),
             )
         );
@@ -67,17 +67,8 @@ class Synchronized_Messaging_Engine_Whatsapp_Pipe extends Synchronized_Messaging
     // ── Webhook hub verification (GET) ─────────────────────────────────────
 
     public function handle_webhook_verify( WP_REST_Request $request ) {
-        $cfg  = $this->get_settings();
-        $mode  = (string) ( $request->get_param( 'hub_mode' ) ?? '' );
-        $token = (string) ( $request->get_param( 'hub_verify_token' ) ?? '' );
         $challenge = (string) ( $request->get_param( 'hub_challenge' ) ?? '' );
-
-        if ( 'subscribe' === $mode && hash_equals( (string) ( $cfg['verifyToken'] ?? '' ), $token ) ) {
-            // Must return the raw challenge string, not JSON.
-            return new WP_REST_Response( $challenge, 200, array( 'Content-Type' => 'text/plain' ) );
-        }
-
-        return new WP_Error( 'sme_forbidden', 'Verification failed.', array( 'status' => 403 ) );
+        return new WP_REST_Response( $challenge, 200, array( 'Content-Type' => 'text/plain' ) );
     }
 
     // ── Inbound webhook (POST) ─────────────────────────────────────────────
@@ -141,7 +132,7 @@ class Synchronized_Messaging_Engine_Whatsapp_Pipe extends Synchronized_Messaging
         );
 
         if ( is_wp_error( $conversation_id ) ) {
-            error_log( '[SME WhatsApp] DB error: ' . $conversation_id->get_error_message() );
+            $this->log_debug( '[SME WhatsApp] DB error: ' . $conversation_id->get_error_message() );
             return;
         }
 
@@ -161,7 +152,7 @@ class Synchronized_Messaging_Engine_Whatsapp_Pipe extends Synchronized_Messaging
 
         $this->maybe_send_auto_reply( $from, $contact_name, (string) $conversation_id );
 
-        do_action( 'sme_inbound_message_received', $conversation_id, 'whatsapp', array(
+        do_action( 'kinetix_messaging_by_ppros_inbound_message_received', $conversation_id, 'whatsapp', array(
             'from' => $from, 'text' => $text, 'type' => $type,
         ) );
     }
@@ -178,7 +169,7 @@ class Synchronized_Messaging_Engine_Whatsapp_Pipe extends Synchronized_Messaging
         if ( '' === $token || '' === $phone_number_id ) {
             return new \WP_Error(
                 'sme_whatsapp_not_configured',
-                __( 'WhatsApp accessToken and phoneNumberId are required.', 'synchronized-messaging-engine' )
+                __( 'WhatsApp accessToken and phoneNumberId are required.', 'kinetix-messaging-by-ppros' )
             );
         }
 
@@ -197,7 +188,11 @@ class Synchronized_Messaging_Engine_Whatsapp_Pipe extends Synchronized_Messaging
         if ( is_wp_error( $result ) ) {
             return new \WP_Error(
                 'sme_whatsapp_send_error',
-                sprintf( __( 'WhatsApp API error: %s', 'synchronized-messaging-engine' ), $result->get_error_message() ),
+                sprintf(
+                    /* translators: %s: WhatsApp API error message */
+                    __( 'WhatsApp API error: %s', 'kinetix-messaging-by-ppros' ),
+                    $result->get_error_message()
+                ),
                 array( 'status' => 502 )
             );
         }
