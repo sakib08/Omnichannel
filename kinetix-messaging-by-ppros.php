@@ -3,9 +3,9 @@
  * Plugin Name: Kinetix Messaging by Ppros
  * Description: A powerful plugin that synchronizes messaging across multiple platforms, ensuring seamless communication and enhanced user engagement.
  * Version: 1.0.2
- * @author    PluginPros - https://pluginpros.co
- * Author: pluginpros
- * Author URI: https://pluginpros.co
+ * @author    Plugin Pros - https://pluginpros.co
+ * Author: sakibbd08
+ * Author URI: https://profiles.wordpress.org/sakibbd08/
  * Tested up to: 7.0
  * Text Domain: kinetix-messaging-by-ppros
  * Domain Path: /languages
