@@ -2,15 +2,15 @@
 /**
  * WhatsApp Business Cloud API connector.
  *
- * Inbound  — GET  /wp-json/sme/v1/webhooks/whatsapp  (hub verification)
- *            POST /wp-json/sme/v1/webhooks/whatsapp  (message events)
+ * Inbound  — GET  /wp-json/kmbp/v1/webhooks/whatsapp  (hub verification)
+ *            POST /wp-json/kmbp/v1/webhooks/whatsapp  (message events)
  *            Paste callback URL + verify token in:
  *            Meta for Developers → App → WhatsApp → Configuration → Webhooks
  *
- * Outbound — POST /wp-json/sme/v1/whatsapp/send
+ * Outbound — POST /wp-json/kmbp/v1/whatsapp/send
  *            Agents POST { conversationId, recipientId (phone), text }.
  *
- * Settings keys (stored under sme_platform_settings['whatsapp']):
+ * Settings keys (stored under kmbp_platform_settings['whatsapp']):
  *   enabled, accessToken, phoneNumberId, wabaid, verifyToken, appSecret,
  *   displayPhone, autoReply, autoReplyMsg, readReceipts
  *
@@ -132,7 +132,7 @@ class Kinetix_Messaging_By_Ppros_Whatsapp_Pipe extends Kinetix_Messaging_By_Ppro
         );
 
         if ( is_wp_error( $conversation_id ) ) {
-            $this->log_debug( '[SME WhatsApp] DB error: ' . $conversation_id->get_error_message() );
+            $this->log_debug( '[KMBP WhatsApp] DB error: ' . $conversation_id->get_error_message() );
             return;
         }
 
@@ -152,7 +152,7 @@ class Kinetix_Messaging_By_Ppros_Whatsapp_Pipe extends Kinetix_Messaging_By_Ppro
 
         $this->maybe_send_auto_reply( $from, $contact_name, (string) $conversation_id );
 
-        do_action( 'kinetix_messaging_by_ppros_inbound_message_received', $conversation_id, 'whatsapp', array(
+        do_action( 'kmbp_inbound_message_received', $conversation_id, 'whatsapp', array(
             'from' => $from, 'text' => $text, 'type' => $type,
         ) );
     }
@@ -168,7 +168,7 @@ class Kinetix_Messaging_By_Ppros_Whatsapp_Pipe extends Kinetix_Messaging_By_Ppro
 
         if ( '' === $token || '' === $phone_number_id ) {
             return new \WP_Error(
-                'sme_whatsapp_not_configured',
+                'kmbp_whatsapp_not_configured',
                 __( 'WhatsApp accessToken and phoneNumberId are required.', 'kinetix-messaging-by-ppros' )
             );
         }
@@ -187,7 +187,7 @@ class Kinetix_Messaging_By_Ppros_Whatsapp_Pipe extends Kinetix_Messaging_By_Ppro
 
         if ( is_wp_error( $result ) ) {
             return new \WP_Error(
-                'sme_whatsapp_send_error',
+                'kmbp_whatsapp_send_error',
                 sprintf(
                     /* translators: %s: WhatsApp API error message */
                     __( 'WhatsApp API error: %s', 'kinetix-messaging-by-ppros' ),

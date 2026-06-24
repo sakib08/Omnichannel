@@ -24,7 +24,7 @@ function MessageBubble({ message, conv }) {
         >
           {message.isHtml ? (
             <div
-              className="sme-email-body prose prose-sm max-w-none"
+              className="kmbp-email-body prose prose-sm max-w-none"
               /* Email HTML has already passed wp_kses_post on the server */
               dangerouslySetInnerHTML={{ __html: message.text }}
             />

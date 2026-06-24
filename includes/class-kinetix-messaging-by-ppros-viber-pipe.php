@@ -2,19 +2,19 @@
 /**
  * Viber Bot / Business Messages connector.
  *
- * Inbound  — POST /wp-json/sme/v1/webhooks/viber
+ * Inbound  — POST /wp-json/kmbp/v1/webhooks/viber
  *            Viber pushes signed JSON events to this endpoint.
  *            Register with:
  *              curl -X POST https://chatapi.viber.com/pa/set_webhook \
  *                -H "X-Viber-Auth-Token: <AUTH_TOKEN>" \
  *                -H "Content-Type: application/json" \
- *                -d '{"url":"<SITE>/wp-json/sme/v1/webhooks/viber",
+ *                -d '{"url":"<SITE>/wp-json/kmbp/v1/webhooks/viber",
  *                     "event_types":["message","delivered","seen","failed"]}'
  *
- * Outbound — POST /wp-json/sme/v1/viber/send
+ * Outbound — POST /wp-json/kmbp/v1/viber/send
  *            Agents POST { conversationId, recipientId (viber_id), text }.
  *
- * Settings keys (stored under sme_platform_settings['viber']):
+ * Settings keys (stored under kmbp_platform_settings['viber']):
  *   enabled, authToken, botName, senderId, avatarUrl,
  *   fetchProfile, deliveryReceipts, media, autoAssign, autoReplyMsg
  *
@@ -150,7 +150,7 @@ class Kinetix_Messaging_By_Ppros_Viber_Pipe extends Kinetix_Messaging_By_Ppros_C
         );
 
         if ( is_wp_error( $conversation_id ) ) {
-            $this->log_debug( '[SME Viber] DB error: ' . $conversation_id->get_error_message() );
+            $this->log_debug( '[KMBP Viber] DB error: ' . $conversation_id->get_error_message() );
             return;
         }
 
@@ -165,7 +165,7 @@ class Kinetix_Messaging_By_Ppros_Viber_Pipe extends Kinetix_Messaging_By_Ppros_C
 
         $this->maybe_send_auto_reply( $user_id, $contact_name, (string) $conversation_id );
 
-        do_action( 'kinetix_messaging_by_ppros_inbound_message_received', $conversation_id, 'viber', array(
+        do_action( 'kmbp_inbound_message_received', $conversation_id, 'viber', array(
             'userId' => $user_id, 'text' => $text, 'msgType' => $msg_type,
         ) );
     }
@@ -199,7 +199,7 @@ class Kinetix_Messaging_By_Ppros_Viber_Pipe extends Kinetix_Messaging_By_Ppros_C
 
         if ( '' === $token ) {
             return new \WP_Error(
-                'sme_viber_not_configured',
+                'kmbp_viber_not_configured',
                 __( 'Viber authentication token is not configured.', 'kinetix-messaging-by-ppros' )
             );
         }
@@ -222,7 +222,7 @@ class Kinetix_Messaging_By_Ppros_Viber_Pipe extends Kinetix_Messaging_By_Ppros_C
 
         if ( is_wp_error( $result ) ) {
             return new \WP_Error(
-                'sme_viber_send_error',
+                'kmbp_viber_send_error',
                 sprintf(
                     /* translators: %s: Viber API error message */
                     __( 'Viber API error: %s', 'kinetix-messaging-by-ppros' ),
@@ -234,7 +234,7 @@ class Kinetix_Messaging_By_Ppros_Viber_Pipe extends Kinetix_Messaging_By_Ppros_C
 
         if ( isset( $result['status'] ) && 0 !== (int) $result['status'] ) {
             return new \WP_Error(
-                'sme_viber_api_error',
+                'kmbp_viber_api_error',
                 sprintf( 'Viber error %d: %s', (int) $result['status'], $result['status_message'] ?? '' ),
                 array( 'status' => 502 )
             );
@@ -249,7 +249,7 @@ class Kinetix_Messaging_By_Ppros_Viber_Pipe extends Kinetix_Messaging_By_Ppros_C
         $cfg   = $this->get_settings();
         $token = (string) ( $cfg['authToken'] ?? '' );
         if ( '' === $token ) {
-            return new WP_Error( 'sme_no_token', __( 'Viber auth token is not configured.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+            return new WP_Error( 'kmbp_no_token', __( 'Viber auth token is not configured.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         $webhook_url = rest_url( Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1 . '/webhooks/viber' );

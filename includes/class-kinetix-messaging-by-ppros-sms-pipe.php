@@ -2,15 +2,15 @@
 /**
  * SMS connector — supports Twilio, Vonage, and generic providers.
  *
- * Inbound  — POST /wp-json/sme/v1/webhooks/sms
+ * Inbound  — POST /wp-json/kmbp/v1/webhooks/sms
  *            Generic endpoint compatible with Twilio, Vonage, and others.
  *            Twilio:  set Messaging → Webhook URL → HTTP POST
  *            Vonage:  set Inbound Message URL → HTTP POST
  *
- * Outbound — POST /wp-json/sme/v1/sms/send
+ * Outbound — POST /wp-json/kmbp/v1/sms/send
  *            Agents POST { conversationId, recipientId (phone), text }.
  *
- * Settings keys (stored under sme_platform_settings['sms']):
+ * Settings keys (stored under kmbp_platform_settings['sms']):
  *   enabled, provider ('twilio'|'vonage'|'messagebird'|'sinch'|'plivo'|'telnyx'),
  *   accountSid, authToken,          — Twilio
  *   vonageKey, vonageSecret,        — Vonage
@@ -107,7 +107,7 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
         $conversation_id = $this->find_or_create_conversation( $from, $contact_name, $from, $subject );
 
         if ( is_wp_error( $conversation_id ) ) {
-            $this->log_debug( '[SME SMS] DB error: ' . $conversation_id->get_error_message() );
+            $this->log_debug( '[KMBP SMS] DB error: ' . $conversation_id->get_error_message() );
         } else {
             $this->store_message(
                 $conversation_id,
@@ -120,7 +120,7 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
 
             $this->maybe_send_auto_reply( $from, $contact_name, (string) $conversation_id );
 
-            do_action( 'kinetix_messaging_by_ppros_inbound_message_received', $conversation_id, 'sms', array(
+            do_action( 'kmbp_inbound_message_received', $conversation_id, 'sms', array(
                 'from' => $from, 'to' => $to, 'body' => $body, 'provider' => $provider,
             ) );
         }
@@ -187,14 +187,14 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
     private function handle_compliance_keywords( string $keyword, string $from, array $cfg ): void {
         if ( in_array( $keyword, array( 'STOP', 'UNSUBSCRIBE', 'QUIT', 'CANCEL', 'END' ), true ) ) {
             if ( ! empty( $cfg['optOut'] ) ) {
-                update_user_meta( 0, 'sme_sms_optout_' . md5( $from ), 1 );
+                update_user_meta( 0, 'kmbp_sms_optout_' . md5( $from ), 1 );
             }
             return;
         }
 
         if ( in_array( $keyword, array( 'START', 'SUBSCRIBE', 'YES' ), true ) ) {
             if ( ! empty( $cfg['optIn'] ) ) {
-                delete_user_meta( 0, 'sme_sms_optout_' . md5( $from ) );
+                delete_user_meta( 0, 'kmbp_sms_optout_' . md5( $from ) );
             }
             return;
         }
@@ -219,7 +219,7 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
             'plivo'       => $this->send_plivo( $recipient_id, $text, $cfg ),
             'telnyx'      => $this->send_telnyx( $recipient_id, $text, $cfg ),
             'messagebird' => $this->send_messagebird( $recipient_id, $text, $cfg ),
-            default       => new \WP_Error( 'sme_sms_unknown_provider', "Unknown SMS provider: {$provider}" ),
+            default       => new \WP_Error( 'kmbp_sms_unknown_provider', "Unknown SMS provider: {$provider}" ),
         };
     }
 
@@ -228,7 +228,7 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
         $auth = (string) ( $cfg['authToken'] ?? '' );
         $from = (string) ( $cfg['fromNumber'] ?? '' );
         if ( '' === $sid || '' === $auth || '' === $from ) {
-            return new \WP_Error( 'sme_twilio_not_configured', __( 'Twilio Account SID, Auth Token, and From Number are required.', 'kinetix-messaging-by-ppros' ) );
+            return new \WP_Error( 'kmbp_twilio_not_configured', __( 'Twilio Account SID, Auth Token, and From Number are required.', 'kinetix-messaging-by-ppros' ) );
         }
         $result = $this->http(
             self::TWILIO_API . $sid . '/Messages.json',
@@ -242,7 +242,7 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
             )
         );
         if ( is_wp_error( $result ) ) {
-            return new \WP_Error( 'sme_twilio_send_error', $result->get_error_message(), array( 'status' => 502 ) );
+            return new \WP_Error( 'kmbp_twilio_send_error', $result->get_error_message(), array( 'status' => 502 ) );
         }
         return $result;
     }
@@ -252,14 +252,14 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
         $secret = (string) ( $cfg['vonageSecret'] ?? '' );
         $from   = (string) ( $cfg['fromNumber'] ?? '' );
         if ( '' === $key || '' === $secret ) {
-            return new \WP_Error( 'sme_vonage_not_configured', __( 'Vonage API Key and Secret are required.', 'kinetix-messaging-by-ppros' ) );
+            return new \WP_Error( 'kmbp_vonage_not_configured', __( 'Vonage API Key and Secret are required.', 'kinetix-messaging-by-ppros' ) );
         }
         $result = $this->http_post_json(
             self::VONAGE_API,
-            array( 'api_key' => $key, 'api_secret' => $secret, 'to' => $to, 'from' => $from ?: 'SME', 'text' => $text )
+            array( 'api_key' => $key, 'api_secret' => $secret, 'to' => $to, 'from' => $from ?: 'KMBP', 'text' => $text )
         );
         if ( is_wp_error( $result ) ) {
-            return new \WP_Error( 'sme_vonage_send_error', $result->get_error_message(), array( 'status' => 502 ) );
+            return new \WP_Error( 'kmbp_vonage_send_error', $result->get_error_message(), array( 'status' => 502 ) );
         }
         return $result;
     }
@@ -269,7 +269,7 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
         $secret = (string) ( $cfg['genericSecret'] ?? '' );
         $from   = (string) ( $cfg['fromNumber'] ?? '' );
         if ( '' === $key ) {
-            return new \WP_Error( 'sme_sinch_not_configured', 'Sinch API key required.' );
+            return new \WP_Error( 'kmbp_sinch_not_configured', 'Sinch API key required.' );
         }
         $result = $this->http_post_json(
             self::SINCH_API . $key . '/batches',
@@ -277,7 +277,7 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
             array( 'Authorization' => 'Bearer ' . $secret )
         );
         if ( is_wp_error( $result ) ) {
-            return new \WP_Error( 'sme_sinch_send_error', $result->get_error_message(), array( 'status' => 502 ) );
+            return new \WP_Error( 'kmbp_sinch_send_error', $result->get_error_message(), array( 'status' => 502 ) );
         }
         return $result;
     }
@@ -287,7 +287,7 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
         $auth_token = (string) ( $cfg['genericSecret'] ?? '' );
         $src        = (string) ( $cfg['fromNumber'] ?? '' );
         if ( '' === $auth_id || '' === $auth_token ) {
-            return new \WP_Error( 'sme_plivo_not_configured', 'Plivo Auth ID and Token required.' );
+            return new \WP_Error( 'kmbp_plivo_not_configured', 'Plivo Auth ID and Token required.' );
         }
         $result = $this->http(
             self::PLIVO_API . $auth_id . '/Message/',
@@ -301,7 +301,7 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
             )
         );
         if ( is_wp_error( $result ) ) {
-            return new \WP_Error( 'sme_plivo_send_error', $result->get_error_message(), array( 'status' => 502 ) );
+            return new \WP_Error( 'kmbp_plivo_send_error', $result->get_error_message(), array( 'status' => 502 ) );
         }
         return $result;
     }
@@ -310,7 +310,7 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
         $key  = (string) ( $cfg['genericKey'] ?? '' );
         $from = (string) ( $cfg['fromNumber'] ?? '' );
         if ( '' === $key ) {
-            return new \WP_Error( 'sme_telnyx_not_configured', 'Telnyx API key required.' );
+            return new \WP_Error( 'kmbp_telnyx_not_configured', 'Telnyx API key required.' );
         }
         $result = $this->http_post_json(
             self::TELNYX_API,
@@ -318,7 +318,7 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
             array( 'Authorization' => 'Bearer ' . $key )
         );
         if ( is_wp_error( $result ) ) {
-            return new \WP_Error( 'sme_telnyx_send_error', $result->get_error_message(), array( 'status' => 502 ) );
+            return new \WP_Error( 'kmbp_telnyx_send_error', $result->get_error_message(), array( 'status' => 502 ) );
         }
         return $result;
     }
@@ -327,15 +327,15 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
         $key  = (string) ( $cfg['genericKey'] ?? '' );
         $from = (string) ( $cfg['fromNumber'] ?? '' );
         if ( '' === $key ) {
-            return new \WP_Error( 'sme_messagebird_not_configured', 'MessageBird API key required.' );
+            return new \WP_Error( 'kmbp_messagebird_not_configured', 'MessageBird API key required.' );
         }
         $result = $this->http_post_json(
             self::MBIRD_API,
-            array( 'recipients' => array( $to ), 'originator' => $from ?: 'SME', 'body' => $text ),
+            array( 'recipients' => array( $to ), 'originator' => $from ?: 'KMBP', 'body' => $text ),
             array( 'Authorization' => 'AccessKey ' . $key )
         );
         if ( is_wp_error( $result ) ) {
-            return new \WP_Error( 'sme_messagebird_send_error', $result->get_error_message(), array( 'status' => 502 ) );
+            return new \WP_Error( 'kmbp_messagebird_send_error', $result->get_error_message(), array( 'status' => 502 ) );
         }
         return $result;
     }

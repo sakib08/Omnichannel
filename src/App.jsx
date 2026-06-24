@@ -113,7 +113,7 @@ export default function OmnichannelApp() {
       const raw = await api.listConversations(params);
       setConversations((raw || []).map(normaliseConversation));
     } catch (err) {
-      console.error("[SME] Failed to load conversations:", err);
+      console.error("[KMBP] Failed to load conversations:", err);
     } finally {
       setLoadingConvs(false);
     }
@@ -215,7 +215,7 @@ export default function OmnichannelApp() {
           prev.map((c) => (c.id === selected ? { ...c, unread: 0 } : c))
         );
       })
-      .catch((err) => console.error("[SME] Failed to load messages:", err))
+      .catch((err) => console.error("[KMBP] Failed to load messages:", err))
       .finally(() => setLoadingMsgs(false));
   }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -325,7 +325,7 @@ export default function OmnichannelApp() {
       );
       setReplyText("");
     } catch (err) {
-      console.error("[SME] Send failed:", err);
+      console.error("[KMBP] Send failed:", err);
       setSendError(err.message || "Failed to send. Please try again.");
     } finally {
       setSendingReply(false);
@@ -356,7 +356,7 @@ export default function OmnichannelApp() {
     try {
       await api.updateConversation(selected, { assigneeId: parsedId });
     } catch (err) {
-      console.error("[SME] Failed to update assignee:", err);
+      console.error("[KMBP] Failed to update assignee:", err);
     }
   };
 
@@ -367,7 +367,7 @@ export default function OmnichannelApp() {
     try {
       await api.updateConversation(selected, { status });
     } catch (err) {
-      console.error("[SME] Failed to update status:", err);
+      console.error("[KMBP] Failed to update status:", err);
       loadConversations();
     }
   };
@@ -375,7 +375,7 @@ export default function OmnichannelApp() {
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
 
   return (
-    <div className={`sme-app-root theme-${theme} flex bg-gray-50 font-sans overflow-hidden`}>
+    <div className={`kmbp-app-root theme-${theme} flex bg-gray-50 font-sans overflow-hidden`}>
       <Sidebar
         activeChannel={activeChannel}
         conversations={conversations}

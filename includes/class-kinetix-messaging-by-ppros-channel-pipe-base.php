@@ -122,13 +122,13 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
     }
 
     /**
-     * Validate a shared webhook token sent via X-SME-Token header or token query/body param.
+     * Validate a shared webhook token sent via X-KMBP-Token header or token query/body param.
      */
     protected function verify_webhook_token( WP_REST_Request $request, string $stored_token ): bool {
         if ( '' === $stored_token ) {
             return false;
         }
-        $provided = (string) ( $request->get_header( 'x-sme-token' )
+        $provided = (string) ( $request->get_header( 'x-kmbp-token' )
             ?? $request->get_param( 'token' )
             ?? '' );
         return hash_equals( $stored_token, $provided );
@@ -181,12 +181,12 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
         global $wpdb;
         $channel = $this->get_channel_slug();
 
-        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- SME custom tables; no WordPress core API exists.
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- KMBP custom tables; no WordPress core API exists.
 
         // Match by external_id + channel for open conversations.
         $cid = (int) $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT id FROM {$wpdb->prefix}sme_conversations
+                "SELECT id FROM {$wpdb->prefix}kmbp_conversations
                  WHERE channel = %s AND external_id = %s AND status != 'closed'
                  ORDER BY updated_at DESC LIMIT 1",
                 $channel,
@@ -200,7 +200,7 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
 
         // Create a new conversation.
         $ok = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $wpdb->prefix . 'sme_conversations',
+            $wpdb->prefix . 'kmbp_conversations',
             array(
                 'channel'        => $channel,
                 'external_id'    => $external_id,
@@ -219,7 +219,7 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
         );
 
         if ( false === $ok ) {
-            return new \WP_Error( 'sme_db_error', __( 'Could not create conversation.', 'kinetix-messaging-by-ppros' ) );
+            return new \WP_Error( 'kmbp_db_error', __( 'Could not create conversation.', 'kinetix-messaging-by-ppros' ) );
         }
 
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -247,13 +247,13 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
     ): int {
         global $wpdb;
 
-        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- SME custom tables; no WordPress core API exists.
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- KMBP custom tables; no WordPress core API exists.
 
         // Deduplicate by external message ID.
         if ( '' !== $external_id ) {
             $existing = (int) $wpdb->get_var(
                 $wpdb->prepare(
-                    "SELECT id FROM {$wpdb->prefix}sme_messages WHERE external_id = %s LIMIT 1",
+                    "SELECT id FROM {$wpdb->prefix}kmbp_messages WHERE external_id = %s LIMIT 1",
                     $external_id
                 )
             );
@@ -265,7 +265,7 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
         $current_user = wp_get_current_user();
 
         $wpdb->insert(
-            $wpdb->prefix . 'sme_messages',
+            $wpdb->prefix . 'kmbp_messages',
             array(
                 'conversation_id' => $conversation_id,
                 'external_id'     => $external_id,
@@ -282,7 +282,7 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
         $message_id = (int) $wpdb->insert_id;
 
         $wpdb->update(
-            $wpdb->prefix . 'sme_conversations',
+            $wpdb->prefix . 'kmbp_conversations',
             array(
                 'preview'    => wp_trim_words( wp_strip_all_tags( $body ), 14, '…' ),
                 'updated_at' => current_time( 'mysql' ),
@@ -325,7 +325,7 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
 
         if ( $code < 200 || $code >= 300 ) {
             $msg = ( is_array( $data ) && isset( $data['message'] ) ) ? $data['message'] : "HTTP {$code}";
-            return new \WP_Error( 'sme_http_error', $msg, array( 'status' => $code, 'body' => $data ) );
+            return new \WP_Error( 'kmbp_http_error', $msg, array( 'status' => $code, 'body' => $data ) );
         }
 
         return is_array( $data ) ? $data : array( 'raw' => $body );
@@ -370,7 +370,7 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
         $cfg = $this->get_settings();
         if ( empty( $cfg['enabled'] ) ) {
             return new WP_Error(
-                'sme_channel_disabled',
+                'kmbp_channel_disabled',
                 sprintf(
                     /* translators: %s: channel slug */
                     __( '%s channel is not enabled.', 'kinetix-messaging-by-ppros' ),
@@ -385,7 +385,7 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
         $text            = sanitize_textarea_field( (string) $request->get_param( 'text' ) );
 
         if ( '' === trim( $text ) ) {
-            return new WP_Error( 'sme_empty_body', __( 'Message text is required.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+            return new WP_Error( 'kmbp_empty_body', __( 'Message text is required.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         $result = $this->send_message( $recipient_id, $text, $cfg );

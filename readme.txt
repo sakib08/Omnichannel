@@ -4,7 +4,7 @@ Tags: messaging, omnichannel, telegram, whatsapp, email
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.2
+Stable tag: 1.0.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -110,7 +110,7 @@ Used when the SMS channel is enabled. Exactly one provider is used, based on the
 
 **Telnyx** (`https://api.telnyx.com/v2/messages`) — **Data sent:** API key, from number, recipient phone number, and message text. **Service provided by Telnyx LLC:** [Terms and Conditions](https://telnyx.com/terms-and-conditions), [Privacy Policy](https://telnyx.com/privacy-policy).
 
-**MessageBird** (`https://rest.messagebird.com/messages`) — **Data sent:** access key, originator number, recipient phone number, and message text. **Service provided by Bird:** [Terms](https://bird.com/en-uk/legal/terms), [Privacy Policy](https://bird.com/en-uk/legal/privacy).
+**MessageBird** (`https://rest.messagebird.com/messages`) — **Data sent:** access key, originator number, recipient phone number, and message text. **Service provided by Bird (MessageBird):** [Terms of Service](https://messagebird.com/en/legal/terms), [Privacy Policy](https://messagebird.com/en/legal/privacy).
 
 = Email (administrator-configured) =
 
@@ -135,6 +135,14 @@ Inbound email may also be pushed to your site via a webhook URL you configure in
 3. Open **Kinetix Messaging → Inbox** and configure your channel settings.
 
 == Changelog ==
+
+= 1.0.3 =
+* Replace short `sme` prefix with `kmbp` for options, tables, capabilities, and REST namespace.
+* Fix MessageBird legal URLs in readme.
+* Remove remote image URLs from admin embed snippets.
+
+= 1.0.2 =
+* Address WordPress.org plugin review feedback (webhook permissions, enqueued admin CSS, menu position).
 
 = 1.0.1 =
 * Initial release.

@@ -2,15 +2,15 @@
 /**
  * LINE Messaging API connector.
  *
- * Inbound  — POST /wp-json/sme/v1/webhooks/line
+ * Inbound  — POST /wp-json/kmbp/v1/webhooks/line
  *            LINE posts signed JSON webhook events to this URL.
  *            Set in: LINE Developers Console → Channel → Messaging API →
  *            Webhook settings → Webhook URL
  *
- * Outbound — POST /wp-json/sme/v1/line/send
+ * Outbound — POST /wp-json/kmbp/v1/line/send
  *            Agents POST { conversationId, recipientId (userId), text }.
  *
- * Settings keys (stored under sme_platform_settings['line']):
+ * Settings keys (stored under kmbp_platform_settings['line']):
  *   enabled, channelAccessToken, channelSecret,
  *   autoReply, autoReplyMsg, typingIndicator
  *
@@ -133,7 +133,7 @@ class Kinetix_Messaging_By_Ppros_Line_Pipe extends Kinetix_Messaging_By_Ppros_Ch
         $conversation_id = $this->find_or_create_conversation( $user_id, $contact_name, $user_id, $subject );
 
         if ( is_wp_error( $conversation_id ) ) {
-            $this->log_debug( '[SME LINE] DB error: ' . $conversation_id->get_error_message() );
+            $this->log_debug( '[KMBP LINE] DB error: ' . $conversation_id->get_error_message() );
             return;
         }
 
@@ -153,7 +153,7 @@ class Kinetix_Messaging_By_Ppros_Line_Pipe extends Kinetix_Messaging_By_Ppros_Ch
 
         $this->maybe_send_auto_reply( $user_id, $contact_name, (string) $conversation_id );
 
-        do_action( 'kinetix_messaging_by_ppros_inbound_message_received', $conversation_id, 'line', array(
+        do_action( 'kmbp_inbound_message_received', $conversation_id, 'line', array(
             'userId' => $user_id, 'text' => $text, 'msgType' => $msg_type,
         ) );
     }
@@ -202,7 +202,7 @@ class Kinetix_Messaging_By_Ppros_Line_Pipe extends Kinetix_Messaging_By_Ppros_Ch
         $token = (string) ( $cfg['channelAccessToken'] ?? '' );
         if ( '' === $token ) {
             return new \WP_Error(
-                'sme_line_not_configured',
+                'kmbp_line_not_configured',
                 __( 'LINE Channel Access Token is not configured.', 'kinetix-messaging-by-ppros' )
             );
         }
@@ -220,7 +220,7 @@ class Kinetix_Messaging_By_Ppros_Line_Pipe extends Kinetix_Messaging_By_Ppros_Ch
 
         if ( is_wp_error( $result ) ) {
             return new \WP_Error(
-                'sme_line_send_error',
+                'kmbp_line_send_error',
                 sprintf(
                     /* translators: %s: LINE API error message */
                     __( 'LINE API error: %s', 'kinetix-messaging-by-ppros' ),
@@ -248,7 +248,7 @@ class Kinetix_Messaging_By_Ppros_Line_Pipe extends Kinetix_Messaging_By_Ppros_Ch
     }
 
     private function maybe_get_profile_name( string $user_id, array $cfg ): string {
-        $cache_key = 'sme_line_profile_' . md5( $user_id );
+        $cache_key = 'kmbp_line_profile_' . md5( $user_id );
         $cached    = get_transient( $cache_key );
         if ( false !== $cached ) {
             return (string) $cached;

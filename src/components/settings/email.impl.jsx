@@ -84,7 +84,7 @@ export default function EmailSettings({ cfg, setCfg }) {
           <SectionDivider label="Email Forwarding / Piping" />
           <Input label="Forward-to address (copy into your mailbox forwarder)" value={`inbound@${siteHost}`} readOnly mono helper="Direct your email provider's forwarding rule to this address." />
           <Input label="Inbound webhook (alternative)" value={webhookUrl("email")} readOnly mono />
-          <Input label="Webhook token" value={cfg.webhookToken} onChange={v => S("webhookToken", v)} placeholder="your_webhook_token" type="password" helper="Required for inbound webhook POSTs. Send as X-SME-Token header or ?token= query param." />
+          <Input label="Webhook token" value={cfg.webhookToken} onChange={v => S("webhookToken", v)} placeholder="your_webhook_token" type="password" helper="Required for inbound webhook POSTs. Send as X-KMBP-Token header or ?token= query param." />
         </div>
       )}
  

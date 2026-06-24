@@ -6,15 +6,15 @@
  * target the Instagram Graph API surface.  Your Meta App must have
  * instagram_manage_messages and instagram_basic permissions approved.
  *
- * Inbound  — GET  /wp-json/sme/v1/webhooks/instagram  (hub verification)
- *            POST /wp-json/sme/v1/webhooks/instagram  (DM events)
+ * Inbound  — GET  /wp-json/kmbp/v1/webhooks/instagram  (hub verification)
+ *            POST /wp-json/kmbp/v1/webhooks/instagram  (DM events)
  *            Register in: Meta for Developers → App → Instagram → Webhooks
  *            Subscribe to: messages, messaging_postbacks, messaging_seen
  *
- * Outbound — POST /wp-json/sme/v1/instagram/send
+ * Outbound — POST /wp-json/kmbp/v1/instagram/send
  *            Agents POST { conversationId, recipientId (IGSID), text }.
  *
- * Settings keys (stored under sme_platform_settings['instagram']):
+ * Settings keys (stored under kmbp_platform_settings['instagram']):
  *   enabled, igAccountId, pageId, pageToken, appId, appSecret,
  *   verifyToken, fetchProfile, typingIndicator, readReceipts,
  *   imageAttach, storyReplies, autoAssign, autoReply, autoReplyMsg
@@ -146,7 +146,7 @@ class Kinetix_Messaging_By_Ppros_Instagram_Pipe extends Kinetix_Messaging_By_Ppr
         );
 
         if ( is_wp_error( $conversation_id ) ) {
-            $this->log_debug( '[SME Instagram] DB error: ' . $conversation_id->get_error_message() );
+            $this->log_debug( '[KMBP Instagram] DB error: ' . $conversation_id->get_error_message() );
             return;
         }
 
@@ -166,7 +166,7 @@ class Kinetix_Messaging_By_Ppros_Instagram_Pipe extends Kinetix_Messaging_By_Ppr
 
         $this->maybe_send_auto_reply( $sender_id, $contact_name, (string) $conversation_id );
 
-        do_action( 'kinetix_messaging_by_ppros_inbound_message_received', $conversation_id, 'instagram', array(
+        do_action( 'kmbp_inbound_message_received', $conversation_id, 'instagram', array(
             'igsid' => $sender_id, 'text' => $text,
         ) );
     }
@@ -206,7 +206,7 @@ class Kinetix_Messaging_By_Ppros_Instagram_Pipe extends Kinetix_Messaging_By_Ppr
         $token = (string) ( $cfg['pageToken'] ?? '' );
         if ( '' === $token ) {
             return new \WP_Error(
-                'sme_instagram_not_configured',
+                'kmbp_instagram_not_configured',
                 __( 'Instagram Page Access Token is not configured.', 'kinetix-messaging-by-ppros' )
             );
         }
@@ -222,7 +222,7 @@ class Kinetix_Messaging_By_Ppros_Instagram_Pipe extends Kinetix_Messaging_By_Ppr
 
         if ( is_wp_error( $result ) ) {
             return new \WP_Error(
-                'sme_instagram_send_error',
+                'kmbp_instagram_send_error',
                 sprintf(
                     /* translators: %s: Instagram API error message */
                     __( 'Instagram API error: %s', 'kinetix-messaging-by-ppros' ),
@@ -260,7 +260,7 @@ class Kinetix_Messaging_By_Ppros_Instagram_Pipe extends Kinetix_Messaging_By_Ppr
             return 'Instagram User';
         }
 
-        $cache_key = 'sme_ig_profile_' . md5( $igsid );
+        $cache_key = 'kmbp_ig_profile_' . md5( $igsid );
         $cached    = get_transient( $cache_key );
         if ( false !== $cached ) {
             return (string) $cached;

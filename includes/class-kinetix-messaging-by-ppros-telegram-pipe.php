@@ -2,18 +2,18 @@
 /**
  * Telegram channel connector.
  *
- * Inbound  — POST /wp-json/sme/v1/webhooks/telegram
+ * Inbound  — POST /wp-json/kmbp/v1/webhooks/telegram
  *            Telegram posts JSON updates to this URL.
  *            Register it via:
  *              curl -X POST \
  *                "https://api.telegram.org/bot<TOKEN>/setWebhook" \
- *                -d "url=<SITE_URL>/wp-json/sme/v1/webhooks/telegram" \
+ *                -d "url=<SITE_URL>/wp-json/kmbp/v1/webhooks/telegram" \
  *                -d "secret_token=<webhookSecret>"
  *
- * Outbound — POST /wp-json/sme/v1/telegram/send
+ * Outbound — POST /wp-json/kmbp/v1/telegram/send
  *            Agents POST { conversationId, recipientId (chat_id), text }.
  *
- * Settings keys (stored under sme_platform_settings['telegram']):
+ * Settings keys (stored under kmbp_platform_settings['telegram']):
  *   enabled, botToken, botUsername, webhookSecret, startReply, startMsg,
  *   typingIndicator, markdown, autoReply, autoReplyMsg
  *
@@ -107,7 +107,7 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
         $secret = (string) ( $this->get_settings()['webhookSecret'] ?? '' );
         if ( '' === $secret ) {
             return new WP_Error(
-                'sme_telegram_no_secret',
+                'kmbp_telegram_no_secret',
                 __( 'Webhook secret is not configured. Open Telegram settings and click Register Webhook.', 'kinetix-messaging-by-ppros' ),
                 array( 'status' => 403 )
             );
@@ -116,7 +116,7 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
         $provided = $this->get_request_header( $request, 'x-telegram-bot-api-secret-token' );
         if ( '' === $provided || ! hash_equals( $secret, $provided ) ) {
             return new WP_Error(
-                'sme_telegram_bad_secret',
+                'kmbp_telegram_bad_secret',
                 __( 'Invalid or missing X-Telegram-Bot-Api-Secret-Token. Re-register the webhook from Telegram settings so Telegram receives the current secret.', 'kinetix-messaging-by-ppros' ),
                 array( 'status' => 403 )
             );
@@ -178,7 +178,7 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
 
         $cfg = $this->get_settings();
         if ( empty( $cfg['enabled'] ) ) {
-            $this->log_debug( '[SME Telegram] Webhook update ignored because the Telegram channel is disabled.' );
+            $this->log_debug( '[KMBP Telegram] Webhook update ignored because the Telegram channel is disabled.' );
             return;
         }
 
@@ -242,7 +242,7 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
         $conversation_id = $this->find_or_create_conversation( $chat_id, $contact_name, $handle, $subject );
 
         if ( is_wp_error( $conversation_id ) ) {
-            $this->log_debug( '[SME Telegram] DB error: ' . $conversation_id->get_error_message() );
+            $this->log_debug( '[KMBP Telegram] DB error: ' . $conversation_id->get_error_message() );
             return;
         }
 
@@ -264,7 +264,7 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
         // Auto-reply.
         $this->maybe_send_auto_reply( $chat_id, $contact_name, (string) $conversation_id );
 
-        do_action( 'kinetix_messaging_by_ppros_inbound_message_received', $conversation_id, 'telegram', array(
+        do_action( 'kmbp_inbound_message_received', $conversation_id, 'telegram', array(
             'chatId'   => $chat_id,
             'text'     => $text,
             'from'     => $from,
@@ -293,7 +293,7 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
         }
         $token = (string) ( $cfg['botToken'] ?? '' );
         if ( '' === $token ) {
-            return new \WP_Error( 'sme_no_token', __( 'Telegram bot token is not configured.', 'kinetix-messaging-by-ppros' ) );
+            return new \WP_Error( 'kmbp_no_token', __( 'Telegram bot token is not configured.', 'kinetix-messaging-by-ppros' ) );
         }
 
         $payload = array(
@@ -319,7 +319,7 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
 
         if ( is_wp_error( $result ) ) {
             return new \WP_Error(
-                'sme_telegram_send_error',
+                'kmbp_telegram_send_error',
                 sprintf(
                     /* translators: %s: Telegram API error message */
                     __( 'Telegram API error: %s', 'kinetix-messaging-by-ppros' ),
@@ -339,7 +339,7 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
         $token = (string) ( $cfg['botToken'] ?? '' );
         if ( '' === $token ) {
             return new WP_Error(
-                'sme_no_token',
+                'kmbp_no_token',
                 __( 'Bot token is not configured. Save the Telegram settings first.', 'kinetix-messaging-by-ppros' ),
                 array( 'status' => 400 )
             );
@@ -367,7 +367,7 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
 
         if ( is_wp_error( $result ) ) {
             return new WP_Error(
-                'sme_telegram_api_error',
+                'kmbp_telegram_api_error',
                 sprintf(
                     /* translators: %s: Telegram API error message */
                     __( 'Telegram API error: %s', 'kinetix-messaging-by-ppros' ),
@@ -379,7 +379,7 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
 
         if ( empty( $result['ok'] ) ) {
             return new WP_Error(
-                'sme_telegram_rejected',
+                'kmbp_telegram_rejected',
                 sprintf(
                     /* translators: %s: Telegram webhook rejection reason */
                     __( 'Telegram rejected the webhook: %s', 'kinetix-messaging-by-ppros' ),
@@ -407,14 +407,14 @@ class Kinetix_Messaging_By_Ppros_Telegram_Pipe extends Kinetix_Messaging_By_Ppro
         $cfg   = $this->get_settings();
         $token = (string) ( $cfg['botToken'] ?? '' );
         if ( '' === $token ) {
-            return new WP_Error( 'sme_no_token', __( 'Bot token is not configured.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+            return new WP_Error( 'kmbp_no_token', __( 'Bot token is not configured.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         $info = $this->get_webhook_info( $token );
 
         if ( is_wp_error( $info ) ) {
             return new WP_Error(
-                'sme_telegram_api_error',
+                'kmbp_telegram_api_error',
                 sprintf(
                     /* translators: %s: Telegram API error message */
                     __( 'Could not fetch webhook info: %s', 'kinetix-messaging-by-ppros' ),

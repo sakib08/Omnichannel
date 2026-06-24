@@ -62,7 +62,7 @@ export default function ViberSettings({ cfg, setCfg }) {
       {tab === "sender" && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Avatar URL" value={cfg.avatarUrl} onChange={value => S("avatarUrl", value)} placeholder="https://cdn.yourdomain.com/viber-avatar.png" />
+            <Input label="Avatar URL" value={cfg.avatarUrl} onChange={value => S("avatarUrl", value)} placeholder="/wp-content/uploads/viber-avatar.png" />
             <Select label="Default region" value={cfg.region} onChange={value => S("region", value)} options={[
               { value: "global", label: "Global" },
               { value: "eu", label: "Europe" },

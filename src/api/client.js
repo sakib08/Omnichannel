@@ -4,10 +4,10 @@
 
 const boot = typeof window !== "undefined" && window.KinetixMessagingBoot ? window.KinetixMessagingBoot : {};
 
-export const restUrl = (boot.restUrl || "/wp-json/sme/v1/").replace(/\/?$/, "/");
+export const restUrl = (boot.restUrl || "/wp-json/kmbp/v1/").replace(/\/?$/, "/");
 
 /** Build a fully-qualified webhook URL for a given channel slug.
- *  e.g. webhookUrl("telegram") → "https://example.com/wp-json/sme/v1/webhooks/telegram"
+ *  e.g. webhookUrl("telegram") → "https://example.com/wp-json/kmbp/v1/webhooks/telegram"
  */
 export const webhookUrl = (slug) => restUrl + "webhooks/" + slug;
 

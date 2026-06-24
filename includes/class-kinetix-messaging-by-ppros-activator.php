@@ -5,8 +5,8 @@
  * Responsibilities
  *  - Create custom database tables for conversations, messages, departments
  *    and the agent ↔ department mapping.
- *  - Register the custom "sme_agent" role and the capabilities used by the
- *    plugin (sme_access_messaging, sme_manage_settings, sme_manage_departments).
+ *  - Register the custom "kmbp_agent" role and the capabilities used by the
+ *    plugin (kmbp_access_messaging, kmbp_manage_settings, kmbp_manage_departments).
  *  - Seed default platform settings in wp_options so the React app has
  *    something to read on first load.
  *
@@ -17,21 +17,87 @@ defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
 class Kinetix_Messaging_By_Ppros_Activator {
 
-    const DB_VERSION_OPTION    = 'sme_db_version';
+    const DB_VERSION_OPTION    = 'kmbp_db_version';
     const DB_VERSION           = '1.0.0';
-    const SETTINGS_OPTION      = 'sme_platform_settings';
-    const AGENT_ROLE           = 'sme_agent';
-    const CAP_ACCESS_MESSAGING = 'sme_access_messaging';
-    const CAP_MANAGE_SETTINGS  = 'sme_manage_settings';
-    const CAP_MANAGE_DEPTS     = 'sme_manage_departments';
+    const SETTINGS_OPTION      = 'kmbp_platform_settings';
+    const AGENT_ROLE           = 'kmbp_agent';
+    const CAP_ACCESS_MESSAGING = 'kmbp_access_messaging';
+    const CAP_MANAGE_SETTINGS  = 'kmbp_manage_settings';
+    const CAP_MANAGE_DEPTS     = 'kmbp_manage_departments';
 
     public static function activate() {
+        self::migrate_legacy_prefix();
         self::create_tables();
         self::register_roles_and_caps();
         self::migrate_settings_keys();
         self::seed_default_settings();
         self::seed_default_departments();
         Kinetix_Messaging_By_Ppros_Email_Pipe::schedule_cron();
+    }
+
+    /**
+     * One-time migration from the legacy "sme" prefix to "kmbp".
+     */
+    private static function migrate_legacy_prefix() {
+        global $wpdb;
+
+        $tables = array( 'departments', 'conversations', 'messages', 'agent_departments' );
+        foreach ( $tables as $table ) {
+            $old = $wpdb->prefix . 'sme_' . $table;
+            $new = $wpdb->prefix . 'kmbp_' . $table;
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $old ) ) === $old
+                && $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $new ) ) !== $new ) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange
+                $wpdb->query( "RENAME TABLE `{$old}` TO `{$new}`" );
+            }
+        }
+
+        $options = array(
+            'sme_db_version'        => self::DB_VERSION_OPTION,
+            'sme_platform_settings' => self::SETTINGS_OPTION,
+        );
+        foreach ( $options as $old_key => $new_key ) {
+            $value = get_option( $old_key, null );
+            if ( null !== $value && null === get_option( $new_key, null ) ) {
+                update_option( $new_key, $value, false );
+                delete_option( $old_key );
+            }
+        }
+
+        $timestamp = wp_next_scheduled( 'sme_imap_poll' );
+        if ( $timestamp ) {
+            wp_unschedule_event( $timestamp, 'sme_imap_poll' );
+        }
+
+        $cap_map = array(
+            'sme_access_messaging'   => self::CAP_ACCESS_MESSAGING,
+            'sme_manage_settings'    => self::CAP_MANAGE_SETTINGS,
+            'sme_manage_departments' => self::CAP_MANAGE_DEPTS,
+        );
+        foreach ( get_editable_roles() as $role_name => $role_info ) {
+            $role = get_role( $role_name );
+            if ( ! $role ) {
+                continue;
+            }
+            foreach ( $cap_map as $old_cap => $new_cap ) {
+                if ( $role->has_cap( $old_cap ) ) {
+                    $role->add_cap( $new_cap );
+                    $role->remove_cap( $old_cap );
+                }
+            }
+        }
+
+        $old_role = get_role( 'sme_agent' );
+        if ( $old_role && ! get_role( self::AGENT_ROLE ) ) {
+            add_role( self::AGENT_ROLE, __( 'Messaging Agent', 'kinetix-messaging-by-ppros' ), $old_role->capabilities );
+            $users = get_users( array( 'role' => 'sme_agent' ) );
+            foreach ( $users as $user ) {
+                $user->add_role( self::AGENT_ROLE );
+                $user->remove_role( 'sme_agent' );
+            }
+            remove_role( 'sme_agent' );
+        }
     }
 
     public static function deactivate() {
@@ -52,7 +118,7 @@ class Kinetix_Messaging_By_Ppros_Activator {
         $charset_collate = $wpdb->get_charset_collate();
         $prefix          = $wpdb->prefix;
 
-        $departments_sql = "CREATE TABLE {$prefix}sme_departments (
+        $departments_sql = "CREATE TABLE {$prefix}kmbp_departments (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             name VARCHAR(191) NOT NULL,
             slug VARCHAR(191) NOT NULL,
@@ -62,7 +128,7 @@ class Kinetix_Messaging_By_Ppros_Activator {
             UNIQUE KEY slug (slug)
         ) {$charset_collate};";
 
-        $conversations_sql = "CREATE TABLE {$prefix}sme_conversations (
+        $conversations_sql = "CREATE TABLE {$prefix}kmbp_conversations (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             channel VARCHAR(40) NOT NULL,
             external_id VARCHAR(191) NULL,
@@ -84,7 +150,7 @@ class Kinetix_Messaging_By_Ppros_Activator {
             KEY department_id (department_id)
         ) {$charset_collate};";
 
-        $messages_sql = "CREATE TABLE {$prefix}sme_messages (
+        $messages_sql = "CREATE TABLE {$prefix}kmbp_messages (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             conversation_id BIGINT(20) UNSIGNED NOT NULL,
             external_id VARCHAR(191) NULL,
@@ -99,7 +165,7 @@ class Kinetix_Messaging_By_Ppros_Activator {
             KEY sent_at (sent_at)
         ) {$charset_collate};";
 
-        $agent_dept_sql = "CREATE TABLE {$prefix}sme_agent_departments (
+        $agent_dept_sql = "CREATE TABLE {$prefix}kmbp_agent_departments (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             user_id BIGINT(20) UNSIGNED NOT NULL,
             department_id BIGINT(20) UNSIGNED NOT NULL,
@@ -266,8 +332,8 @@ class Kinetix_Messaging_By_Ppros_Activator {
      */
     private static function seed_default_departments() {
         global $wpdb;
-        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- SME custom tables; no WordPress core API exists.
-        $existing = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}sme_departments" );
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- KMBP custom tables; no WordPress core API exists.
+        $existing = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}kmbp_departments" );
         if ( $existing > 0 ) {
             return;
         }
@@ -280,7 +346,7 @@ class Kinetix_Messaging_By_Ppros_Activator {
 
         foreach ( $seed as $row ) {
             $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $wpdb->prefix . 'sme_departments',
+                $wpdb->prefix . 'kmbp_departments',
                 array(
                     'name'        => $row['name'],
                     'slug'        => $row['slug'],

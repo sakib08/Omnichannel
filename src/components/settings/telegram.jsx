@@ -236,7 +236,7 @@ export default function TelegramSettings({ cfg, setCfg }) {
                   )}
                   {/401|403|unauthorized|forbidden/i.test(webhookInfo.lastError) && (
                     <p className="text-xs text-amber-300 mt-2">
-                      Telegram was rejected by this site. Click <strong>Register Webhook</strong> again so the secret token matches, and ensure no security plugin blocks <code className="font-mono">/wp-json/sme/v1/webhooks/telegram</code>.
+                      Telegram was rejected by this site. Click <strong>Register Webhook</strong> again so the secret token matches, and ensure no security plugin blocks <code className="font-mono">/wp-json/kmbp/v1/webhooks/telegram</code>.
                     </p>
                   )}
                   {/timed out|timeout|connection refused|could not resolve/i.test(webhookInfo.lastError) && (
