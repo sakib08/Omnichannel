@@ -26,12 +26,38 @@ class Kinetix_Messaging_By_Ppros_Activator {
     const CAP_MANAGE_DEPTS     = 'kmbp_manage_departments';
 
     public static function activate() {
-        self::migrate_legacy_prefix();
-        self::create_tables();
+        self::maybe_upgrade();
+    }
+
+    /**
+     * Ensure DB tables, legacy migration, roles, and cron exist.
+     * Runs on activation and on every load until kmbp tables are present.
+     */
+    public static function maybe_upgrade() {
+        global $wpdb;
+
+        $kmbp_conversations = $wpdb->prefix . 'kmbp_conversations';
+        $sme_conversations  = $wpdb->prefix . 'sme_conversations';
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $kmbp_ready = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $kmbp_conversations ) ) === $kmbp_conversations;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $legacy_left = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $sme_conversations ) ) === $sme_conversations;
+
+        if ( $legacy_left ) {
+            self::migrate_legacy_prefix();
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $kmbp_ready = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $kmbp_conversations ) ) === $kmbp_conversations;
+        }
+
+        if ( ! $kmbp_ready ) {
+            self::create_tables();
+            self::seed_default_settings();
+            self::seed_default_departments();
+        }
+
         self::register_roles_and_caps();
         self::migrate_settings_keys();
-        self::seed_default_settings();
-        self::seed_default_departments();
         Kinetix_Messaging_By_Ppros_Email_Pipe::schedule_cron();
     }
 

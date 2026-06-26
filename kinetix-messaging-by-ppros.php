@@ -41,6 +41,8 @@ require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-
 register_activation_hook( __FILE__, array( 'Kinetix_Messaging_By_Ppros_Activator', 'activate' ) );
 register_deactivation_hook( __FILE__, array( 'Kinetix_Messaging_By_Ppros_Activator', 'deactivate' ) );
 
+add_action( 'plugins_loaded', array( 'Kinetix_Messaging_By_Ppros_Activator', 'maybe_upgrade' ), 5 );
+
 function kmbp_run() {
     $plugin = new Kinetix_Messaging_By_Ppros();
     $plugin->run();
