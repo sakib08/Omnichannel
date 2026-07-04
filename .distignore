@@ -1,12 +1,37 @@
+# ── Version control ──────────────────────────────────────────────────────────
 .git
 .gitignore
+.gitattributes
+
+# ── This file ────────────────────────────────────────────────────────────────
 .distignore
+
+# ── Node / build tooling ─────────────────────────────────────────────────────
 node_modules
-*.zip
-.env
-.env.*
-package.json
 package-lock.json
 postcss.config.js
 webpack.config.js
+
+# ── Internal / editor tooling ────────────────────────────────────────────────
+.agents
+.codex
+.cursor
+.env
+.env.*
+
+# ── Build helpers (not needed at runtime) ────────────────────────────────────
 bin
+
+# ── Stale / empty directories ────────────────────────────────────────────────
+# lang/ is superseded by languages/ — keep languages/, drop lang/
+lang
+
+# ── Distributables that must not be nested inside the release ZIP ────────────
+*.zip
+
+# NOTE: src/ is intentionally kept in the release.
+# The human-readable React/JSX source is required by the GPLv2 for
+# any compiled JavaScript shipped in build/. See readme.txt § "Source code".
+
+# NOTE: package.json is intentionally kept in the release so that
+# wp-scripts plugin-zip can read it for the plugin slug / version.
