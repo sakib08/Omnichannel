@@ -75,7 +75,7 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
             return $value;
         }
         $server_key = 'HTTP_' . strtoupper( str_replace( '-', '_', $name ) );
-        return (string) ( $_SERVER[ $server_key ] ?? '' );
+        return sanitize_text_field( wp_unslash( (string) ( $_SERVER[ $server_key ] ?? '' ) ) );
     }
 
     /**

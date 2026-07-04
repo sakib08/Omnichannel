@@ -74,8 +74,8 @@ class Kinetix_Messaging_By_Ppros_Activator {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $old ) ) === $old
                 && $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $new ) ) !== $new ) {
-                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange
-                $wpdb->query( "RENAME TABLE `{$old}` TO `{$new}`" );
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names are built from $wpdb->prefix + a hardcoded string; esc_sql() is applied as an extra safeguard since $wpdb->prepare() does not support identifier placeholders.
+                $wpdb->query( 'RENAME TABLE `' . esc_sql( $old ) . '` TO `' . esc_sql( $new ) . '`' ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
             }
         }
 

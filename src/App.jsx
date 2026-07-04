@@ -372,6 +372,46 @@ export default function OmnichannelApp() {
     }
   };
 
+  const deleteConversation = async (convId) => {
+    // Optimistic removal from list and deselect if it was open.
+    setConversations((prev) => prev.filter((c) => c.id !== convId));
+    setMessagesByConvId((prev) => {
+      const next = { ...prev };
+      delete next[convId];
+      return next;
+    });
+    if (selected === convId) setSelected(null);
+
+    try {
+      await api.deleteConversation(convId);
+    } catch (err) {
+      console.error("[KMBP] Failed to delete conversation:", err);
+      // Revert by reloading.
+      loadConversations();
+    }
+  };
+
+  const deleteMessage = async (messageId) => {
+    if (!selected) return;
+    // Optimistic removal.
+    setMessagesByConvId((prev) => ({
+      ...prev,
+      [selected]: (prev[selected] || []).filter((m) => m.id !== messageId),
+    }));
+    try {
+      await api.deleteMessage(messageId);
+    } catch (err) {
+      console.error("[KMBP] Failed to delete message:", err);
+      // Revert on failure by re-fetching.
+      api.listMessages(selected).then((msgs) => {
+        setMessagesByConvId((prev) => ({
+          ...prev,
+          [selected]: (msgs || []).map(normaliseMessage),
+        }));
+      }).catch(() => {});
+    }
+  };
+
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
 
   return (
@@ -392,6 +432,7 @@ export default function OmnichannelApp() {
         <>
           <ConversationList
             activeChannel={activeChannel}
+            deleteConversation={deleteConversation}
             filterStatus={filterStatus}
             filtered={filtered}
             loading={loadingConvs}
@@ -407,6 +448,7 @@ export default function OmnichannelApp() {
             activeTab={activeTab}
             addNote={addNote}
             agents={agents}
+            deleteMessage={deleteMessage}
             loadingMessages={loadingMsgs}
             messagesEndRef={messagesEndRef}
             noteText={noteText}

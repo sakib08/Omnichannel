@@ -4,7 +4,7 @@ Tags: messaging, omnichannel, telegram, whatsapp, email
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -134,7 +134,20 @@ Inbound email may also be pushed to your site via a webhook URL you configure in
 2. Activate the plugin through the Plugins screen in WordPress.
 3. Open **Kinetix Messaging → Inbox** and configure your channel settings.
 
+== Screenshots ==
+
+1. Unified inbox — all conversations in one WordPress admin screen.
+2. Channel settings — connect WhatsApp, Telegram, email, SMS, and more.
+3. Conversation view — read and reply without leaving WordPress.
+
 == Changelog ==
+
+= 1.0.4 =
+* Add delete conversation and delete message actions in the inbox (admin-only).
+* Add REST endpoints to permanently remove threads and individual messages.
+* Add Screenshots section to plugin readme.
+* Sanitize webhook request headers read from the server environment.
+* Harden legacy table rename migration for PHPCS compliance.
 
 = 1.0.3 =
 * Replace short `sme` prefix with `kmbp` for options, tables, capabilities, and REST namespace.

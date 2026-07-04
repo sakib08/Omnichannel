@@ -21,10 +21,13 @@
  *     POST /agents/(?P<id>\d+)/departments — assign departments to an agent
  *
  *   Messages / conversations
- *     GET  /conversations
- *     GET  /conversations/(?P<id>\d+)/messages
- *     POST /conversations            — create conversation
- *     POST /messages                 — append a message to a conversation
+ *     GET    /conversations
+ *     GET    /conversations/(?P<id>\d+)/messages
+ *     POST   /conversations            — create conversation
+ *     PUT    /conversations/(?P<id>\d+)
+ *     DELETE /conversations/(?P<id>\d+) — permanently remove a thread + all its messages
+ *     POST   /messages                 — append a message to a conversation
+ *     DELETE /messages/(?P<id>\d+)     — permanently remove a single message
  *
  * @package Kinetix_Messaging_By_Ppros
  */
@@ -167,9 +170,16 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
             self::NAMESPACE_V1,
             '/conversations/(?P<id>\d+)',
             array(
-                'methods'             => WP_REST_Server::EDITABLE,
-                'callback'            => array( $this, 'update_conversation' ),
-                'permission_callback' => array( $this, 'check_access_messaging' ),
+                array(
+                    'methods'             => WP_REST_Server::EDITABLE,
+                    'callback'            => array( $this, 'update_conversation' ),
+                    'permission_callback' => array( $this, 'check_access_messaging' ),
+                ),
+                array(
+                    'methods'             => WP_REST_Server::DELETABLE,
+                    'callback'            => array( $this, 'delete_conversation' ),
+                    'permission_callback' => array( $this, 'check_delete_message' ),
+                ),
             )
         );
 
@@ -192,6 +202,16 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
                 'permission_callback' => array( $this, 'check_access_messaging' ),
             )
         );
+
+        register_rest_route(
+            self::NAMESPACE_V1,
+            '/messages/(?P<id>\d+)',
+            array(
+                'methods'             => WP_REST_Server::DELETABLE,
+                'callback'            => array( $this, 'delete_message' ),
+                'permission_callback' => array( $this, 'check_delete_message' ),
+            )
+        );
     }
 
     // ─── Permission helpers ──────────────────────────────────────────────────
@@ -207,6 +227,16 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
 
     public function check_access_messaging() {
         return current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_ACCESS_MESSAGING )
+            || current_user_can( 'manage_options' );
+    }
+
+    /**
+     * Only administrators (manage_options) or users with the settings-management
+     * capability may permanently delete messages. Regular agents (kmbp_access_messaging)
+     * are intentionally excluded because message deletion is a destructive action.
+     */
+    public function check_delete_message() {
+        return current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_MANAGE_SETTINGS )
             || current_user_can( 'manage_options' );
     }
 
@@ -659,6 +689,57 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
 
         $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}kmbp_messages WHERE id = %d", $wpdb->insert_id ), ARRAY_A );
         return rest_ensure_response( $this->format_message_row( $row ) );
+    }
+
+    public function delete_message( WP_REST_Request $request ) {
+        global $wpdb;
+        $id = (int) $request->get_param( 'id' );
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}kmbp_messages WHERE id = %d", $id ),
+            ARRAY_A
+        );
+        if ( ! $row ) {
+            return new WP_Error( 'kmbp_not_found', __( 'Message not found.', 'kinetix-messaging-by-ppros' ), array( 'status' => 404 ) );
+        }
+
+        $cid = (int) $row['conversation_id'];
+        $wpdb->delete( $wpdb->prefix . 'kmbp_messages', array( 'id' => $id ), array( '%d' ) );
+
+        // Refresh conversation preview to the new latest message (if any).
+        $latest = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT body FROM {$wpdb->prefix}kmbp_messages WHERE conversation_id = %d ORDER BY sent_at DESC LIMIT 1",
+                $cid
+            ),
+            ARRAY_A
+        );
+        $new_preview = $latest ? wp_trim_words( wp_strip_all_tags( $latest['body'] ), 12, '…' ) : '';
+        $wpdb->update(
+            $wpdb->prefix . 'kmbp_conversations',
+            array( 'preview' => $new_preview, 'updated_at' => current_time( 'mysql' ) ),
+            array( 'id' => $cid ),
+            array( '%s', '%s' ),
+            array( '%d' )
+        );
+
+        return rest_ensure_response( array( 'deleted' => true, 'id' => $id ) );
+    }
+
+    public function delete_conversation( WP_REST_Request $request ) {
+        global $wpdb;
+        $id = (int) $request->get_param( 'id' );
+
+        $exists = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}kmbp_conversations WHERE id = %d", $id ) );
+        if ( ! $exists ) {
+            return new WP_Error( 'kmbp_not_found', __( 'Conversation not found.', 'kinetix-messaging-by-ppros' ), array( 'status' => 404 ) );
+        }
+
+        // Remove all messages belonging to this conversation first.
+        $wpdb->delete( $wpdb->prefix . 'kmbp_messages', array( 'conversation_id' => $id ), array( '%d' ) );
+        $wpdb->delete( $wpdb->prefix . 'kmbp_conversations', array( 'id' => $id ), array( '%d' ) );
+
+        return rest_ensure_response( array( 'deleted' => true, 'id' => $id ) );
     }
 
     public function update_conversation( WP_REST_Request $request ) {
