@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
+import { ChannelSharePanel, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
 import api, { webhookUrl, siteHost, currentUser } from "../../api/client.js";
 
@@ -63,7 +63,9 @@ export default function EmailSettings({ cfg, setCfg }) {
         </div>
         <StatusBadge connected={cfg.enabled} />
       </div>
- 
+
+      <ChannelSharePanel channel="email" cfg={cfg} color={color} />
+
       <TabBar
         tabs={[{ id: "inbox", label: "Inbox" }, { id: "smtp", label: "SMTP" }, { id: "imap", label: "IMAP" }, { id: "templates", label: "Templates" }, { id: "dns", label: "DNS / SPF" }]}
         active={tab} onChange={setTab} color={color}

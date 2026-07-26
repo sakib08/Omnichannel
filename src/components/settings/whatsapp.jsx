@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
+import { ChannelSharePanel, CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
 import { webhookUrl } from "../../api/client.js";
 
@@ -20,7 +20,9 @@ export default function WhatsAppSettings({ cfg, setCfg }) {
         </div>
         <StatusBadge connected={cfg.enabled} />
       </div>
- 
+
+      <ChannelSharePanel channel="whatsapp" cfg={cfg} color={color} />
+
       <TabBar
         tabs={[{ id: "api", label: "API Setup" }, { id: "webhook", label: "Webhook" }, { id: "widget", label: "Website Button" }, { id: "messaging", label: "Messaging" }, { id: "compliance", label: "Compliance" }]}
         active={tab} onChange={setTab} color={color}

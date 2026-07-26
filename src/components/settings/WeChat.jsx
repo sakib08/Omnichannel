@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
+import { ChannelSharePanel, CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
 import { webhookUrl } from "../../api/client.js";
 
@@ -20,6 +20,8 @@ export default function WeChatSettings({ cfg, setCfg }) {
         </div>
         <StatusBadge connected={cfg.enabled} />
       </div>
+
+      <ChannelSharePanel channel="wechat" cfg={cfg} color={color} />
 
       <TabBar
         tabs={[

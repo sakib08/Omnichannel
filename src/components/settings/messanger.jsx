@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
+import { ChannelSharePanel, CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
 import { webhookUrl } from "../../api/client.js";
 
@@ -21,7 +21,9 @@ export default function MessengerSettings({ cfg, setCfg }) {
         </div>
         <StatusBadge connected={cfg.enabled} />
       </div>
- 
+
+      <ChannelSharePanel channel="messenger" cfg={cfg} color={color} />
+
       <TabBar
         tabs={[{ id: "api", label: "API Keys" }, { id: "webhook", label: "Webhook" }, { id: "widget", label: "Chat Plugin" }, { id: "automation", label: "Automation" }, { id: "advanced", label: "Advanced" }]}
         active={tab} onChange={setTab} color={color}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle, TOKEN } from "./shared.jsx";
+import { ChannelSharePanel, CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle, TOKEN } from "./shared.jsx";
 import { webhookUrl } from "../../api/client.js";
 export default function ViberSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("bot");
@@ -18,6 +18,8 @@ export default function ViberSettings({ cfg, setCfg }) {
         </div>
         <StatusBadge connected={cfg.enabled} />
       </div>
+
+      <ChannelSharePanel channel="viber" cfg={cfg} color={color} />
 
       <TabBar
         tabs={[

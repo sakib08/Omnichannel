@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
+import { ChannelSharePanel, CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
 import { webhookUrl, isLocalWebhookSite } from "../../api/client.js";
 import api from "../../api/client.js";
@@ -93,7 +93,9 @@ export default function TelegramSettings({ cfg, setCfg }) {
         </div>
         <StatusBadge connected={cfg.enabled} />
       </div>
- 
+
+      <ChannelSharePanel channel="telegram" cfg={cfg} color={color} />
+
       <TabBar
         tabs={[{ id: "bot", label: "Bot Setup" }, { id: "webhook", label: "Webhook" }, { id: "widget", label: "Website Widget" }, { id: "features", label: "Features" }, { id: "advanced", label: "Advanced" }]}
         active={tab} onChange={setTab} color={color}

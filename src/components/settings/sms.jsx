@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
+import { ChannelSharePanel, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
 import { webhookUrl } from "../../api/client.js";
 
@@ -20,6 +20,8 @@ export default function SmsSettings({ cfg, setCfg }) {
         </div>
         <StatusBadge connected={cfg.enabled} />
       </div>
+
+      <ChannelSharePanel channel="sms" cfg={cfg} color={color} />
 
       <TabBar
         tabs={[
