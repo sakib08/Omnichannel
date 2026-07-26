@@ -1,10 +1,10 @@
 === Kinetix Messaging by Ppros ===
 Contributors: sakibbd08
-Tags: messaging, omnichannel, telegram, whatsapp, email
+Tags: whatsapp, messenger, chat, social-media, messaging, omnichannel, telegram, email, social
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.4
+Stable tag: 1.0.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -140,7 +140,76 @@ Inbound email may also be pushed to your site via a webhook URL you configure in
 2. Channel settings — connect WhatsApp, Telegram, email, SMS, and more.
 3. Conversation view — read and reply without leaving WordPress.
 
+== Frequently Asked Questions ==
+
+= Can I debug my messaging channel on a local machine? =
+
+No — messaging platforms (Telegram, Meta, LINE, Viber, WeChat) deliver inbound messages via webhooks, which require a **publicly reachable HTTPS URL**. A local machine (`localhost`, `127.0.0.1`, `.test`, `.local`) is not reachable from the public internet, so inbound webhook deliveries will fail silently.
+
+To test locally, use a tunnel tool to expose your machine temporarily:
+
+* **ngrok** — `ngrok http 80` gives you a public HTTPS URL.
+* **Cloudflare Tunnel** — `cloudflared tunnel --url http://localhost:80`.
+* **Expose** — `expose share http://localhost`.
+
+After starting the tunnel, update **WordPress → Settings → General → Site URL** to the tunnel HTTPS address, flush permalinks, and re-register the webhook for your channel.
+
+= Can I debug my messaging channel on a subdomain? =
+
+Yes — a public subdomain works well for staging or development, as long as:
+
+1. The subdomain resolves over **HTTPS** with a valid SSL certificate. Self-signed certificates are rejected by all platforms.
+2. Port 443 is open and reachable from the public internet (not behind a VPN or corporate firewall).
+3. No WAF, CDN rule, or security plugin is blocking unauthenticated POST requests to `/wp-json/kmbp/v1/webhooks/*`.
+
+If your staging subdomain shares a server with production, ensure `WP_HOME` and `WP_SITEURL` in `wp-config.php` (or Settings → General) point to the correct subdomain so that the REST URL used for webhooks is accurate.
+
+= What should I check if I can't get Messenger and WhatsApp working? =
+
+Both channels run on the Meta Graph API. Work through this checklist:
+
+1. **Verify Token mismatch** — the token in Settings → WhatsApp/Messenger must exactly match the one entered in the Meta App → Webhooks configuration. Copy-paste it; do not retype.
+2. **Webhook fields not subscribed** — in Meta App → Products → WhatsApp (or Messenger) → Configuration → Webhooks, make sure `messages` and `messaging_postbacks` are subscribed.
+3. **App in Development mode** — while in Development mode only admins and testers of the Meta App can send messages. Submit for App Review to go live with real users.
+4. **Short-lived access token** — user tokens expire after ~60 days. Generate a **System User permanent token** in Meta Business Settings → System Users.
+5. **Wrong App Secret** — the App Secret validates the `X-Hub-Signature-256` header on every inbound webhook. A mismatched secret causes the plugin to silently reject all incoming messages. Double-check it in Settings → WhatsApp → API Setup.
+6. **Phone Number ID vs. WABAID** (WhatsApp only) — the Phone Number ID and WABA ID are different values. Check both in Meta Business Manager → WhatsApp → API Setup.
+
+= How do I add a messaging button to my WordPress pages? =
+
+Use the built-in shortcode **`[kmbp_channel_button channel="whatsapp"]`**. Open **Kinetix Messaging → Settings → (any channel) → Share & Embed** to get the exact shortcode for that channel, with one-click copy. The panel also shows ready-to-paste snippets for:
+
+* **Gutenberg** — add a Shortcode block and paste.
+* **Elementor** — drag the Shortcode widget and paste.
+
+Optional attributes: `label="Chat with us"`, `style="link"` (plain anchor instead of pill button), `class="my-class"`.
+
+= Can multiple agents use the inbox at the same time? =
+
+Yes. Assign the built-in **Messaging Agent** role (or the `kmbp_access_messaging` capability) to as many team members as needed. Each agent logs into WordPress independently and opens the Kinetix Messaging inbox. Conversations can be assigned to specific agents via the right-hand panel in the conversation view. The inbox polls for new messages every 8 seconds so all agents see updates in near-real time without refreshing.
+
+= How do I send automated welcome or auto-reply messages? =
+
+Most channels have a dedicated auto-reply option in their settings panel:
+
+* **All channels** — enable the **Auto-reply** toggle and write your message in the text field that appears. The message is sent automatically when a new conversation starts.
+* **Telegram** — enable **Auto-reply on /start** in Settings → Telegram → Features. The welcome message fires when a user first sends `/start` to your bot.
+* **Messenger / Instagram** — set a greeting in the **Automation** tab.
+* **Email** — configure the auto-reply subject and body in Settings → Email → Templates.
+
 == Changelog ==
+
+= 1.0.5 =
+* Add Share & Embed panel to every channel settings page with a one-click copyable direct link (WhatsApp wa.me, Telegram t.me, Messenger m.me, etc.).
+* Add `[kmbp_channel_button]` shortcode for embedding a branded channel button or link on any page, with Gutenberg block and Elementor widget instructions.
+* Add delete message action in the conversation view (admin / settings-manager only).
+* Add delete conversation (thread) action in the conversation list (admin / settings-manager only).
+* Add dedicated REST endpoints: DELETE /kmbp/v1/messages/{id} and DELETE /kmbp/v1/conversations/{id}.
+* Add FAQ section to readme.txt and the in-plugin Help page covering local/subdomain debugging, Messenger & WhatsApp troubleshooting, multi-agent usage, shortcode embeds, and auto-replies.
+* Update plugin tags to include social-media, messenger, chat, and social for better discoverability.
+* Fix ChannelSharePanel text contrast in light mode via React context theme propagation.
+* Fix PHPCS warnings: unslash and sanitize $_SERVER header reads; escape RENAME TABLE identifiers with esc_sql().
+* Update .distignore to exclude editor-tooling directories (.agents, .codex, .cursor) and empty legacy lang/ folder from release ZIP.
 
 = 1.0.4 =
 * Add delete conversation and delete message actions in the inbox (admin-only).

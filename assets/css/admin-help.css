@@ -199,6 +199,78 @@
 	font-size: .8rem;
 }
 
+/* ── FAQ accordion ─────────────────────────────────────────────────────── */
+.kmbp-help .kmbp-faq-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin: 16px 0 24px;
+}
+
+.kmbp-help .kmbp-faq-item {
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 12px;
+	overflow: hidden;
+	transition: border-color 0.15s;
+}
+
+.kmbp-help .kmbp-faq-item[open] {
+	border-color: #c7d2fe;
+}
+
+.kmbp-help .kmbp-faq-item summary {
+	list-style: none;
+	cursor: pointer;
+	padding: 14px 20px;
+	font-size: .9rem;
+	font-weight: 600;
+	color: #1e293b;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	user-select: none;
+}
+
+.kmbp-help .kmbp-faq-item summary::-webkit-details-marker {
+	display: none;
+}
+
+.kmbp-help .kmbp-faq-item summary::before {
+	content: "＋";
+	flex-shrink: 0;
+	width: 22px;
+	height: 22px;
+	line-height: 22px;
+	text-align: center;
+	background: #e0e7ff;
+	color: #4f46e5;
+	border-radius: 6px;
+	font-size: .85rem;
+	font-style: normal;
+	transition: background 0.15s;
+}
+
+.kmbp-help .kmbp-faq-item[open] summary::before {
+	content: "－";
+	background: #4f46e5;
+	color: #fff;
+}
+
+.kmbp-help .kmbp-faq-item summary:hover {
+	background: #f1f5f9;
+}
+
+.kmbp-help .kmbp-faq-body {
+	padding: 4px 20px 18px 52px;
+	border-top: 1px solid #e2e8f0;
+}
+
+.kmbp-help .kmbp-faq-body p:first-child {
+	margin-top: 12px;
+}
+
+/* ── Channel dots ───────────────────────────────────────────────────────── */
 .kmbp-help .kmbp-dot-whatsapp  { color: #25D366; }
 .kmbp-help .kmbp-dot-messenger { color: #0866FF; }
 .kmbp-help .kmbp-dot-telegram  { color: #229ED9; }

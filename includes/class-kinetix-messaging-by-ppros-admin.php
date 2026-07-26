@@ -81,6 +81,7 @@ class Kinetix_Messaging_By_Ppros_Admin {
                     <li><a href="#kmbp-channels">Channel Setup</a></li>
                     <li><a href="#kmbp-webhooks">Webhook URLs</a></li>
                     <li><a href="#kmbp-troubleshoot">Troubleshooting</a></li>
+                    <li><a href="#kmbp-faq">FAQ</a></li>
                     <li><a href="#kmbp-rest-api">REST API Reference</a></li>
                     <li><a href="#kmbp-roles">Roles &amp; Capabilities</a></li>
                 </ol>
@@ -188,8 +189,89 @@ class Kinetix_Messaging_By_Ppros_Admin {
                 <li>PHP has the <code>imap</code> extension enabled: <code>php -m | grep imap</code>.</li>
             </ul>
 
+            <!-- FAQ -->
+            <h2 id="kmbp-faq">5. Frequently Asked Questions</h2>
+
+            <div class="kmbp-faq-list">
+
+                <details class="kmbp-faq-item">
+                    <summary>Can I debug my messaging channel on a local machine?</summary>
+                    <div class="kmbp-faq-body">
+                        <p><strong>No</strong> — messaging platforms (Telegram, Meta, LINE, Viber, WeChat) deliver inbound messages via webhooks, which require a <strong>publicly reachable HTTPS URL</strong>. A local machine (<code>localhost</code>, <code>127.0.0.1</code>, <code>.test</code>, <code>.local</code>) is not reachable from the public internet, so webhook deliveries will fail silently.</p>
+                        <p>To develop locally, expose your machine with a tunnel tool:</p>
+                        <ul>
+                            <li><strong>ngrok</strong> — <code>ngrok http 80</code> gives you a temporary public HTTPS URL.</li>
+                            <li><strong>Cloudflare Tunnel</strong> — <code>cloudflared tunnel --url http://localhost:80</code></li>
+                            <li><strong>Expose</strong> — <code>expose share http://localhost</code></li>
+                        </ul>
+                        <p>After starting the tunnel, update <em>WordPress → Settings → General → Site URL</em> to the tunnel HTTPS address, flush permalinks, and re-register the webhook for your channel.</p>
+                    </div>
+                </details>
+
+                <details class="kmbp-faq-item">
+                    <summary>Can I debug my messaging channel on a subdomain?</summary>
+                    <div class="kmbp-faq-body">
+                        <p><strong>Yes</strong> — a public subdomain works well for staging or development, as long as:</p>
+                        <ol>
+                            <li>The subdomain resolves over <strong>HTTPS</strong> with a valid SSL certificate. Self-signed certificates are rejected by all platforms.</li>
+                            <li>Port 443 is open and reachable from the public internet (not behind a VPN or corporate firewall).</li>
+                            <li>No WAF, CDN rule, or security plugin is blocking unauthenticated <code>POST</code> requests to <code>/wp-json/kmbp/v1/webhooks/*</code>.</li>
+                        </ol>
+                        <p>If your staging subdomain shares a server with production, ensure <code>WP_HOME</code> and <code>WP_SITEURL</code> in <code>wp-config.php</code> (or Settings → General) point to the subdomain so the REST URL used for webhooks is correct.</p>
+                    </div>
+                </details>
+
+                <details class="kmbp-faq-item">
+                    <summary>What should I check if Messenger and WhatsApp aren't working?</summary>
+                    <div class="kmbp-faq-body">
+                        <p>Both channels run on the Meta Graph API. Work through this checklist:</p>
+                        <ol>
+                            <li><strong>Verify Token mismatch</strong> — the token in Settings must <em>exactly</em> match the one in the Meta App → Webhooks configuration. Copy-paste it; do not retype.</li>
+                            <li><strong>Webhook fields not subscribed</strong> — in Meta App → Products → WhatsApp (or Messenger) → Configuration → Webhooks, confirm <code>messages</code> and <code>messaging_postbacks</code> are subscribed.</li>
+                            <li><strong>App in Development mode</strong> — only admins and testers of the Meta App can send messages while in Development mode. Submit for App Review to go live.</li>
+                            <li><strong>Short-lived access token</strong> — user tokens expire in ~60 days. Generate a <strong>System User permanent token</strong> in Meta Business Settings → System Users.</li>
+                            <li><strong>Wrong App Secret</strong> — the App Secret validates the <code>X-Hub-Signature-256</code> header on every inbound webhook. A mismatched secret silently rejects all incoming messages.</li>
+                            <li><strong>Phone Number ID vs. WABAID</strong> (WhatsApp only) — these are different values. Verify both in Meta Business Manager → WhatsApp → API Setup.</li>
+                        </ol>
+                    </div>
+                </details>
+
+                <details class="kmbp-faq-item">
+                    <summary>How do I add a messaging button to my WordPress pages?</summary>
+                    <div class="kmbp-faq-body">
+                        <p>Use the built-in shortcode <code>[kmbp_channel_button channel="whatsapp"]</code>. Open <strong>Settings → (any channel) → Share &amp; Embed</strong> (the panel at the top of each channel) to get the exact shortcode for that channel with one-click copy. The panel also provides ready-to-paste snippets for:</p>
+                        <ul>
+                            <li><strong>Gutenberg</strong> — add a Shortcode block and paste the code.</li>
+                            <li><strong>Elementor</strong> — drag the Shortcode widget and paste.</li>
+                        </ul>
+                        <p>Optional attributes: <code>label="Chat with us"</code>, <code>style="link"</code> (plain anchor instead of pill button), <code>class="my-css-class"</code>.</p>
+                    </div>
+                </details>
+
+                <details class="kmbp-faq-item">
+                    <summary>Can multiple agents use the inbox at the same time?</summary>
+                    <div class="kmbp-faq-body">
+                        <p>Yes. Assign the built-in <strong>Messaging Agent</strong> role (or the <code>kmbp_access_messaging</code> capability) to as many team members as needed. Each agent logs into WordPress and opens the inbox independently. Conversations can be assigned to specific agents via the right-hand panel in the conversation view. The inbox polls every 8 seconds so all agents see new messages in near-real time without a manual refresh.</p>
+                    </div>
+                </details>
+
+                <details class="kmbp-faq-item">
+                    <summary>How do I send automated welcome or auto-reply messages?</summary>
+                    <div class="kmbp-faq-body">
+                        <p>Most channels include a dedicated auto-reply option in their settings panel:</p>
+                        <ul>
+                            <li><strong>All channels</strong> — enable the <em>Auto-reply</em> toggle and write your message. It fires when a new conversation starts.</li>
+                            <li><strong>Telegram</strong> — enable <em>Auto-reply on /start</em> in Settings → Telegram → Features. The welcome message fires when a user first sends <code>/start</code> to your bot.</li>
+                            <li><strong>Messenger / Instagram</strong> — configure the greeting text in the channel's <em>Automation</em> tab.</li>
+                            <li><strong>Email</strong> — set the auto-reply subject and body in Settings → Email → Templates.</li>
+                        </ul>
+                    </div>
+                </details>
+
+            </div>
+
             <!-- REST API -->
-            <h2 id="kmbp-rest-api">5. REST API Reference</h2>
+            <h2 id="kmbp-rest-api">6. REST API Reference</h2>
             <p>All endpoints live under <code><?php echo esc_html( $rest_base ); ?></code> and require the <code>X-WP-Nonce</code> header (for authenticated endpoints) or are open for webhook delivery.</p>
 
             <table>
@@ -217,7 +299,7 @@ class Kinetix_Messaging_By_Ppros_Admin {
             </table>
 
             <!-- Roles -->
-            <h2 id="kmbp-roles">6. Roles &amp; Capabilities</h2>
+            <h2 id="kmbp-roles">7. Roles &amp; Capabilities</h2>
             <table>
                 <thead><tr><th>Capability</th><th>Granted to</th><th>Allows</th></tr></thead>
                 <tbody>
