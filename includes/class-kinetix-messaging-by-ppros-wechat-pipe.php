@@ -2,20 +2,20 @@
 /**
  * WeChat Official Account connector.
  *
- * Inbound  — GET  /wp-json/sme/v1/webhooks/wechat  (URL verification echo)
- *            POST /wp-json/sme/v1/webhooks/wechat  (XML messages)
+ * Inbound  — GET  /wp-json/kmbp/v1/webhooks/wechat  (URL verification echo)
+ *            POST /wp-json/kmbp/v1/webhooks/wechat  (XML messages)
  *            Register in: WeChat Official Account admin → Development →
  *            Basic configuration → Server URL
  *
- * Outbound — POST /wp-json/sme/v1/wechat/send
+ * Outbound — POST /wp-json/kmbp/v1/wechat/send
  *            Agents POST { conversationId, recipientId (openid), text }.
  *
- * Settings keys (stored under sme_platform_settings['wechat']):
+ * Settings keys (stored under kmbp_platform_settings['wechat']):
  *   enabled, appId, appSecret, serverToken, encodingAesKey,
  *   fetchProfile, autoReplyMsg, autoAssign
  *
  * Access token is fetched on demand and cached for 90 minutes in a
- * WordPress transient (sme_wechat_access_token).
+ * WordPress transient (kmbp_wechat_access_token).
  *
  * @package Kinetix_Messaging_By_Ppros
  */
@@ -25,7 +25,7 @@ defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 class Kinetix_Messaging_By_Ppros_Wechat_Pipe extends Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
 
     const API_BASE = 'https://api.weixin.qq.com/cgi-bin/';
-    const TOKEN_TRANSIENT = 'sme_wechat_access_token';
+    const TOKEN_TRANSIENT = 'kmbp_wechat_access_token';
 
     public function get_channel_slug(): string {
         return 'wechat';
@@ -147,7 +147,7 @@ class Kinetix_Messaging_By_Ppros_Wechat_Pipe extends Kinetix_Messaging_By_Ppros_
         );
 
         if ( is_wp_error( $conversation_id ) ) {
-            $this->log_debug( '[SME WeChat] DB error: ' . $conversation_id->get_error_message() );
+            $this->log_debug( '[KMBP WeChat] DB error: ' . $conversation_id->get_error_message() );
             return new WP_REST_Response( 'success', 200 );
         }
 
@@ -165,7 +165,7 @@ class Kinetix_Messaging_By_Ppros_Wechat_Pipe extends Kinetix_Messaging_By_Ppros_
             $this->send_message( $open_id, (string) $cfg['autoReplyMsg'], $cfg );
         }
 
-        do_action( 'kinetix_messaging_by_ppros_inbound_message_received', $conversation_id, 'wechat', array(
+        do_action( 'kmbp_inbound_message_received', $conversation_id, 'wechat', array(
             'openId' => $open_id, 'text' => $text, 'msgType' => $msg_type,
         ) );
 
@@ -210,7 +210,7 @@ class Kinetix_Messaging_By_Ppros_Wechat_Pipe extends Kinetix_Messaging_By_Ppros_
 
         if ( is_wp_error( $result ) ) {
             return new \WP_Error(
-                'sme_wechat_send_error',
+                'kmbp_wechat_send_error',
                 sprintf(
                     /* translators: %s: WeChat API error message */
                     __( 'WeChat API error: %s', 'kinetix-messaging-by-ppros' ),
@@ -222,7 +222,7 @@ class Kinetix_Messaging_By_Ppros_Wechat_Pipe extends Kinetix_Messaging_By_Ppros_
 
         if ( isset( $result['errcode'] ) && 0 !== (int) $result['errcode'] ) {
             return new \WP_Error(
-                'sme_wechat_api_error',
+                'kmbp_wechat_api_error',
                 sprintf( 'WeChat error %d: %s', (int) $result['errcode'], $result['errmsg'] ?? '' ),
                 array( 'status' => 502 )
             );
@@ -249,7 +249,7 @@ class Kinetix_Messaging_By_Ppros_Wechat_Pipe extends Kinetix_Messaging_By_Ppros_
         $secret  = (string) ( $cfg['appSecret'] ?? '' );
         if ( '' === $app_id || '' === $secret ) {
             return new \WP_Error(
-                'sme_wechat_not_configured',
+                'kmbp_wechat_not_configured',
                 __( 'WeChat appId and appSecret are required.', 'kinetix-messaging-by-ppros' )
             );
         }
@@ -263,7 +263,7 @@ class Kinetix_Messaging_By_Ppros_Wechat_Pipe extends Kinetix_Messaging_By_Ppros_
 
         if ( empty( $data['access_token'] ) ) {
             $msg = isset( $data['errmsg'] ) ? $data['errmsg'] : 'Empty access_token response';
-            return new \WP_Error( 'sme_wechat_token_error', $msg );
+            return new \WP_Error( 'kmbp_wechat_token_error', $msg );
         }
 
         $token = (string) $data['access_token'];
@@ -279,7 +279,7 @@ class Kinetix_Messaging_By_Ppros_Wechat_Pipe extends Kinetix_Messaging_By_Ppros_
             return 'WeChat User';
         }
 
-        $cache_key = 'sme_wx_profile_' . md5( $open_id );
+        $cache_key = 'kmbp_wx_profile_' . md5( $open_id );
         $cached    = get_transient( $cache_key );
         if ( false !== $cached ) {
             return (string) $cached;

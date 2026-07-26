@@ -3,10 +3,10 @@
  * Email Piping — inbound receive + outbound send for the Messaging Engine.
  *
  * Inbound paths
- *   1. IMAP polling  — WordPress cron fires `sme_imap_poll` every 5 minutes.
+ *   1. IMAP polling  — WordPress cron fires `kmbp_imap_poll` every 5 minutes.
  *                      The handler connects to the configured IMAP server, grabs
  *                      unseen messages, and stores them as conversations/messages.
- *   2. Webhook push  — POST /wp-json/sme/v1/webhooks/email
+ *   2. Webhook push  — POST /wp-json/kmbp/v1/webhooks/email
  *                      Compatible with Mailgun, SendGrid (Inbound Parse),
  *                      Postmark, SparkPost, and any raw email-to-HTTP relay.
  *                      No authentication is required from the email provider;
@@ -14,13 +14,13 @@
  *                      in the email channel settings (`webhookToken`).
  *
  * Outbound path
- *   POST /wp-json/sme/v1/email/send
+ *   POST /wp-json/kmbp/v1/email/send
  *   Authenticated agents POST { conversationId, subject, body (HTML) } and
  *   the handler opens a dedicated PHPMailer instance (bypassing wp_mail globals)
  *   configured with the SMTP credentials stored in settings.
  *
  * Manual IMAP poll trigger (for testing / debugging)
- *   POST /wp-json/sme/v1/email/poll  (requires sme_manage_settings)
+ *   POST /wp-json/kmbp/v1/email/poll  (requires kmbp_manage_settings)
  *
  * @package Kinetix_Messaging_By_Ppros
  */
@@ -30,10 +30,10 @@ defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 class Kinetix_Messaging_By_Ppros_Email_Pipe {
 
     // ── Cron event tag ───────────────────────────────────────────────────────
-    const CRON_HOOK = 'sme_imap_poll';
+    const CRON_HOOK = 'kmbp_imap_poll';
 
     // ── Cron schedule name (registered via cron_schedules) ──────────────────
-    const CRON_SCHEDULE = 'sme_every_5_minutes';
+    const CRON_SCHEDULE = 'kmbp_every_5_minutes';
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Registration helpers called from the main Kinetix_Messaging_By_Ppros
@@ -81,7 +81,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
     public function add_cron_schedule( array $schedules ): array {
         $schedules[ self::CRON_SCHEDULE ] = array(
             'interval' => 5 * MINUTE_IN_SECONDS,
-            'display'  => __( 'Every 5 minutes (SME email poll)', 'kinetix-messaging-by-ppros' ),
+            'display'  => __( 'Every 5 minutes (KMBP email poll)', 'kinetix-messaging-by-ppros' ),
         );
         return $schedules;
     }
@@ -186,7 +186,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         if ( '' === $stored_token ) {
             return false;
         }
-        $provided_token = (string) ( $request->get_header( 'x-sme-token' )
+        $provided_token = (string) ( $request->get_header( 'x-kmbp-token' )
             ?? $request->get_param( 'token' )
             ?? '' );
         return hash_equals( $stored_token, $provided_token );
@@ -206,7 +206,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         $cfg = $this->get_settings();
 
         if ( empty( $cfg['enabled'] ) ) {
-            return new WP_Error( 'sme_email_disabled', __( 'Email channel is not enabled.', 'kinetix-messaging-by-ppros' ), array( 'status' => 503 ) );
+            return new WP_Error( 'kmbp_email_disabled', __( 'Email channel is not enabled.', 'kinetix-messaging-by-ppros' ), array( 'status' => 503 ) );
         }
 
         $conversation_id = (int) $request->get_param( 'conversationId' );
@@ -216,7 +216,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         $body            = wp_kses_post( (string) $request->get_param( 'body' ) );
 
         if ( ! is_email( $to ) ) {
-            return new WP_Error( 'sme_invalid_to', __( 'Invalid recipient email address.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+            return new WP_Error( 'kmbp_invalid_to', __( 'Invalid recipient email address.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         $result = $this->send_via_smtp( $to, $to_name, $subject, $body, $cfg );
@@ -311,7 +311,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
 
         } catch ( \PHPMailer\PHPMailer\Exception $e ) {
             return new \WP_Error(
-                'sme_smtp_error',
+                'kmbp_smtp_error',
                 sprintf(
                     /* translators: %s: error message */
                     __( 'SMTP error: %s', 'kinetix-messaging-by-ppros' ),
@@ -332,7 +332,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
      * Accepts inbound email payloads from Mailgun, SendGrid Inbound Parse,
      * Postmark, SparkPost, or any raw relay.
      *
-     * Security: callers must include a `X-SME-Token` header (or `token` body
+     * Security: callers must include a `X-KMBP-Token` header (or `token` body
      * param) matching the `webhookToken` stored in email settings.
      * The webhook is rejected when the token is not configured or does not match.
      */
@@ -387,7 +387,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         }
 
         if ( ! is_email( $from_email ) ) {
-            return new WP_Error( 'sme_invalid_payload', __( 'Could not parse sender address.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+            return new WP_Error( 'kmbp_invalid_payload', __( 'Could not parse sender address.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         // ── Recipient ─────────────────────────────────────────────────────────
@@ -404,7 +404,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
             $body_html = wpautop( esc_html( $body_plain ) );
         }
         if ( '' === $body_html && '' === $body_plain ) {
-            return new WP_Error( 'sme_invalid_payload', __( 'Email body is empty.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+            return new WP_Error( 'kmbp_invalid_payload', __( 'Email body is empty.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         // ── Threading headers ─────────────────────────────────────────────────
@@ -443,12 +443,12 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
 
         if ( is_wp_error( $results ) ) {
             // Log and bail; avoid crashing the cron runner.
-            $this->log_debug( '[SME Email Pipe] IMAP poll error: ' . $results->get_error_message() );
+            $this->log_debug( '[KMBP Email Pipe] IMAP poll error: ' . $results->get_error_message() );
             return;
         }
 
         if ( ! empty( $results ) ) {
-            $this->log_debug( sprintf( '[SME Email Pipe] IMAP poll: processed %d new message(s).', count( $results ) ) );
+            $this->log_debug( sprintf( '[KMBP Email Pipe] IMAP poll: processed %d new message(s).', count( $results ) ) );
         }
     }
 
@@ -459,7 +459,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         $cfg = $this->get_settings();
 
         if ( empty( $cfg['imapHost'] ) ) {
-            return new WP_Error( 'sme_imap_not_configured', __( 'IMAP is not configured.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+            return new WP_Error( 'kmbp_imap_not_configured', __( 'IMAP is not configured.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
 
         $results = $this->poll_imap( $cfg );
@@ -487,7 +487,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
     public function poll_imap( array $cfg = array() ) {
         if ( ! function_exists( 'imap_open' ) ) {
             return new \WP_Error(
-                'sme_imap_extension_missing',
+                'kmbp_imap_extension_missing',
                 __( 'The PHP IMAP extension is not installed on this server.', 'kinetix-messaging-by-ppros' ),
                 array( 'status' => 500 )
             );
@@ -523,7 +523,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         if ( false === $imap ) {
             $errors = imap_errors();
             $msg    = is_array( $errors ) ? implode( '; ', $errors ) : 'Unknown IMAP error';
-            return new \WP_Error( 'sme_imap_connect_failed', $msg, array( 'status' => 502 ) );
+            return new \WP_Error( 'kmbp_imap_connect_failed', $msg, array( 'status' => 502 ) );
         }
 
         // Fetch unseen messages.
@@ -573,7 +573,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         $struct = imap_fetchstructure( $imap, $uid, FT_UID );
 
         if ( ! $struct ) {
-            return new \WP_Error( 'sme_imap_parse_error', 'Could not fetch message structure.' );
+            return new \WP_Error( 'kmbp_imap_parse_error', 'Could not fetch message structure.' );
         }
 
         // ── Parse headers ────────────────────────────────────────────────────
@@ -584,7 +584,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         $from_name  = $from_obj && isset( $from_obj->personal ) ? imap_utf8( $from_obj->personal ) : '';
 
         if ( ! is_email( $from_email ) ) {
-            return new \WP_Error( 'sme_imap_invalid_from', 'Could not determine sender address.' );
+            return new \WP_Error( 'kmbp_imap_invalid_from', 'Could not determine sender address.' );
         }
 
         $subject     = isset( $raw_headers->subject ) ? imap_utf8( $raw_headers->subject ) : '(no subject)';
@@ -595,7 +595,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         list( $body_html, $body_plain ) = $this->decode_imap_body( $imap, $uid, $struct );
 
         if ( '' === $body_html && '' === $body_plain ) {
-            return new \WP_Error( 'sme_imap_empty_body', 'Message body is empty.' );
+            return new \WP_Error( 'kmbp_imap_empty_body', 'Message body is empty.' );
         }
 
         if ( '' === $body_html && '' !== $body_plain ) {
@@ -751,7 +751,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
     private function test_smtp( array $cfg ) {
         if ( '' === (string) ( $cfg['smtpHost'] ?? '' ) ) {
             return new WP_Error(
-                'sme_smtp_not_configured',
+                'kmbp_smtp_not_configured',
                 __( 'SMTP host is not configured.', 'kinetix-messaging-by-ppros' ),
                 array( 'status' => 400 )
             );
@@ -769,7 +769,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
 
         if ( ! is_email( $to ) ) {
             return new WP_Error(
-                'sme_no_test_recipient',
+                'kmbp_no_test_recipient',
                 __( 'Set a valid SMTP username or inbox email to receive the test message.', 'kinetix-messaging-by-ppros' ),
                 array( 'status' => 400 )
             );
@@ -801,7 +801,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
 
     private function test_imap( array $cfg ) {
         if ( ! function_exists( 'imap_open' ) ) {
-            return new WP_Error( 'sme_imap_extension_missing', __( 'PHP IMAP extension not installed.', 'kinetix-messaging-by-ppros' ), array( 'status' => 500 ) );
+            return new WP_Error( 'kmbp_imap_extension_missing', __( 'PHP IMAP extension not installed.', 'kinetix-messaging-by-ppros' ), array( 'status' => 500 ) );
         }
 
         $host       = (string) ( $cfg['imapHost'] ?? '' );
@@ -827,7 +827,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         if ( false === $imap ) {
             $errors = imap_errors();
             $msg    = is_array( $errors ) ? implode( '; ', $errors ) : 'Unknown IMAP error';
-            return new WP_Error( 'sme_imap_test_failed', $msg, array( 'status' => 502 ) );
+            return new WP_Error( 'kmbp_imap_test_failed', $msg, array( 'status' => 502 ) );
         }
 
         imap_close( $imap );
@@ -858,7 +858,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         $in_reply_to = (string) ( $email_data['in_reply_to'] ?? '' );
 
         if ( ! is_email( $from_email ) ) {
-            return new \WP_Error( 'sme_invalid_from', __( 'Invalid sender address.', 'kinetix-messaging-by-ppros' ) );
+            return new \WP_Error( 'kmbp_invalid_from', __( 'Invalid sender address.', 'kinetix-messaging-by-ppros' ) );
         }
 
         $body = '' !== $body_html ? $body_html : wpautop( esc_html( $body_plain ) );
@@ -908,7 +908,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
          * @param int   $conversation_id
          * @param array $email_data
          */
-        do_action( 'kinetix_messaging_by_ppros_inbound_email_received', $conversation_id, $email_data );
+        do_action( 'kmbp_inbound_email_received', $conversation_id, $email_data );
 
         return $conversation_id;
     }
@@ -936,13 +936,13 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
     ) {
         global $wpdb;
 
-        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- SME custom tables; no WordPress core API exists.
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- KMBP custom tables; no WordPress core API exists.
 
         // 1. Thread by in-reply-to.
         if ( '' !== $in_reply_to ) {
             $cid = (int) $wpdb->get_var(
                 $wpdb->prepare(
-                    "SELECT id FROM {$wpdb->prefix}sme_conversations WHERE channel = 'email' AND external_id = %s AND status != 'closed' LIMIT 1",
+                    "SELECT id FROM {$wpdb->prefix}kmbp_conversations WHERE channel = 'email' AND external_id = %s AND status != 'closed' LIMIT 1",
                     $in_reply_to
                 )
             );
@@ -955,7 +955,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         $normalised_subject = preg_replace( '/^(re|fwd?)\s*:\s*/i', '', $subject );
         $cid = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->prepare(
-                "SELECT id FROM {$wpdb->prefix}sme_conversations
+                "SELECT id FROM {$wpdb->prefix}kmbp_conversations
                  WHERE channel = 'email'
                    AND contact_handle = %s
                    AND subject LIKE %s
@@ -972,7 +972,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
 
         // 3. Create a new conversation.
         $ok = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $wpdb->prefix . 'sme_conversations',
+            $wpdb->prefix . 'kmbp_conversations',
             array(
                 'channel'        => 'email',
                 'external_id'    => $message_id,
@@ -991,7 +991,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         );
 
         if ( false === $ok ) {
-            return new \WP_Error( 'sme_db_error', __( 'Could not create conversation.', 'kinetix-messaging-by-ppros' ) );
+            return new \WP_Error( 'kmbp_db_error', __( 'Could not create conversation.', 'kinetix-messaging-by-ppros' ) );
         }
 
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1019,12 +1019,12 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
     ): int {
         global $wpdb;
 
-        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- SME custom tables; no WordPress core API exists.
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- KMBP custom tables; no WordPress core API exists.
 
         $current_user = wp_get_current_user();
 
         $wpdb->insert(
-            $wpdb->prefix . 'sme_messages',
+            $wpdb->prefix . 'kmbp_messages',
             array(
                 'conversation_id' => $conversation_id,
                 'external_id'     => $external_id,
@@ -1042,7 +1042,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
 
         // Update conversation preview + timestamp.
         $wpdb->update(
-            $wpdb->prefix . 'sme_conversations',
+            $wpdb->prefix . 'kmbp_conversations',
             array(
                 'preview'    => wp_trim_words( wp_strip_all_tags( $body ), 14, '…' ),
                 'updated_at' => current_time( 'mysql' ),
@@ -1064,10 +1064,10 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
      */
     private function find_message_by_external_id( string $external_id ): int {
         global $wpdb;
-        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- SME custom tables; no WordPress core API exists.
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- KMBP custom tables; no WordPress core API exists.
         return (int) $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT id FROM {$wpdb->prefix}sme_messages WHERE external_id = %s LIMIT 1",
+                "SELECT id FROM {$wpdb->prefix}kmbp_messages WHERE external_id = %s LIMIT 1",
                 $external_id
             )
         );
@@ -1081,10 +1081,10 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
      */
     private function get_conversation_id_for_message( int $message_id ): int {
         global $wpdb;
-        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- SME custom tables; no WordPress core API exists.
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- KMBP custom tables; no WordPress core API exists.
         return (int) $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT conversation_id FROM {$wpdb->prefix}sme_messages WHERE id = %d LIMIT 1",
+                "SELECT conversation_id FROM {$wpdb->prefix}kmbp_messages WHERE id = %d LIMIT 1",
                 $message_id
             )
         );

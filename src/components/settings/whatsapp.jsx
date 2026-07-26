@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
+import { ChannelSharePanel, CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
 import { webhookUrl } from "../../api/client.js";
 
@@ -20,7 +20,9 @@ export default function WhatsAppSettings({ cfg, setCfg }) {
         </div>
         <StatusBadge connected={cfg.enabled} />
       </div>
- 
+
+      <ChannelSharePanel channel="whatsapp" cfg={cfg} color={color} />
+
       <TabBar
         tabs={[{ id: "api", label: "API Setup" }, { id: "webhook", label: "Webhook" }, { id: "widget", label: "Website Button" }, { id: "messaging", label: "Messaging" }, { id: "compliance", label: "Compliance" }]}
         active={tab} onChange={setTab} color={color}
@@ -83,7 +85,7 @@ export default function WhatsAppSettings({ cfg, setCfg }) {
           <SectionDivider label="Click-to-Chat Link" />
           <Input label="Share this link" value={`https://wa.me/${(cfg.displayPhone||"15551234567").replace(/\D/g,"")}?text=${encodeURIComponent(cfg.ctaMessage||"Hello!")}`} readOnly mono />
           <SectionDivider label="Embed Snippet" />
-          <CodeSnippet lang="html" code={`<!-- WhatsApp Chat Button -->\n<a href="https://wa.me/${(cfg.displayPhone||"15551234567").replace(/\D/g,"")}\n   ?text=${encodeURIComponent(cfg.ctaMessage||"Hello! I'd like to chat.")}\n   target="_blank" rel="noopener">\n  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/479px-WhatsApp.svg.png"\n       alt="Chat on WhatsApp" height="48">\n</a>`} />
+          <CodeSnippet lang="html" code={`<!-- WhatsApp Chat Button -->\n<a href="https://wa.me/${(cfg.displayPhone||"15551234567").replace(/\D/g,"")}\n   ?text=${encodeURIComponent(cfg.ctaMessage||"Hello! I'd like to chat.")}\n   target="_blank" rel="noopener"\n   style="display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#fff;padding:12px 20px;border-radius:50px;font-family:sans-serif;font-size:14px;font-weight:600;text-decoration:none;">\n  ${cfg.btnLabel || "Chat on WhatsApp"}\n</a>`} />
         </div>
       )}
  

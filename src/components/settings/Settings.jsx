@@ -8,7 +8,7 @@ import TelegramSettings from "./telegram.jsx";
 import ViberSettings from "./Viber.jsx";
 import WeChatSettings from "./WeChat.jsx";
 import WhatsAppSettings from "./whatsapp.jsx";
-import { ChannelCard } from "./shared.jsx";
+import { ChannelCard, SettingsThemeContext } from "./shared.jsx";
 import TeamSettings from "./Team.jsx";
 import { TOKEN } from "./tokens.js";
 import ThemeToggle from "../ThemeToggle.jsx";
@@ -271,6 +271,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
 
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-6 py-8 pb-24">
+          <SettingsThemeContext.Provider value={theme}>
             {active === "team" ? (
               <TeamSettings />
             ) : (
@@ -304,6 +305,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
                 )}
               </>
             )}
+          </SettingsThemeContext.Provider>
           </div>
         </main>
       </div>

@@ -1,35 +1,88 @@
+import { useState } from "react";
 import Avatar from "./Avatar.jsx";
 import ChannelBadge from "./ChannelBadge.jsx";
 import RightPanel from "./RightPanel.jsx";
 import { channelMeta, priorityConfig, SAVED_REPLIES, statusConfig } from "../constants/config";
 
-function MessageBubble({ message, conv }) {
+function MessageBubble({ message, conv, onDelete }) {
+  const [hovered, setHovered] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const avatarInitials = message.isAgent ? "AG" : conv.avatar;
   const avatarColor = message.isAgent ? "#6366F1" : (channelMeta(conv.channel).color || "#6366F1");
 
+  const handleDeleteClick = (e) => {
+    e.stopPropagation();
+    setConfirming(true);
+  };
+
+  const handleConfirm = (e) => {
+    e.stopPropagation();
+    setConfirming(false);
+    onDelete(message.id);
+  };
+
+  const handleCancel = (e) => {
+    e.stopPropagation();
+    setConfirming(false);
+  };
+
   return (
-    <div className={`flex gap-3 ${message.isAgent ? "flex-row-reverse" : ""}`}>
+    <div
+      className={`flex gap-3 group ${message.isAgent ? "flex-row-reverse" : ""}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setConfirming(false); }}
+    >
       <Avatar initials={avatarInitials} color={avatarColor} size={32} />
       <div className={`max-w-md ${message.isAgent ? "items-end" : "items-start"} flex flex-col gap-1`}>
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-gray-500">{message.sender}</span>
           <span className="text-xs text-gray-400">{message.time}</span>
         </div>
-        <div
-          className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-            message.isAgent
-              ? "bg-indigo-600 text-white rounded-tr-sm"
-              : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm"
-          }`}
-        >
-          {message.isHtml ? (
+        <div className="relative">
+          <div
+            className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+              message.isAgent
+                ? "bg-indigo-600 text-white rounded-tr-sm"
+                : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm"
+            }`}
+          >
+            {message.isHtml ? (
+              <div
+                className="kmbp-email-body prose prose-sm max-w-none"
+                /* Email HTML has already passed wp_kses_post on the server */
+                dangerouslySetInnerHTML={{ __html: message.text }}
+              />
+            ) : (
+              <span style={{ whiteSpace: "pre-wrap" }}>{message.text}</span>
+            )}
+          </div>
+          {hovered && !confirming && (
+            <button
+              onClick={handleDeleteClick}
+              title="Delete message"
+              className={`absolute top-1 ${message.isAgent ? "left-0 -translate-x-full -ml-1" : "right-0 translate-x-full ml-1"} p-1 rounded-md bg-white border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 shadow-sm transition-colors`}
+            >
+              <i className="ti ti-trash" style={{ fontSize: 13 }} />
+            </button>
+          )}
+          {confirming && (
             <div
-              className="sme-email-body prose prose-sm max-w-none"
-              /* Email HTML has already passed wp_kses_post on the server */
-              dangerouslySetInnerHTML={{ __html: message.text }}
-            />
-          ) : (
-            <span style={{ whiteSpace: "pre-wrap" }}>{message.text}</span>
+              className={`absolute top-0 ${message.isAgent ? "right-full mr-2" : "left-full ml-2"} flex items-center gap-1 bg-white border border-gray-200 rounded-lg shadow-md px-2 py-1 z-10 whitespace-nowrap`}
+            >
+              <span className="text-xs text-gray-600">Delete?</span>
+              <button
+                onClick={handleConfirm}
+                className="text-xs px-2 py-0.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+              >
+                Yes
+              </button>
+              <button
+                onClick={handleCancel}
+                className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
+              >
+                No
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -41,6 +94,7 @@ export default function ConversationView({
   activeTab,
   addNote,
   agents,
+  deleteMessage,
   loadingMessages,
   messagesEndRef,
   noteText,
@@ -142,7 +196,7 @@ export default function ConversationView({
               </div>
             ) : (
               selectedConv.messages.map((message) => (
-                <MessageBubble key={message.id} message={message} conv={selectedConv} />
+                <MessageBubble key={message.id} message={message} conv={selectedConv} onDelete={deleteMessage} />
               ))
             )}
             <div ref={messagesEndRef} />

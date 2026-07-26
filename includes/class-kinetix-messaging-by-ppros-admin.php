@@ -65,29 +65,29 @@ class Kinetix_Messaging_By_Ppros_Admin {
             wp_die( esc_html__( 'You do not have permission to access this page.', 'kinetix-messaging-by-ppros' ) );
         }
 
-        $webhook_base = esc_url( rest_url( 'sme/v1/webhooks/' ) );
-        $rest_base    = esc_url( rest_url( 'sme/v1/' ) );
+        $webhook_base = esc_url( rest_url( 'kmbp/v1/webhooks/' ) );
+        $rest_base    = esc_url( rest_url( 'kmbp/v1/' ) );
         $plugin_ver   = KINETIX_MESSAGING_BY_PPROS_VERSION ?? '1.0.0';
         ?>
-        <div class="sme-help wrap">
+        <div class="kmbp-help wrap">
             <h1>&#128233; Kinetix Messaging — Help &amp; Documentation</h1>
-            <p class="sme-version">Version <?php echo esc_html( $plugin_ver ); ?> &nbsp;|&nbsp; REST Base: <code><?php echo esc_html( $rest_base ); ?></code></p>
+            <p class="kmbp-version">Version <?php echo esc_html( $plugin_ver ); ?> &nbsp;|&nbsp; REST Base: <code><?php echo esc_html( $rest_base ); ?></code></p>
 
             <!-- Table of Contents -->
-            <div class="sme-toc">
-                <strong class="sme-toc-title">Contents</strong>
+            <div class="kmbp-toc">
+                <strong class="kmbp-toc-title">Contents</strong>
                 <ol>
-                    <li><a href="#sme-quick-start">Quick Start</a></li>
-                    <li><a href="#sme-channels">Channel Setup</a></li>
-                    <li><a href="#sme-webhooks">Webhook URLs</a></li>
-                    <li><a href="#sme-troubleshoot">Troubleshooting</a></li>
-                    <li><a href="#sme-rest-api">REST API Reference</a></li>
-                    <li><a href="#sme-roles">Roles &amp; Capabilities</a></li>
+                    <li><a href="#kmbp-quick-start">Quick Start</a></li>
+                    <li><a href="#kmbp-channels">Channel Setup</a></li>
+                    <li><a href="#kmbp-webhooks">Webhook URLs</a></li>
+                    <li><a href="#kmbp-troubleshoot">Troubleshooting</a></li>
+                    <li><a href="#kmbp-rest-api">REST API Reference</a></li>
+                    <li><a href="#kmbp-roles">Roles &amp; Capabilities</a></li>
                 </ol>
             </div>
 
             <!-- Quick Start -->
-            <h2 id="sme-quick-start">1. Quick Start</h2>
+            <h2 id="kmbp-quick-start">1. Quick Start</h2>
             <p>Follow these four steps to go from install to receiving live messages:</p>
             <ol>
                 <li><strong>Activate the plugin</strong> — the database tables are created automatically on first activation.</li>
@@ -95,52 +95,52 @@ class Kinetix_Messaging_By_Ppros_Admin {
                 <li><strong>Enable at least one channel</strong> — paste in your API credentials and flip the <em>Enable</em> toggle, then click <strong>Save changes</strong>.</li>
                 <li><strong>Register the webhook</strong> — each channel has a <em>Webhook</em> tab with a one-click <em>Register Webhook</em> button (Telegram) or a Callback URL to paste into the platform's developer console (WhatsApp, Messenger, LINE, etc.).</li>
             </ol>
-            <div class="sme-tip"><p>&#128161; Your site must be accessible over <strong>HTTPS</strong> with a valid SSL certificate. All platforms (Telegram, Meta, LINE, Viber) reject plain HTTP webhook URLs.</p></div>
+            <div class="kmbp-tip"><p>&#128161; Your site must be accessible over <strong>HTTPS</strong> with a valid SSL certificate. All platforms (Telegram, Meta, LINE, Viber) reject plain HTTP webhook URLs.</p></div>
 
             <!-- Channel Setup -->
-            <h2 id="sme-channels">2. Channel Setup</h2>
+            <h2 id="kmbp-channels">2. Channel Setup</h2>
 
-            <div class="sme-cards">
-                <div class="sme-card">
+            <div class="kmbp-cards">
+                <div class="kmbp-card">
                     <strong>&#9993; Email</strong>
                     <span>IMAP polling or inbound webhook (Mailgun / SendGrid / Postmark). SMTP for outbound replies.</span>
                 </div>
-                <div class="sme-card">
-                    <strong><span class="sme-dot-whatsapp">&#9899;</span> WhatsApp Business</strong>
+                <div class="kmbp-card">
+                    <strong><span class="kmbp-dot-whatsapp">&#9899;</span> WhatsApp Business</strong>
                     <span>Meta Business Cloud API. Requires a verified WhatsApp Business Account (WABA) and a System User token.</span>
                 </div>
-                <div class="sme-card">
-                    <strong><span class="sme-dot-messenger">&#9899;</span> Messenger</strong>
+                <div class="kmbp-card">
+                    <strong><span class="kmbp-dot-messenger">&#9899;</span> Messenger</strong>
                     <span>Facebook Page + Meta app. Needs pages_messaging permission and App Review for production.</span>
                 </div>
-                <div class="sme-card">
-                    <strong><span class="sme-dot-telegram">&#9899;</span> Telegram</strong>
+                <div class="kmbp-card">
+                    <strong><span class="kmbp-dot-telegram">&#9899;</span> Telegram</strong>
                     <span>Bot created via @BotFather. One-click webhook registration from the Webhook tab.</span>
                 </div>
-                <div class="sme-card">
-                    <strong><span class="sme-dot-instagram">&#9899;</span> Instagram DM</strong>
+                <div class="kmbp-card">
+                    <strong><span class="kmbp-dot-instagram">&#9899;</span> Instagram DM</strong>
                     <span>Professional Instagram Account linked to a Facebook Page. Requires instagram_manage_messages + App Review.</span>
                 </div>
-                <div class="sme-card">
-                    <strong><span class="sme-dot-sms">&#9899;</span> SMS</strong>
+                <div class="kmbp-card">
+                    <strong><span class="kmbp-dot-sms">&#9899;</span> SMS</strong>
                     <span>Supports Twilio, Vonage, Sinch, Plivo, Telnyx, and MessageBird. One shared webhook for all providers.</span>
                 </div>
-                <div class="sme-card">
-                    <strong><span class="sme-dot-line">&#9899;</span> LINE</strong>
+                <div class="kmbp-card">
+                    <strong><span class="kmbp-dot-line">&#9899;</span> LINE</strong>
                     <span>LINE Messaging API. Channel Access Token from LINE Developers console.</span>
                 </div>
-                <div class="sme-card">
-                    <strong><span class="sme-dot-viber">&#9899;</span> Viber</strong>
+                <div class="kmbp-card">
+                    <strong><span class="kmbp-dot-viber">&#9899;</span> Viber</strong>
                     <span>Viber Bot / Business Messages. Auth token from the Viber Admin Panel. One-click webhook via the Webhook tab or cURL.</span>
                 </div>
-                <div class="sme-card">
-                    <strong><span class="sme-dot-wechat">&#9899;</span> WeChat</strong>
+                <div class="kmbp-card">
+                    <strong><span class="kmbp-dot-wechat">&#9899;</span> WeChat</strong>
                     <span>WeChat Official Account (Service Account). Server URL + Token + AES Key from the WeChat admin portal.</span>
                 </div>
             </div>
 
             <!-- Webhook URLs -->
-            <h2 id="sme-webhooks">3. Webhook URLs</h2>
+            <h2 id="kmbp-webhooks">3. Webhook URLs</h2>
             <p>Paste each URL into the corresponding platform's developer console. All endpoints accept <code>POST</code> (and <code>GET</code> for hub verification where required).</p>
 
             <table>
@@ -161,7 +161,7 @@ class Kinetix_Messaging_By_Ppros_Admin {
             </table>
 
             <!-- Troubleshooting -->
-            <h2 id="sme-troubleshoot">4. Troubleshooting</h2>
+            <h2 id="kmbp-troubleshoot">4. Troubleshooting</h2>
 
             <h3>Messages not appearing in the inbox</h3>
             <ol>
@@ -169,13 +169,13 @@ class Kinetix_Messaging_By_Ppros_Admin {
                 <li><strong>Is the webhook registered?</strong> For Telegram: use the <em>Register Webhook</em> button on the Webhook tab; the status card confirms success. For other channels: paste the URL into the developer console.</li>
                 <li><strong>Is the site on HTTPS?</strong> All platforms require a valid SSL certificate. Self-signed certs are rejected.</li>
                 <li><strong>Can the platform reach your site?</strong> If you are on <code>localhost</code> or behind a VPN/firewall, platforms cannot deliver. Use a tunnel (e.g. <a href="https://ngrok.com" target="_blank">ngrok</a>) during development.</li>
-                <li><strong>Check PHP error logs</strong> — when <code>WP_DEBUG</code> is enabled, the plugin writes debug entries prefixed with <code>[SME ChannelName]</code> for DB errors or unexpected payloads.</li>
+                <li><strong>Check PHP error logs</strong> — when <code>WP_DEBUG</code> is enabled, the plugin writes debug entries prefixed with <code>[KMBP ChannelName]</code> for DB errors or unexpected payloads.</li>
                 <li><strong>Are pretty permalinks enabled?</strong> The REST API requires <em>Settings → Permalinks</em> to be set to anything other than <em>Plain</em>.</li>
             </ol>
 
             <h3>Webhook registration fails (Telegram)</h3>
-            <div class="sme-warn"><p>&#9888; The Bot Token must be saved first. Click <strong>Save changes</strong> in Settings → Telegram before attempting to register the webhook.</p></div>
-            <p>If you see a <em>"Wrong response from the webhook: 403 Forbidden"</em> error from Telegram, a security plugin is blocking unauthenticated REST requests. Whitelist the <code>/wp-json/sme/v1/webhooks/*</code> path in your security plugin.</p>
+            <div class="kmbp-warn"><p>&#9888; The Bot Token must be saved first. Click <strong>Save changes</strong> in Settings → Telegram before attempting to register the webhook.</p></div>
+            <p>If you see a <em>"Wrong response from the webhook: 403 Forbidden"</em> error from Telegram, a security plugin is blocking unauthenticated REST requests. Whitelist the <code>/wp-json/kmbp/v1/webhooks/*</code> path in your security plugin.</p>
 
             <h3>WhatsApp / Messenger hub verification fails</h3>
             <p>The <em>Verify Token</em> you enter in Meta must <strong>exactly match</strong> the token saved in Settings. Copy-paste it — do not type it manually on both sides.</p>
@@ -189,47 +189,47 @@ class Kinetix_Messaging_By_Ppros_Admin {
             </ul>
 
             <!-- REST API -->
-            <h2 id="sme-rest-api">5. REST API Reference</h2>
+            <h2 id="kmbp-rest-api">5. REST API Reference</h2>
             <p>All endpoints live under <code><?php echo esc_html( $rest_base ); ?></code> and require the <code>X-WP-Nonce</code> header (for authenticated endpoints) or are open for webhook delivery.</p>
 
             <table>
                 <thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr></thead>
                 <tbody>
-                    <tr><td><span class="sme-badge sme-badge-blue">GET</span></td>   <td><code>settings</code></td>                      <td>Admin</td>    <td>Retrieve all channel settings.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>settings</code></td>                      <td>Admin</td>    <td>Save all channel settings.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-blue">GET</span></td>    <td><code>conversations</code></td>                  <td>Agent</td>    <td>List conversations (filter by channel, status, search).</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>conversations</code></td>                  <td>Agent</td>    <td>Create a conversation manually.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-purple">PUT</span></td>  <td><code>conversations/{id}</code></td>             <td>Agent</td>    <td>Update status, priority, assignee, department.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-blue">GET</span></td>    <td><code>conversations/{id}/messages</code></td>    <td>Agent</td>    <td>List messages in a conversation.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>telegram/send</code></td>                  <td>Agent</td>    <td>Send a Telegram message. Body: <code>{conversationId, recipientId, text}</code></td></tr>
-                    <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>telegram/set-webhook</code></td>           <td>Admin</td>    <td>Register the Telegram webhook with the Bot API.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-blue">GET</span></td>    <td><code>telegram/webhook-info</code></td>          <td>Admin</td>    <td>Fetch live webhook status from Telegram.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>whatsapp/send</code></td>                  <td>Agent</td>    <td>Send a WhatsApp message.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>messenger/send</code></td>                 <td>Agent</td>    <td>Send a Messenger message.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>instagram/send</code></td>                 <td>Agent</td>    <td>Send an Instagram DM.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>sms/send</code></td>                       <td>Agent</td>    <td>Send an SMS via the configured provider.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>line/send</code></td>                      <td>Agent</td>    <td>Send a LINE message.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>viber/send</code></td>                     <td>Agent</td>    <td>Send a Viber message.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>viber/set-webhook</code></td>              <td>Admin</td>    <td>Register the Viber webhook via the Chat API.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-green">POST</span></td>  <td><code>wechat/send</code></td>                    <td>Agent</td>    <td>Send a WeChat message.</td></tr>
-                    <tr><td><span class="sme-badge sme-badge-amber">ANY</span></td>   <td><code>webhooks/{channel}</code></td>             <td>Channel secret</td>     <td>Inbound webhook delivery; each channel verifies its own signature or secret token.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-blue">GET</span></td>   <td><code>settings</code></td>                      <td>Admin</td>    <td>Retrieve all channel settings.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>settings</code></td>                      <td>Admin</td>    <td>Save all channel settings.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-blue">GET</span></td>    <td><code>conversations</code></td>                  <td>Agent</td>    <td>List conversations (filter by channel, status, search).</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>conversations</code></td>                  <td>Agent</td>    <td>Create a conversation manually.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-purple">PUT</span></td>  <td><code>conversations/{id}</code></td>             <td>Agent</td>    <td>Update status, priority, assignee, department.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-blue">GET</span></td>    <td><code>conversations/{id}/messages</code></td>    <td>Agent</td>    <td>List messages in a conversation.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>telegram/send</code></td>                  <td>Agent</td>    <td>Send a Telegram message. Body: <code>{conversationId, recipientId, text}</code></td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>telegram/set-webhook</code></td>           <td>Admin</td>    <td>Register the Telegram webhook with the Bot API.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-blue">GET</span></td>    <td><code>telegram/webhook-info</code></td>          <td>Admin</td>    <td>Fetch live webhook status from Telegram.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>whatsapp/send</code></td>                  <td>Agent</td>    <td>Send a WhatsApp message.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>messenger/send</code></td>                 <td>Agent</td>    <td>Send a Messenger message.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>instagram/send</code></td>                 <td>Agent</td>    <td>Send an Instagram DM.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>sms/send</code></td>                       <td>Agent</td>    <td>Send an SMS via the configured provider.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>line/send</code></td>                      <td>Agent</td>    <td>Send a LINE message.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>viber/send</code></td>                     <td>Agent</td>    <td>Send a Viber message.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>viber/set-webhook</code></td>              <td>Admin</td>    <td>Register the Viber webhook via the Chat API.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>wechat/send</code></td>                    <td>Agent</td>    <td>Send a WeChat message.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-amber">ANY</span></td>   <td><code>webhooks/{channel}</code></td>             <td>Channel secret</td>     <td>Inbound webhook delivery; each channel verifies its own signature or secret token.</td></tr>
                 </tbody>
             </table>
 
             <!-- Roles -->
-            <h2 id="sme-roles">6. Roles &amp; Capabilities</h2>
+            <h2 id="kmbp-roles">6. Roles &amp; Capabilities</h2>
             <table>
                 <thead><tr><th>Capability</th><th>Granted to</th><th>Allows</th></tr></thead>
                 <tbody>
-                    <tr><td><code>sme_access_messaging</code></td>  <td>Administrator, Editor (on activation)</td> <td>View inbox, read &amp; reply to conversations.</td></tr>
-                    <tr><td><code>sme_manage_settings</code></td>   <td>Administrator (on activation)</td>         <td>Change channel settings, credentials, webhooks.</td></tr>
-                    <tr><td><code>sme_manage_departments</code></td><td>Administrator (on activation)</td>         <td>Create and edit departments and agent assignments.</td></tr>
+                    <tr><td><code>kmbp_access_messaging</code></td>  <td>Administrator, Editor (on activation)</td> <td>View inbox, read &amp; reply to conversations.</td></tr>
+                    <tr><td><code>kmbp_manage_settings</code></td>   <td>Administrator (on activation)</td>         <td>Change channel settings, credentials, webhooks.</td></tr>
+                    <tr><td><code>kmbp_manage_departments</code></td><td>Administrator (on activation)</td>         <td>Create and edit departments and agent assignments.</td></tr>
                     <tr><td><code>manage_options</code></td>         <td>Administrator (WordPress built-in)</td>   <td>All of the above.</td></tr>
                 </tbody>
             </table>
-            <div class="sme-tip"><p>&#128161; Capabilities are added to roles during plugin <strong>activation</strong>. If you added an admin user <em>after</em> installing the plugin, deactivate and re-activate the plugin once to grant capabilities.</p></div>
+            <div class="kmbp-tip"><p>&#128161; Capabilities are added to roles during plugin <strong>activation</strong>. If you added an admin user <em>after</em> installing the plugin, deactivate and re-activate the plugin once to grant capabilities.</p></div>
 
-            <p class="sme-footer">Kinetix Messaging by Ppros v<?php echo esc_html( $plugin_ver ); ?></p>
+            <p class="kmbp-footer">Kinetix Messaging by Ppros v<?php echo esc_html( $plugin_ver ); ?></p>
         </div>
         <?php
     }
@@ -289,7 +289,7 @@ class Kinetix_Messaging_By_Ppros_Admin {
             'kinetix-messaging-by-ppros-js',
             'KinetixMessagingBoot',
             array(
-                'restUrl' => esc_url_raw( rest_url( 'sme/v1/' ) ),
+                'restUrl' => esc_url_raw( rest_url( 'kmbp/v1/' ) ),
                 'nonce'   => wp_create_nonce( 'wp_rest' ),
                 'user'    => array(
                     'id'    => (int) $user->ID,

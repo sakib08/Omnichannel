@@ -18,6 +18,7 @@ class Kinetix_Messaging_By_Ppros {
         $this->define_rest_hooks();
         $this->define_email_pipe_hooks();
         $this->define_channel_pipe_hooks();
+        $this->define_shortcode_hooks();
     }
 
     private function load_dependencies() {
@@ -54,6 +55,10 @@ class Kinetix_Messaging_By_Ppros {
         foreach ( $pipes as $pipe ) {
             $pipe->register_hooks( $this->loader );
         }
+    }
+
+    private function define_shortcode_hooks() {
+        $this->loader->add_action( 'init', 'Kinetix_Messaging_By_Ppros_Shortcodes', 'register' );
     }
 
     public function run() {

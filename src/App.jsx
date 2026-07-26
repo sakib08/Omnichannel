@@ -113,7 +113,7 @@ export default function OmnichannelApp() {
       const raw = await api.listConversations(params);
       setConversations((raw || []).map(normaliseConversation));
     } catch (err) {
-      console.error("[SME] Failed to load conversations:", err);
+      console.error("[KMBP] Failed to load conversations:", err);
     } finally {
       setLoadingConvs(false);
     }
@@ -215,7 +215,7 @@ export default function OmnichannelApp() {
           prev.map((c) => (c.id === selected ? { ...c, unread: 0 } : c))
         );
       })
-      .catch((err) => console.error("[SME] Failed to load messages:", err))
+      .catch((err) => console.error("[KMBP] Failed to load messages:", err))
       .finally(() => setLoadingMsgs(false));
   }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -325,7 +325,7 @@ export default function OmnichannelApp() {
       );
       setReplyText("");
     } catch (err) {
-      console.error("[SME] Send failed:", err);
+      console.error("[KMBP] Send failed:", err);
       setSendError(err.message || "Failed to send. Please try again.");
     } finally {
       setSendingReply(false);
@@ -356,7 +356,7 @@ export default function OmnichannelApp() {
     try {
       await api.updateConversation(selected, { assigneeId: parsedId });
     } catch (err) {
-      console.error("[SME] Failed to update assignee:", err);
+      console.error("[KMBP] Failed to update assignee:", err);
     }
   };
 
@@ -367,15 +367,55 @@ export default function OmnichannelApp() {
     try {
       await api.updateConversation(selected, { status });
     } catch (err) {
-      console.error("[SME] Failed to update status:", err);
+      console.error("[KMBP] Failed to update status:", err);
       loadConversations();
+    }
+  };
+
+  const deleteConversation = async (convId) => {
+    // Optimistic removal from list and deselect if it was open.
+    setConversations((prev) => prev.filter((c) => c.id !== convId));
+    setMessagesByConvId((prev) => {
+      const next = { ...prev };
+      delete next[convId];
+      return next;
+    });
+    if (selected === convId) setSelected(null);
+
+    try {
+      await api.deleteConversation(convId);
+    } catch (err) {
+      console.error("[KMBP] Failed to delete conversation:", err);
+      // Revert by reloading.
+      loadConversations();
+    }
+  };
+
+  const deleteMessage = async (messageId) => {
+    if (!selected) return;
+    // Optimistic removal.
+    setMessagesByConvId((prev) => ({
+      ...prev,
+      [selected]: (prev[selected] || []).filter((m) => m.id !== messageId),
+    }));
+    try {
+      await api.deleteMessage(messageId);
+    } catch (err) {
+      console.error("[KMBP] Failed to delete message:", err);
+      // Revert on failure by re-fetching.
+      api.listMessages(selected).then((msgs) => {
+        setMessagesByConvId((prev) => ({
+          ...prev,
+          [selected]: (msgs || []).map(normaliseMessage),
+        }));
+      }).catch(() => {});
     }
   };
 
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
 
   return (
-    <div className={`sme-app-root theme-${theme} flex bg-gray-50 font-sans overflow-hidden`}>
+    <div className={`kmbp-app-root theme-${theme} flex bg-gray-50 font-sans overflow-hidden`}>
       <Sidebar
         activeChannel={activeChannel}
         conversations={conversations}
@@ -392,6 +432,7 @@ export default function OmnichannelApp() {
         <>
           <ConversationList
             activeChannel={activeChannel}
+            deleteConversation={deleteConversation}
             filterStatus={filterStatus}
             filtered={filtered}
             loading={loadingConvs}
@@ -407,6 +448,7 @@ export default function OmnichannelApp() {
             activeTab={activeTab}
             addNote={addNote}
             agents={agents}
+            deleteMessage={deleteMessage}
             loadingMessages={loadingMsgs}
             messagesEndRef={messagesEndRef}
             noteText={noteText}

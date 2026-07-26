@@ -1,10 +1,102 @@
+import { useState } from "react";
 import Avatar from "./Avatar.jsx";
 import ChannelBadge from "./ChannelBadge.jsx";
 import SLABadge from "./SLABadge.jsx";
 import { channelMeta, STATUS_FILTERS, statusConfig } from "../constants/config";
 
+function ConversationRow({ conversation, selected, setSelected, onDelete }) {
+  const [hovered, setHovered] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  const handleDeleteClick = (e) => {
+    e.stopPropagation();
+    setConfirming(true);
+  };
+
+  const handleConfirm = (e) => {
+    e.stopPropagation();
+    setConfirming(false);
+    onDelete(conversation.id);
+  };
+
+  const handleCancel = (e) => {
+    e.stopPropagation();
+    setConfirming(false);
+  };
+
+  return (
+    <div
+      className="relative border-b border-gray-50"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setConfirming(false); }}
+    >
+      <button
+        onClick={() => setSelected(conversation.id)}
+        className={`w-full text-left px-4 py-3 transition-all hover:bg-indigo-50/40 ${selected === conversation.id ? "bg-indigo-50 border-l-2 border-l-indigo-500" : ""}`}
+      >
+        <div className="flex items-start gap-2.5">
+          <Avatar initials={conversation.avatar} color={channelMeta(conversation.channel).color || "#6366F1"} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-0.5">
+              <span className="text-sm font-semibold text-gray-800 truncate">{conversation.name}</span>
+              <span className="text-xs text-gray-400 shrink-0 ml-1">{conversation.time}</span>
+            </div>
+            <div className="text-xs text-gray-600 font-medium truncate mb-1">{conversation.subject}</div>
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs text-gray-400 truncate">{conversation.preview}</span>
+              {conversation.unread > 0 && (
+                <span className="shrink-0 w-4 h-4 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-bold">
+                  {conversation.unread}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+              <ChannelBadge channelId={conversation.channel} small />
+              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${statusConfig[conversation.status].cls}`}>
+                {statusConfig[conversation.status].label}
+              </span>
+              <SLABadge deadline={conversation.slaDeadline} unit={conversation.slaUnit} />
+            </div>
+          </div>
+        </div>
+      </button>
+
+      {/* Delete control — visible on hover */}
+      {hovered && !confirming && (
+        <button
+          onClick={handleDeleteClick}
+          title="Delete thread"
+          className="absolute top-2 right-2 p-1 rounded-md bg-white border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 shadow-sm transition-colors"
+        >
+          <i className="ti ti-trash" style={{ fontSize: 13 }} />
+        </button>
+      )}
+
+      {/* Inline confirmation popover */}
+      {confirming && (
+        <div className="absolute top-2 right-2 flex items-center gap-1 bg-white border border-gray-200 rounded-lg shadow-md px-2 py-1 z-10 whitespace-nowrap">
+          <span className="text-xs text-gray-600">Delete thread?</span>
+          <button
+            onClick={handleConfirm}
+            className="text-xs px-2 py-0.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+          >
+            Yes
+          </button>
+          <button
+            onClick={handleCancel}
+            className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
+          >
+            No
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ConversationList({
   activeChannel,
+  deleteConversation,
   filterStatus,
   filtered,
   loading,
@@ -79,39 +171,13 @@ export default function ConversationList({
           </div>
         )}
         {!loading && filtered.map((conversation) => (
-          <button
+          <ConversationRow
             key={conversation.id}
-            onClick={() => {
-              setSelected(conversation.id);
-            }}
-            className={`w-full text-left px-4 py-3 border-b border-gray-50 transition-all hover:bg-indigo-50/40 ${selected === conversation.id ? "bg-indigo-50 border-l-2 border-l-indigo-500" : ""}`}
-          >
-            <div className="flex items-start gap-2.5">
-              <Avatar initials={conversation.avatar} color={channelMeta(conversation.channel).color || "#6366F1"} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-sm font-semibold text-gray-800 truncate">{conversation.name}</span>
-                  <span className="text-xs text-gray-400 shrink-0 ml-1">{conversation.time}</span>
-                </div>
-                <div className="text-xs text-gray-600 font-medium truncate mb-1">{conversation.subject}</div>
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs text-gray-400 truncate">{conversation.preview}</span>
-                  {conversation.unread > 0 && (
-                    <span className="shrink-0 w-4 h-4 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-bold">
-                      {conversation.unread}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                  <ChannelBadge channelId={conversation.channel} small />
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${statusConfig[conversation.status].cls}`}>
-                    {statusConfig[conversation.status].label}
-                  </span>
-                  <SLABadge deadline={conversation.slaDeadline} unit={conversation.slaUnit} />
-                </div>
-              </div>
-            </div>
-          </button>
+            conversation={conversation}
+            selected={selected}
+            setSelected={setSelected}
+            onDelete={deleteConversation}
+          />
         ))}
       </div>
     </div>

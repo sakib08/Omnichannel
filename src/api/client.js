@@ -4,10 +4,10 @@
 
 const boot = typeof window !== "undefined" && window.KinetixMessagingBoot ? window.KinetixMessagingBoot : {};
 
-export const restUrl = (boot.restUrl || "/wp-json/sme/v1/").replace(/\/?$/, "/");
+export const restUrl = (boot.restUrl || "/wp-json/kmbp/v1/").replace(/\/?$/, "/");
 
 /** Build a fully-qualified webhook URL for a given channel slug.
- *  e.g. webhookUrl("telegram") → "https://example.com/wp-json/sme/v1/webhooks/telegram"
+ *  e.g. webhookUrl("telegram") → "https://example.com/wp-json/kmbp/v1/webhooks/telegram"
  */
 export const webhookUrl = (slug) => restUrl + "webhooks/" + slug;
 
@@ -104,8 +104,10 @@ export const api = {
   listMessages:    (cid) => request(`conversations/${cid}/messages`),
   listNewMessages: (cid, afterId) => request(`conversations/${cid}/messages?after_id=${afterId}`),
   createConversation: (payload) => request("conversations", { method: "POST", body: payload }),
-  updateConversation: (id, payload) => request(`conversations/${id}`, { method: "PUT", body: payload }),
+  updateConversation:  (id, payload) => request(`conversations/${id}`, { method: "PUT", body: payload }),
+  deleteConversation:  (id) => request(`conversations/${id}`, { method: "DELETE" }),
   createMessage: (payload) => request("messages", { method: "POST", body: payload }),
+  deleteMessage: (id) => request(`messages/${id}`, { method: "DELETE" }),
 
   sendEmail:    (payload) => request("email/send",    { method: "POST", body: payload }),
   pollEmail:    () =>        request("email/poll",    { method: "POST" }),

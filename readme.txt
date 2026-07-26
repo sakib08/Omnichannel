@@ -1,10 +1,10 @@
 === Kinetix Messaging by Ppros ===
-Contributors: pluginpros, sakib08
+Contributors: sakibbd08
 Tags: messaging, omnichannel, telegram, whatsapp, email
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.2
+Stable tag: 1.0.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -110,7 +110,7 @@ Used when the SMS channel is enabled. Exactly one provider is used, based on the
 
 **Telnyx** (`https://api.telnyx.com/v2/messages`) — **Data sent:** API key, from number, recipient phone number, and message text. **Service provided by Telnyx LLC:** [Terms and Conditions](https://telnyx.com/terms-and-conditions), [Privacy Policy](https://telnyx.com/privacy-policy).
 
-**MessageBird** (`https://rest.messagebird.com/messages`) — **Data sent:** access key, originator number, recipient phone number, and message text. **Service provided by Bird:** [Terms](https://bird.com/en-uk/legal/terms), [Privacy Policy](https://bird.com/en-uk/legal/privacy).
+**MessageBird** (`https://rest.messagebird.com/messages`) — **Data sent:** access key, originator number, recipient phone number, and message text. **Service provided by Bird (MessageBird):** [Terms of Service](https://messagebird.com/en/legal/terms), [Privacy Policy](https://messagebird.com/en/legal/privacy).
 
 = Email (administrator-configured) =
 
@@ -134,9 +134,29 @@ Inbound email may also be pushed to your site via a webhook URL you configure in
 2. Activate the plugin through the Plugins screen in WordPress.
 3. Open **Kinetix Messaging → Inbox** and configure your channel settings.
 
+== Screenshots ==
+
+1. Unified inbox — all conversations in one WordPress admin screen.
+2. Channel settings — connect WhatsApp, Telegram, email, SMS, and more.
+3. Conversation view — read and reply without leaving WordPress.
+
 == Changelog ==
+
+= 1.0.4 =
+* Add delete conversation and delete message actions in the inbox (admin-only).
+* Add REST endpoints to permanently remove threads and individual messages.
+* Add Screenshots section to plugin readme.
+* Sanitize webhook request headers read from the server environment.
+* Harden legacy table rename migration for PHPCS compliance.
+
+= 1.0.3 =
+* Replace short `sme` prefix with `kmbp` for options, tables, capabilities, and REST namespace.
+* Fix MessageBird legal URLs in readme.
+* Remove remote image URLs from admin embed snippets.
+
 = 1.0.2 =
-# followed Wp guidline
+* Address WordPress.org plugin review feedback (webhook permissions, enqueued admin CSS, menu position).
+
 = 1.0.1 =
 * Initial release.
 * Document external messaging APIs and SMS providers in readme.

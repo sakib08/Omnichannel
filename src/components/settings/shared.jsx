@@ -1,5 +1,43 @@
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import { TOKEN } from "./tokens.js";
+
+/** Consumed by ChannelSharePanel to adapt colours without prop-drilling. */
+export const SettingsThemeContext = createContext("dark");
+
+/** Build the channel's direct contact URL from stored settings. */
+function getChannelDirectLink(channel, cfg) {
+  switch (channel) {
+    case "telegram": {
+      const username = (cfg.botUsername || "").replace(/^@/, "");
+      return username ? `https://t.me/${username}` : "";
+    }
+    case "whatsapp": {
+      const phone = (cfg.displayPhone || "").replace(/\D/g, "");
+      const text  = encodeURIComponent(cfg.ctaMessage || "Hello!");
+      return phone ? `https://wa.me/${phone}?text=${text}` : "";
+    }
+    case "messenger":
+      return cfg.pageId ? `https://m.me/${cfg.pageId}` : "";
+    case "instagram":
+      return cfg.igAccountId ? `https://ig.me/m/${cfg.igAccountId}` : "";
+    case "line": {
+      const basicId = (cfg.basicId || "").replace(/^@/, "");
+      return basicId ? `https://line.me/R/ti/p/${basicId}` : "";
+    }
+    case "viber":
+      return cfg.senderId ? `viber://pa?chatURI=${cfg.senderId}` : "";
+    case "wechat":
+      return ""; // QR-code based; no universal deep-link
+    case "sms": {
+      const num = (cfg.fromNumber || "").replace(/\D/g, "");
+      return num ? `sms:+${num}` : "";
+    }
+    case "email":
+      return cfg.inboxEmail ? `mailto:${cfg.inboxEmail}` : "";
+    default:
+      return "";
+  }
+}
  
 /* ─── tiny primitives ───────────────────────────────────────────────────── */
 export function Toggle({ checked, onChange, color = "#6366f1" }) {
@@ -165,7 +203,148 @@ export function TabBar({ tabs, active, onChange, color }) {
 }
 
 export { TOKEN };
- 
+
+/* ─── channel share & embed panel ───────────────────────────────────────── */
+const EMBED_TABS = [
+  { id: "shortcode", label: "Shortcode" },
+  { id: "gutenberg", label: "Gutenberg" },
+  { id: "elementor", label: "Elementor" },
+];
+
+export function ChannelSharePanel({ channel, cfg, color }) {
+  const theme    = useContext(SettingsThemeContext);
+  const isDark   = theme !== "light";
+
+  const [open, setOpen]         = useState(false);
+  const [embedTab, setEmbedTab] = useState("shortcode");
+
+  const directLink   = getChannelDirectLink(channel, cfg);
+  const shortcode    = `[kmbp_channel_button channel="${channel}"]`;
+  const gbBlock      = `<!-- wp:shortcode -->\n${shortcode}\n<!-- /wp:shortcode -->`;
+  const channelLabel = TOKEN[channel]?.label ?? channel;
+
+  // Theme-adaptive class sets
+  const wrap       = isDark ? "border-slate-700/60 bg-slate-900/40"      : "border-slate-200 bg-white/90 shadow-sm";
+  const hoverBtn   = isDark ? "hover:bg-slate-800/40"                    : "hover:bg-slate-50";
+  const iconCls    = isDark ? "text-slate-400 group-hover:text-slate-200" : "text-slate-500 group-hover:text-slate-700";
+  const chevronCls = isDark ? "text-slate-500"                           : "text-slate-400";
+  const separator  = isDark ? "border-slate-800/60"                      : "border-slate-100";
+  const tabBar     = isDark ? "bg-slate-800/60"                          : "bg-slate-100";
+  const tabInactive = isDark
+    ? "text-slate-500 hover:text-slate-300 hover:bg-slate-700/40"
+    : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/60";
+  const bodyText   = isDark ? "text-slate-400"  : "text-slate-600";
+  const strongText = isDark ? "text-slate-300"  : "text-slate-800";
+  const muteText   = isDark ? "text-slate-500"  : "text-slate-500";
+  const setupBadge = isDark
+    ? "bg-slate-700/60 text-slate-500 border-slate-600/40"
+    : "bg-slate-100 text-slate-500 border-slate-300/60";
+
+  return (
+    <div className={`rounded-xl border overflow-hidden ${wrap}`}>
+      {/* ── Toggle header ── */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`w-full flex items-center justify-between px-4 py-3 transition-colors group ${hoverBtn}`}
+      >
+        <div className="flex items-center gap-2.5">
+          <i className={`ti ti-share transition-colors ${iconCls}`} style={{ fontSize: 15 }} />
+          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color }}>
+            Share &amp; Embed
+          </span>
+          {directLink ? (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 border border-green-500/25 font-medium">
+              Link ready
+            </span>
+          ) : (
+            <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${setupBadge}`}>
+              Setup required
+            </span>
+          )}
+        </div>
+        <i className={`ti ${open ? "ti-chevron-up" : "ti-chevron-down"} transition-transform ${chevronCls}`} style={{ fontSize: 14 }} />
+      </button>
+
+      {/* ── Expanded body ── */}
+      {open && (
+        <div className={`px-4 pb-4 pt-1 space-y-3 border-t ${separator}`}>
+
+          {/* Direct link row */}
+          <div className="pt-2">
+            {directLink ? (
+              <Input label="Channel direct link — share or use in your CTA" value={directLink} readOnly mono />
+            ) : channel === "wechat" ? (
+              <InfoBox type="info">
+                WeChat does not support universal deep-links. Share your Official Account QR code instead — download it from the WeChat Official Account platform.
+              </InfoBox>
+            ) : (
+              <InfoBox type="warning">
+                Complete the channel credentials above and save to generate a shareable link.
+              </InfoBox>
+            )}
+          </div>
+
+          <SectionDivider label="Embed on your site" />
+
+          {/* Embed tab switcher */}
+          <div className={`flex gap-1 rounded-lg p-1 ${tabBar}`}>
+            {EMBED_TABS.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setEmbedTab(t.id)}
+                style={embedTab === t.id ? { background: color + "22", color } : {}}
+                className={`flex-1 text-xs font-semibold py-1.5 px-2 rounded-md transition-all duration-150 ${
+                  embedTab === t.id ? "" : tabInactive
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Shortcode tab */}
+          {embedTab === "shortcode" && (
+            <div className="space-y-2">
+              <p className={`text-xs leading-relaxed ${bodyText}`}>
+                Paste into any <strong className={strongText}>Shortcode</strong> block, text widget, or PHP template.
+              </p>
+              <CodeSnippet lang="shortcode — default button" code={shortcode} />
+              <CodeSnippet lang="shortcode — custom label" code={`[kmbp_channel_button channel="${channel}" label="Contact us on ${channelLabel}"]`} />
+              <CodeSnippet lang="shortcode — plain link style" code={`[kmbp_channel_button channel="${channel}" style="link"]`} />
+            </div>
+          )}
+
+          {/* Gutenberg tab */}
+          {embedTab === "gutenberg" && (
+            <div className="space-y-2">
+              <InfoBox type="tip">
+                In the block editor click <strong>+</strong> → search <em>Shortcode</em> → add the block → paste the code below.
+              </InfoBox>
+              <CodeSnippet lang="block (HTML view)" code={gbBlock} />
+              <p className={`text-xs leading-relaxed ${muteText}`}>
+                You can also switch to <strong className={strongText}>Code Editor</strong> (⋮ menu → Code editor) and paste directly.
+              </p>
+            </div>
+          )}
+
+          {/* Elementor tab */}
+          {embedTab === "elementor" && (
+            <div className="space-y-2">
+              <InfoBox type="tip">
+                In Elementor editor search for the <strong>Shortcode</strong> widget → drag it onto your page → paste the code below into the <em>Shortcode</em> field.
+              </InfoBox>
+              <CodeSnippet lang="shortcode" code={shortcode} />
+              <p className={`text-xs leading-relaxed ${muteText}`}>
+                Works with <strong className={strongText}>Elementor Free</strong> and <strong className={strongText}>Elementor Pro</strong>. No coding required.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── channel cards (sidebar) ───────────────────────────────────────────── */
 export function ChannelCard({ id, active, connected, onClick }) {
   const t = TOKEN[id];

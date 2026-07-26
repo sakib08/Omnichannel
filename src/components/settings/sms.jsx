@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
+import { ChannelSharePanel, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
 import { webhookUrl } from "../../api/client.js";
 
@@ -20,6 +20,8 @@ export default function SmsSettings({ cfg, setCfg }) {
         </div>
         <StatusBadge connected={cfg.enabled} />
       </div>
+
+      <ChannelSharePanel channel="sms" cfg={cfg} color={color} />
 
       <TabBar
         tabs={[
@@ -53,7 +55,7 @@ export default function SmsSettings({ cfg, setCfg }) {
 
           {cfg.provider !== "twilio" && (
             <div className="col-span-2">
-              <Input label="Webhook token" value={cfg.webhookToken} onChange={v => S("webhookToken", v)} placeholder="your_webhook_token" type="password" helper="Required for non-Twilio providers. Append ?token=VALUE to the webhook URL or send X-SME-Token header." />
+              <Input label="Webhook token" value={cfg.webhookToken} onChange={v => S("webhookToken", v)} placeholder="your_webhook_token" type="password" helper="Required for non-Twilio providers. Append ?token=VALUE to the webhook URL or send X-KMBP-Token header." />
             </div>
           )}
 
