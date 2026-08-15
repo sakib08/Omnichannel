@@ -33,7 +33,7 @@ function MessageBubble({ message, conv, onDelete }) {
       onMouseLeave={() => { setHovered(false); setConfirming(false); }}
     >
       <Avatar initials={avatarInitials} color={avatarColor} size={32} />
-      <div className={`max-w-md ${message.isAgent ? "items-end" : "items-start"} flex flex-col gap-1`}>
+      <div className={`${message.isHtml ? "max-w-xl" : "max-w-md"} ${message.isAgent ? "items-end" : "items-start"} flex flex-col gap-1`}>
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-gray-500">{message.sender}</span>
           <span className="text-xs text-gray-400">{message.time}</span>
@@ -48,8 +48,8 @@ function MessageBubble({ message, conv, onDelete }) {
           >
             {message.isHtml ? (
               <div
-                className="kmbp-email-body prose prose-sm max-w-none"
-                /* Email HTML has already passed wp_kses_post on the server */
+                className="kmbp-email-body"
+                /* Email HTML has already passed our sanitizer + wp_kses_post on the server */
                 dangerouslySetInnerHTML={{ __html: message.text }}
               />
             ) : (

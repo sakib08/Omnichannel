@@ -415,7 +415,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         $subject = sanitize_text_field( (string) ( $params['subject'] ?? $params['Subject'] ?? '(no subject)' ) );
 
         // ── Body ──────────────────────────────────────────────────────────────
-        $body_html  = wp_kses_post( (string) ( $params['body-html'] ?? $params['HtmlBody'] ?? $params['html'] ?? '' ) );
+        $body_html  = self::sanitize_inbound_email_html( (string) ( $params['body-html'] ?? $params['HtmlBody'] ?? $params['html'] ?? '' ) );
         $body_plain = sanitize_textarea_field( (string) ( $params['body-plain'] ?? $params['TextBody'] ?? $params['text'] ?? '' ) );
 
         if ( '' === $body_html && '' !== $body_plain ) {
@@ -800,7 +800,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
             'from_name'   => $from_name,
             'to'          => '',
             'subject'     => sanitize_text_field( $subject ),
-            'body_html'   => wp_kses_post( $body_html ),
+            'body_html'   => self::sanitize_inbound_email_html( $body_html ),
             'body_plain'  => sanitize_textarea_field( $body_plain ),
             'message_id'  => sanitize_text_field( $message_id ),
             'in_reply_to' => sanitize_text_field( $in_reply_to ),
@@ -850,15 +850,19 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
             ? imap_fetchbody( $imap, $uid, '1', FT_UID )
             : imap_fetchbody( $imap, $uid, $section, FT_UID );
 
-        // Decode transfer encoding.
-        $encoding = $struct->encoding ?? 0;
-        switch ( $encoding ) {
-            case 1: // quoted-printable
-                $raw = quoted_printable_decode( $raw );
-                break;
-            case 2: // base64
-                $raw = base64_decode( $raw );
-                break;
+        // Decode transfer encoding. PHP's imap extension encodes this as:
+        // 0=7BIT 1=8BIT 2=BINARY 3=BASE64 4=QUOTED-PRINTABLE 5=OTHER.
+        // (Using the named constants where available avoids ever mixing
+        // these up again — a previous version of this switch checked
+        // case 1/2, which are 8BIT/BINARY, so QP- and base64-encoded
+        // bodies were silently stored undecoded.)
+        $encoding      = $struct->encoding ?? 0;
+        $enc_base64    = defined( 'ENCBASE64' ) ? ENCBASE64 : 3;
+        $enc_qp        = defined( 'ENCQUOTEDPRINTABLE' ) ? ENCQUOTEDPRINTABLE : 4;
+        if ( $enc_qp === $encoding ) {
+            $raw = quoted_printable_decode( $raw );
+        } elseif ( $enc_base64 === $encoding ) {
+            $raw = base64_decode( $raw );
         }
 
         // Convert charset.
@@ -873,6 +877,179 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         }
 
         return array( $html, $plain );
+    }
+
+    /**
+     * Sanitize a raw HTML email body for safe storage + display.
+     *
+     * `wp_kses_post()` alone is not enough for real-world HTML email: it
+     * removes disallowed tags like <style>, <script>, and <title> but
+     * leaves their *text content* behind as visible garbage (e.g. a
+     * `<style>` block turns into raw CSS text at the top of the message),
+     * and it mangles Outlook "mso" conditional comments into stray
+     * `<!--`/`-->` fragments. Strip those out first so the sanitized
+     * result actually looks like the original email.
+     *
+     * @param string $html Raw HTML sourced from an inbound email.
+     * @return string Sanitized HTML fragment safe to store and render.
+     */
+    public static function sanitize_inbound_email_html( string $html ): string {
+        if ( '' === trim( $html ) ) {
+            return '';
+        }
+
+        // Repair content that still has raw quoted-printable transfer
+        // encoding baked in. This happens when a message's
+        // Content-Transfer-Encoding was never decoded (see the historical
+        // encoding-constant bug in decode_imap_body()) or a relay forwards
+        // raw MIME without decoding it first. Two tell-tale, essentially
+        // never-coincidental signals:
+        //   1. A bare "=" immediately followed by a newline — the QP
+        //      soft-line-break marker (splits words/tags across lines).
+        //   2. Several literal "=3D" sequences — QP's escaped form of a
+        //      literal "=" character. Undecoded HTML attributes like
+        //      `role=3D"presentation"` are common because the "=" in
+        //      `name=value` markup must itself be escaped for transport,
+        //      and once wp_kses_post() gets hold of a tag with that stray
+        //      "3D" it can't parse the attribute normally and re-emits it
+        //      as `role="3D&quot;presentation&quot;"` — visible attribute
+        //      soup instead of a normal working tag.
+        if (
+            ( substr_count( $html, "=\r\n" ) + substr_count( $html, "=\n" ) ) >= 3
+            || substr_count( $html, '=3D' ) >= 3
+        ) {
+            $html = quoted_printable_decode( $html );
+        }
+
+        // Repair a subtler, second-order form of the same corruption: rows
+        // that already went through wp_kses_post() once *before* any QP
+        // decoding happened. In `name=3D"value"`, the literal "=" that
+        // kses needs for its own `name=value` syntax and the "=" that
+        // starts the QP escape are the same character, so kses's parser
+        // consumes it as its own assignment operator and is left staring
+        // at a value that starts with a stray "3D" followed by an
+        // embedded, now-escaped quote — which it faithfully re-emits as
+        // `name="3D&quot;value&quot;"` (optionally with a trailing "="
+        // left over from a soft line break that landed inside the value).
+        // There's no literal "=3D" substring left for the check above to
+        // find, so repair this exact shape directly wherever it recurs.
+        $html = (string) preg_replace( '#="3D&quot;(.*?)&quot;=?"#s', '="$1"', $html );
+
+        // `href`/`src` go through WordPress's own URL cleaner (clean_url())
+        // during the same kses pass, which recognizes and strips the
+        // leading "3D\"" prefix as invalid-URL noise on its own but leaves
+        // the trailing escaped quote behind — e.g.
+        // `href="//example.com&quot;"` instead of `href="//example.com"`.
+        // Fix up that leftover so links actually work again.
+        $html = (string) preg_replace( '#\b(href|src)="([^"]*?)&quot;"#', '$1="$2"', $html );
+
+        // Drop the whole <head> (title/meta/style) before its text can leak.
+        $html = (string) preg_replace( '#<head\b[^>]*>.*?</head>#is', '', $html );
+
+        // Drop any remaining <style>/<script> blocks anywhere in the body.
+        $html = (string) preg_replace( '#<(style|script)\b[^>]*>.*?</\1>#is', '', $html );
+
+        // Drop HTML comments, including Outlook MSO conditional comments.
+        $html = (string) preg_replace( '#<!--.*?-->#s', '', $html );
+
+        // Unwrap the outer document shell; we only want the body fragment.
+        $html = (string) preg_replace( '#</?(?:!DOCTYPE|html|body)\b[^>]*>#is', '', $html );
+
+        // Strip any leaked raw CSS text anywhere in the body — the residue
+        // left behind when a <style> tag was already removed by an
+        // earlier/less-careful sanitization pass (e.g. rows stored before
+        // this method existed) but its text content wasn't. Real HTML
+        // emails frequently ship *multiple* separate <style> blocks (one
+        // in <head>, another mobile-override block, a link-pseudo-class
+        // reset block, etc.), so leaked residue can show up anywhere in
+        // the document, not just at the very start — this is intentionally
+        // not anchored to the start of the string. Requires 2+ chained
+        // "selector { declarations }" blocks so a single stray "{" in
+        // legitimate prose is never touched. The brace group is recursive
+        // so nested rules inside @media/@supports/@keyframes blocks are
+        // matched as a single balanced unit too.
+        $balanced_braces = '(?<kmbp_brace>\{(?:[^{}]++|(?&kmbp_brace))*\})';
+        $css_block       = '(?:/\*.*?\*/|[^{}<>]{1,200}' . $balanced_braces . ')';
+        $html            = (string) preg_replace( '#(?:' . $css_block . '\s*){2,}#s', '', $html );
+
+        return wp_kses_post( trim( $html ) );
+    }
+
+    /**
+     * One-time cleanup: re-run `sanitize_inbound_email_html()` over every
+     * already-stored email message body.
+     *
+     * Messages imported before this sanitizer existed can have raw CSS/JS
+     * text and mangled Outlook comments baked directly into the stored
+     * `body` column (see class docblock). This re-processes them in place
+     * so previously-broken threads render correctly without waiting for a
+     * new message to arrive. Safe to call repeatedly — rows are only
+     * written when the sanitized result actually differs.
+     *
+     * @return int Number of message rows updated.
+     */
+    public static function resanitize_stored_email_messages(): int {
+        global $wpdb;
+
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- KMBP custom tables; no WordPress core API exists.
+        $messages_table      = $wpdb->prefix . 'kmbp_messages';
+        $conversations_table = $wpdb->prefix . 'kmbp_conversations';
+
+        $rows = $wpdb->get_results(
+            "SELECT m.id, m.conversation_id, m.body
+             FROM {$messages_table} m
+             INNER JOIN {$conversations_table} c ON c.id = m.conversation_id
+             WHERE c.channel = 'email'"
+        );
+
+        if ( ! $rows ) {
+            return 0;
+        }
+
+        $updated_count          = 0;
+        $touched_conversation_ids = array();
+
+        foreach ( $rows as $row ) {
+            $clean = self::sanitize_inbound_email_html( (string) $row->body );
+            if ( '' === $clean || $clean === $row->body ) {
+                continue;
+            }
+
+            $wpdb->update(
+                $messages_table,
+                array( 'body' => $clean ),
+                array( 'id' => (int) $row->id ),
+                array( '%s' ),
+                array( '%d' )
+            );
+
+            $touched_conversation_ids[ (int) $row->conversation_id ] = true;
+            ++$updated_count;
+        }
+
+        // Recompute the conversation preview from its latest message so the
+        // inbox list stops showing stale/garbled text too.
+        foreach ( array_keys( $touched_conversation_ids ) as $conversation_id ) {
+            $latest_body = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT body FROM {$messages_table} WHERE conversation_id = %d ORDER BY sent_at DESC, id DESC LIMIT 1",
+                    $conversation_id
+                )
+            );
+            if ( null === $latest_body ) {
+                continue;
+            }
+            $wpdb->update(
+                $conversations_table,
+                array( 'preview' => wp_trim_words( wp_strip_all_tags( $latest_body ), 14, '…' ) ),
+                array( 'id' => $conversation_id ),
+                array( '%s' ),
+                array( '%d' )
+            );
+        }
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+        return $updated_count;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

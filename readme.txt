@@ -2,9 +2,9 @@
 Contributors: sakibbd08
 Tags: whatsapp, messenger, chat, social-media, messaging, omnichannel, telegram, email, social
 Requires at least: 6.0
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.5
+Stable tag: 1.0.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -198,6 +198,19 @@ Most channels have a dedicated auto-reply option in their settings panel:
 * **Email** — configure the auto-reply subject and body in Settings → Email → Templates.
 
 == Changelog ==
+
+= 1.0.7 =
+* Fix inbound IMAP messages using quoted-printable or base64 transfer encoding never being decoded, due to incorrect PHP IMAP encoding constants — a major cause of emails silently failing to sync or storing raw, unreadable content.
+* Fix imported email HTML rendering broken/mangled content: leaked `<style>`/`<script>` text (including `@media` blocks) appearing as visible text above messages, and garbled tag attributes left behind by double-processed quoted-printable content.
+* Add a dedicated inbound-email HTML sanitizer that repairs quoted-printable corruption and strips leaked style/script residue before falling back to `wp_kses_post()`, instead of relying on `wp_kses_post()` alone.
+* Add a one-time automatic migration that re-sanitizes all previously-stored email messages on update, so already-imported threads are repaired without waiting for a new message to arrive.
+* Add scoped CSS for imported email HTML (tables, lists, images, links, blockquotes) so messages render with sane spacing and stay within the message bubble.
+* Add manual "Sync now" button and background sync status panel to Settings → Email, with theme-aware styling so it's visible in both light and dark mode.
+* Switch IMAP polling to a UID-based incremental sync so already-read messages fetched by other mail clients are no longer missed.
+* Add per-message error logging during IMAP polling instead of silently skipping failed messages.
+
+= 1.0.6 =
+* Confirm compatibility with WordPress 7.1 and update "Tested up to" to 7.1.
 
 = 1.0.5 =
 * Add Share & Embed panel to every channel settings page with a one-click copyable direct link (WhatsApp wa.me, Telegram t.me, Messenger m.me, etc.).

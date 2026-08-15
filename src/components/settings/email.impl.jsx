@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ChannelSharePanel, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
+import { useState, useEffect, useContext } from "react";
+import { ChannelSharePanel, InfoBox, Input, Row, SectionDivider, Select, SettingsThemeContext, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
 import api, { webhookUrl, siteHost, currentUser } from "../../api/client.js";
 
@@ -31,6 +31,8 @@ function timeUntil(unixSeconds) {
 }
 
 export default function EmailSettings({ cfg, setCfg }) {
+  const theme  = useContext(SettingsThemeContext);
+  const isDark = theme !== "light";
   const [tab, setTab] = useState("inbox");
   const [smtpTesting, setSmtpTesting] = useState(false);
   const [smtpTestResult, setSmtpTestResult] = useState(null);
@@ -216,45 +218,46 @@ export default function EmailSettings({ cfg, setCfg }) {
             </button>
             <button
               type="button"
+              style={{ borderColor: color, color }}
               disabled={syncing || !cfg.imapHost}
               onClick={handleSyncNow}
-              className="mt-1 px-5 py-2 rounded-xl text-sm font-semibold text-white bg-white/10 border border-white/10 hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-1 px-5 py-2 rounded-xl text-sm font-semibold border-2 bg-transparent hover:opacity-70 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {syncing ? "Syncing…" : "Sync now"}
             </button>
           </div>
           {imapTestResult && (
-            <div className={`text-sm font-medium px-4 py-2 rounded-xl ${imapTestResult.ok ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+            <div className={`text-sm font-medium px-4 py-2 rounded-xl ${imapTestResult.ok ? "bg-green-500/10 text-green-600 border border-green-500/20" : "bg-red-500/10 text-red-600 border border-red-500/20"}`}>
               {imapTestResult.message}
             </div>
           )}
           {syncResult && (
-            <div className={`text-sm font-medium px-4 py-2 rounded-xl ${syncResult.ok ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+            <div className={`text-sm font-medium px-4 py-2 rounded-xl ${syncResult.ok ? "bg-green-500/10 text-green-600 border border-green-500/20" : "bg-red-500/10 text-red-600 border border-red-500/20"}`}>
               {syncResult.message}
             </div>
           )}
           {cfg.imapHost && (
-            <div className="text-xs text-slate-400 bg-white/5 border border-white/10 rounded-xl px-4 py-3 space-y-1">
-              <div className="font-semibold text-slate-300">Background sync status</div>
+            <div className={`text-xs rounded-xl px-4 py-3 space-y-1 border ${isDark ? "text-slate-400 bg-white/5 border-white/10" : "text-slate-600 bg-slate-50 border-slate-200"}`}>
+              <div className={`font-semibold ${isDark ? "text-slate-300" : "text-slate-800"}`}>Background sync status</div>
               {pollStatus ? (
                 <>
                   <div>
-                    Last automatic/manual poll: <span className="text-slate-200">{timeAgo(pollStatus.lastRunAt)}</span>
+                    Last automatic/manual poll: <span className={isDark ? "text-slate-200" : "text-slate-800"}>{timeAgo(pollStatus.lastRunAt)}</span>
                     {pollStatus.message ? <> — {pollStatus.message}</> : null}
                   </div>
                   <div>
                     WP-Cron schedule:{" "}
                     {pollStatus.cronRegistered ? (
-                      <span className="text-green-400">registered, next run {timeUntil(pollStatus.nextRunAt)}</span>
+                      <span className={isDark ? "text-green-400" : "text-green-600"}>registered, next run {timeUntil(pollStatus.nextRunAt)}</span>
                     ) : (
-                      <span className="text-red-400">not scheduled — deactivate and reactivate the plugin, or use "Sync now" / a real server cron</span>
+                      <span className={isDark ? "text-red-400" : "text-red-600"}>not scheduled — deactivate and reactivate the plugin, or use "Sync now" / a real server cron</span>
                     )}
                   </div>
                 </>
               ) : (
                 <div>No poll has run yet. Click "Sync now" to test immediately instead of waiting on WP-Cron.</div>
               )}
-              <div className="text-slate-500">
+              <div className={isDark ? "text-slate-500" : "text-slate-500"}>
                 Note: WP-Cron only fires on site visits. On low-traffic sites, set up a real server cron hitting wp-cron.php for reliable timing, or use "Sync now".
               </div>
             </div>

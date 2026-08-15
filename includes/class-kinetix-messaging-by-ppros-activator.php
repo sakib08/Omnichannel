@@ -17,13 +17,14 @@ defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
 class Kinetix_Messaging_By_Ppros_Activator {
 
-    const DB_VERSION_OPTION    = 'kmbp_db_version';
-    const DB_VERSION           = '1.0.0';
-    const SETTINGS_OPTION      = 'kmbp_platform_settings';
-    const AGENT_ROLE           = 'kmbp_agent';
-    const CAP_ACCESS_MESSAGING = 'kmbp_access_messaging';
-    const CAP_MANAGE_SETTINGS  = 'kmbp_manage_settings';
-    const CAP_MANAGE_DEPTS     = 'kmbp_manage_departments';
+    const DB_VERSION_OPTION         = 'kmbp_db_version';
+    const DB_VERSION                = '1.0.0';
+    const SETTINGS_OPTION           = 'kmbp_platform_settings';
+	const EMAIL_HTML_CLEANED_OPTION = 'kmbp_email_html_resanitized_v5';
+    const AGENT_ROLE                = 'kmbp_agent';
+    const CAP_ACCESS_MESSAGING      = 'kmbp_access_messaging';
+    const CAP_MANAGE_SETTINGS       = 'kmbp_manage_settings';
+    const CAP_MANAGE_DEPTS          = 'kmbp_manage_departments';
 
     public static function activate() {
         self::maybe_upgrade();
@@ -58,7 +59,25 @@ class Kinetix_Messaging_By_Ppros_Activator {
 
         self::register_roles_and_caps();
         self::migrate_settings_keys();
+        self::migrate_resanitize_email_html();
         Kinetix_Messaging_By_Ppros_Email_Pipe::schedule_cron();
+    }
+
+    /**
+     * One-time cleanup: emails imported before the HTML sanitizer fix could
+     * have raw <style>/<script> text and mangled Outlook comments baked
+     * into the stored message body (see
+     * Kinetix_Messaging_By_Ppros_Email_Pipe::sanitize_inbound_email_html()).
+     * Re-clean everything already in the database once, then never again.
+     */
+    private static function migrate_resanitize_email_html() {
+        if ( get_option( self::EMAIL_HTML_CLEANED_OPTION ) ) {
+            return;
+        }
+        if ( class_exists( 'Kinetix_Messaging_By_Ppros_Email_Pipe' ) ) {
+            Kinetix_Messaging_By_Ppros_Email_Pipe::resanitize_stored_email_messages();
+        }
+        update_option( self::EMAIL_HTML_CLEANED_OPTION, 1, false );
     }
 
     /**

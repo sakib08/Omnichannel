@@ -274,3 +274,71 @@
   color: #4338ca;
   background-color: #f1f5f9;
 }
+
+/* Imported email HTML — Tailwind's preflight strips native margins/borders
+   from tags like <table>, <ul>, <h1>, so restore sane defaults scoped to
+   this wrapper only. Emails are also often wider than the chat bubble
+   (fixed-width tables), so allow horizontal scrolling instead of
+   overflowing/breaking the layout. */
+.kmbp-email-body {
+  max-width: 100%;
+  overflow-x: auto;
+  word-wrap: break-word;
+}
+
+.kmbp-email-body img {
+  max-width: 100%;
+  height: auto;
+}
+
+.kmbp-email-body table {
+  max-width: 100%;
+}
+
+.kmbp-email-body p,
+.kmbp-email-body ul,
+.kmbp-email-body ol,
+.kmbp-email-body blockquote,
+.kmbp-email-body h1,
+.kmbp-email-body h2,
+.kmbp-email-body h3,
+.kmbp-email-body h4 {
+  margin: 0 0 0.75em;
+}
+
+.kmbp-email-body p:last-child,
+.kmbp-email-body ul:last-child,
+.kmbp-email-body ol:last-child,
+.kmbp-email-body table:last-child {
+  margin-bottom: 0;
+}
+
+.kmbp-email-body ul,
+.kmbp-email-body ol {
+  padding-left: 1.4em;
+}
+
+.kmbp-email-body ul {
+  list-style: disc;
+}
+
+.kmbp-email-body ol {
+  list-style: decimal;
+}
+
+.kmbp-email-body a {
+  color: #4f46e5;
+  text-decoration: underline;
+}
+
+.kmbp-email-body blockquote {
+  padding-left: 1em;
+  border-left: 3px solid #e5e7eb;
+  color: #4b5563;
+}
+
+.kmbp-email-body hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 0.75em 0;
+}
