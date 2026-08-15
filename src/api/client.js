@@ -111,6 +111,7 @@ export const api = {
 
   sendEmail:    (payload) => request("email/send",    { method: "POST", body: payload }),
   pollEmail:    () =>        request("email/poll",    { method: "POST" }),
+  getEmailPollStatus: () =>  request("email/poll-status"),
   testEmailConnection: (type) => request("email/test-connection", { method: "POST", body: { type } }),
 
   // Channel-specific outbound send (all share the same { conversationId, recipientId, text } shape).

@@ -35,6 +35,13 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
     // ── Cron schedule name (registered via cron_schedules) ──────────────────
     const CRON_SCHEDULE = 'kmbp_every_5_minutes';
 
+    // ── Per-mailbox UID high-water-mark, so a message that gets marked \Seen
+    //    by another mail client (webmail, phone, etc.) is never skipped ─────
+    const IMAP_CURSOR_OPTION = 'kmbp_imap_cursor';
+
+    // ── Always-on poll status (visible without WP_DEBUG) ─────────────────────
+    const POLL_STATUS_OPTION = 'kmbp_email_poll_status';
+
     // ─────────────────────────────────────────────────────────────────────────
     //  Registration helpers called from the main Kinetix_Messaging_By_Ppros
     // ─────────────────────────────────────────────────────────────────────────
@@ -129,6 +136,17 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => array( $this, 'handle_manual_poll' ),
+                'permission_callback' => array( $this, 'check_manage_settings' ),
+            )
+        );
+
+        // ── Poll status (last run outcome + cron schedule, for diagnostics) ────
+        register_rest_route(
+            $ns,
+            '/email/poll-status',
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array( $this, 'handle_poll_status' ),
                 'permission_callback' => array( $this, 'check_manage_settings' ),
             )
         );
@@ -431,11 +449,22 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
 
     /**
      * WordPress cron handler — fires every 5 minutes.
+     *
+     * Always records the outcome to POLL_STATUS_OPTION (regardless of
+     * WP_DEBUG) so admins can see why nothing is coming in without needing
+     * shell/log access — including when the poll never ran at all because
+     * the channel is disabled or IMAP isn't configured.
      */
     public function run_imap_poll(): void {
         $cfg = $this->get_settings();
 
-        if ( empty( $cfg['enabled'] ) || empty( $cfg['imapHost'] ) ) {
+        if ( empty( $cfg['enabled'] ) ) {
+            $this->record_poll_status( false, __( 'Email channel is disabled — poll skipped.', 'kinetix-messaging-by-ppros' ) );
+            return;
+        }
+
+        if ( empty( $cfg['imapHost'] ) ) {
+            $this->record_poll_status( false, __( 'IMAP is not configured — poll skipped.', 'kinetix-messaging-by-ppros' ) );
             return;
         }
 
@@ -444,16 +473,36 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         if ( is_wp_error( $results ) ) {
             // Log and bail; avoid crashing the cron runner.
             $this->log_debug( '[KMBP Email Pipe] IMAP poll error: ' . $results->get_error_message() );
+            $this->record_poll_status( false, $results->get_error_message() );
             return;
         }
 
-        if ( ! empty( $results ) ) {
-            $this->log_debug( sprintf( '[KMBP Email Pipe] IMAP poll: processed %d new message(s).', count( $results ) ) );
+        $processed = $results['processed'];
+        $skipped   = $results['skipped'];
+
+        if ( ! empty( $processed ) ) {
+            $this->log_debug( sprintf( '[KMBP Email Pipe] IMAP poll: processed %d new message(s).', count( $processed ) ) );
         }
+        if ( ! empty( $skipped ) ) {
+            $this->log_debug( '[KMBP Email Pipe] IMAP poll skipped ' . count( $skipped ) . ' message(s): ' . implode( ' | ', $skipped ) );
+        }
+
+        $this->record_poll_status(
+            true,
+            sprintf(
+                /* translators: 1: number of messages imported, 2: number skipped */
+                __( 'Poll complete — %1$d imported, %2$d skipped.', 'kinetix-messaging-by-ppros' ),
+                count( $processed ),
+                count( $skipped )
+            ),
+            count( $processed ),
+            count( $skipped )
+        );
     }
 
     /**
      * REST handler — POST /email/poll  (manual trigger for admins/agents).
+     * Bypasses WP-Cron entirely so a poll can be verified immediately.
      */
     public function handle_manual_poll( WP_REST_Request $request ) {
         $cfg = $this->get_settings();
@@ -465,24 +514,91 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         $results = $this->poll_imap( $cfg );
 
         if ( is_wp_error( $results ) ) {
+            $this->record_poll_status( false, $results->get_error_message() );
             return $results;
         }
 
+        $processed = $results['processed'];
+        $skipped   = $results['skipped'];
+
+        $this->record_poll_status(
+            true,
+            sprintf(
+                /* translators: 1: number of messages imported, 2: number skipped */
+                __( 'Poll complete — %1$d imported, %2$d skipped.', 'kinetix-messaging-by-ppros' ),
+                count( $processed ),
+                count( $skipped )
+            ),
+            count( $processed ),
+            count( $skipped )
+        );
+
         return rest_ensure_response(
             array(
-                'polled'    => true,
-                'processed' => count( $results ),
-                'threads'   => $results,
+                'polled'         => true,
+                'processed'      => count( $processed ),
+                'skipped'        => count( $skipped ),
+                'skippedReasons' => $skipped,
+                'threads'        => $processed,
             )
         );
     }
 
     /**
-     * Connect to IMAP, fetch unseen messages, process each one, return a
-     * summary array (one entry per message processed).
+     * REST handler — GET /email/poll-status
+     * Surfaces the last poll outcome and cron schedule state so IMAP sync
+     * issues can be diagnosed from the settings UI, without server access.
+     */
+    public function handle_poll_status( WP_REST_Request $request ) {
+        $status = (array) get_option( self::POLL_STATUS_OPTION, array() );
+        $next   = wp_next_scheduled( self::CRON_HOOK );
+
+        return rest_ensure_response(
+            array(
+                'lastRunAt'      => isset( $status['ranAt'] ) ? (int) $status['ranAt'] : null,
+                'ok'             => $status['ok'] ?? null,
+                'message'        => $status['message'] ?? '',
+                'processed'      => $status['processed'] ?? 0,
+                'skipped'        => $status['skipped'] ?? 0,
+                'cronRegistered' => (bool) $next,
+                'nextRunAt'      => $next ? (int) $next : null,
+            )
+        );
+    }
+
+    /**
+     * Persist the outcome of the most recent poll (cron or manual) so it can
+     * be surfaced in the UI even when WP_DEBUG is off.
+     */
+    private function record_poll_status( bool $ok, string $message, int $processed = 0, int $skipped = 0 ): void {
+        update_option(
+            self::POLL_STATUS_OPTION,
+            array(
+                'ok'        => $ok,
+                'message'   => $message,
+                'processed' => $processed,
+                'skipped'   => $skipped,
+                'ranAt'     => time(),
+            ),
+            false
+        );
+    }
+
+    /**
+     * Connect to IMAP, fetch new messages, process each one, return a
+     * summary of what happened.
+     *
+     * Messages are tracked with a persistent per-mailbox UID high-water-mark
+     * (IMAP_CURSOR_OPTION) rather than relying solely on the \Seen flag.
+     * Using \Seen alone means a message opened from any other mail client
+     * (webmail, phone, Outlook, etc.) between polls becomes permanently
+     * invisible to this plugin. On the very first poll for a mailbox we
+     * still import whatever is currently unseen (so a fresh setup shows
+     * results immediately), then track only the UID cursor from that point
+     * forward, so no message is ever missed regardless of its read state.
      *
      * @param array $cfg Email settings from wp_options.
-     * @return array|\WP_Error  Array of processed message summaries on success.
+     * @return array{processed: array, skipped: array}|\WP_Error
      */
     public function poll_imap( array $cfg = array() ) {
         if ( ! function_exists( 'imap_open' ) ) {
@@ -526,39 +642,116 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
             return new \WP_Error( 'kmbp_imap_connect_failed', $msg, array( 'status' => 502 ) );
         }
 
-        // Fetch unseen messages.
-        $uids = imap_search( $imap, 'UNSEEN', SE_UID );
-        if ( false === $uids || empty( $uids ) ) {
-            imap_close( $imap );
-            return array();
+        // ── Resolve which UIDs to fetch via the persistent cursor ───────────
+        $mailbox_key = md5( strtolower( $host . '|' . $user . '|' . $mailbox ) );
+        $cursors     = (array) get_option( self::IMAP_CURSOR_OPTION, array() );
+        $cursor      = isset( $cursors[ $mailbox_key ] ) ? (array) $cursors[ $mailbox_key ] : array();
+
+        $mailbox_status = @imap_status( $imap, $connection_string, SA_UIDVALIDITY | SA_UIDNEXT );
+        $uidvalidity    = $mailbox_status ? (string) $mailbox_status->uidvalidity : '';
+        $uidnext        = $mailbox_status ? (int) $mailbox_status->uidnext : 0;
+
+        // No cursor yet, or the mailbox's UIDs were reset (UIDVALIDITY changed) —
+        // fall back to whatever is currently unseen so a fresh setup shows
+        // results right away; the cursor baseline is then set below so every
+        // later poll relies on UID order instead of the \Seen flag.
+        $is_first_run = empty( $cursor ) || ( isset( $cursor['uidvalidity'] ) && $cursor['uidvalidity'] !== $uidvalidity );
+
+        if ( $is_first_run ) {
+            $uids = imap_search( $imap, 'UNSEEN', SE_UID );
+            $uids = is_array( $uids ) ? $uids : array();
+        } else {
+            $uids = $this->imap_uids_since( $imap, (int) ( $cursor['lastUid'] ?? 0 ) );
         }
 
         $processed = array();
+        $skipped   = array();
+        $max_uid   = (int) ( $cursor['lastUid'] ?? 0 );
 
         foreach ( $uids as $uid ) {
+            $uid     = (int) $uid;
+            $max_uid = max( $max_uid, $uid );
+
             $email_data = $this->fetch_imap_message( $imap, $uid );
             if ( is_wp_error( $email_data ) ) {
+                $skipped[] = sprintf( 'UID %d: %s', $uid, $email_data->get_error_message() );
                 continue;
             }
 
             $conversation_id = $this->process_inbound( $email_data );
 
-            if ( ! is_wp_error( $conversation_id ) ) {
-                // Mark as seen.
-                imap_setflag_full( $imap, (string) $uid, '\\Seen', ST_UID );
-
-                $processed[] = array(
-                    'uid'            => $uid,
-                    'from'           => $email_data['from_email'],
-                    'subject'        => $email_data['subject'],
-                    'conversationId' => $conversation_id,
-                );
+            if ( is_wp_error( $conversation_id ) ) {
+                $skipped[] = sprintf( 'UID %d (%s): %s', $uid, $email_data['from_email'], $conversation_id->get_error_message() );
+                continue;
             }
+
+            if ( ! empty( $cfg['imapDelete'] ) ) {
+                imap_delete( $imap, (string) $uid, FT_UID );
+            } else {
+                imap_setflag_full( $imap, (string) $uid, '\\Seen', ST_UID );
+            }
+
+            $processed[] = array(
+                'uid'            => $uid,
+                'from'           => $email_data['from_email'],
+                'subject'        => $email_data['subject'],
+                'conversationId' => $conversation_id,
+            );
         }
+
+        if ( ! empty( $cfg['imapDelete'] ) && ! empty( $processed ) ) {
+            imap_expunge( $imap );
+        }
+
+        // Persist the new high-water-mark. Advancing past skipped UIDs too
+        // (not just successfully processed ones) prevents a single
+        // permanently-unparseable message from blocking every poll after it.
+        $cursors[ $mailbox_key ] = array(
+            'uidvalidity' => $uidvalidity,
+            'lastUid'     => max( $max_uid, $uidnext > 0 ? $uidnext - 1 : $max_uid ),
+            'updatedAt'   => time(),
+        );
+        update_option( self::IMAP_CURSOR_OPTION, $cursors, false );
 
         imap_close( $imap );
 
-        return $processed;
+        return array(
+            'processed' => $processed,
+            'skipped'   => $skipped,
+        );
+    }
+
+    /**
+     * Return UIDs strictly greater than $last_uid using imap_fetch_overview,
+     * which lets us query "everything new" without depending on \Seen.
+     *
+     * @param resource $imap
+     * @param int      $last_uid
+     * @return int[]
+     */
+    private function imap_uids_since( $imap, int $last_uid ): array {
+        if ( $last_uid <= 0 ) {
+            $uids = imap_search( $imap, 'UNSEEN', SE_UID );
+            return is_array( $uids ) ? array_map( 'intval', $uids ) : array();
+        }
+
+        $overview = @imap_fetch_overview( $imap, ( $last_uid + 1 ) . ':*', FT_UID );
+        if ( ! is_array( $overview ) ) {
+            return array();
+        }
+
+        $uids = array();
+        foreach ( $overview as $item ) {
+            $uid = isset( $item->uid ) ? (int) $item->uid : 0;
+            // Defensive: some IMAP servers return the last existing message
+            // even when the requested range is entirely out of bounds.
+            if ( $uid > $last_uid ) {
+                $uids[] = $uid;
+            }
+        }
+        sort( $uids );
+
+        return $uids;
     }
 
     /**
