@@ -10,9 +10,6 @@
     "languages",
     "LICENSE",
     "readme.txt",
-    "package.json",
-    "postcss.config.js",
-    "webpack.config.js",
     "kinetix-messaging-by-ppros.php"
   ],
   "scripts": {
