@@ -8,6 +8,7 @@ import TelegramSettings from "./telegram.jsx";
 import ViberSettings from "./Viber.jsx";
 import WeChatSettings from "./WeChat.jsx";
 import WhatsAppSettings from "./whatsapp.jsx";
+import LivechatSettings from "./livechat.jsx";
 import { ChannelCard, SettingsThemeContext } from "./shared.jsx";
 import TeamSettings from "./Team.jsx";
 import { TOKEN } from "./tokens.js";
@@ -26,6 +27,16 @@ const CHANNEL_DEFAULTS = {
     persistentMenu: true, fetchProfile: true, readReceipts: true, typingIndicator: true,
     reactions: true, quickReplies: true, imageAttach: true, fileAttach: true, autoAssign: true,
     csat: false, handover: false, secondaryAppId: "",
+  },
+  livechat: {
+    enabled: false, apiKey: "", host: "livechat.pluginpros.co",
+    brandName: "", tagline: "We help your business grow by connecting you to your customers.",
+    welcomeMessage: "Hi {{name}}, welcome! 👋",
+    iceList: ["Just browsing!", "I'd like to learn more", "I have a question"],
+    themeColor: "#7C3AED", position: "bottom-right", onlineText: "A few minutes",
+    agentName: "", askName: true, autoReply: true,
+    autoReplyMsg: "Hi {{customer_name}}! Thanks for chatting with us. An agent will reply shortly.",
+    autoAssign: true,
   },
   email: {
     enabled: false, inboxName: "Customer Support", inboxEmail: "", senderName: "", webhookToken: "",
@@ -278,6 +289,9 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
               <>
                 {active === "messenger" && (
                   <MessengerSettings cfg={configs.messenger} setCfg={setChannel("messenger")} />
+                )}
+                {active === "livechat" && (
+                  <LivechatSettings cfg={configs.livechat} setCfg={setChannel("livechat")} />
                 )}
                 {active === "email" && (
                   <EmailSettings cfg={configs.email} setCfg={setChannel("email")} />

@@ -15,6 +15,7 @@ class Kinetix_Messaging_By_Ppros {
     public function __construct() {
         $this->load_dependencies();
         $this->define_admin_hooks();
+        $this->define_public_hooks();
         $this->define_rest_hooks();
         $this->define_email_pipe_hooks();
         $this->define_channel_pipe_hooks();
@@ -29,6 +30,11 @@ class Kinetix_Messaging_By_Ppros {
         $admin = new Kinetix_Messaging_By_Ppros_Admin();
         $this->loader->add_action( 'admin_menu', $admin, 'register_menu' );
         $this->loader->add_action( 'admin_enqueue_scripts', $admin, 'enqueue_assets' );
+    }
+
+    private function define_public_hooks() {
+        $public = new Kinetix_Messaging_By_Ppros_Public();
+        $this->loader->add_action( 'wp_enqueue_scripts', $public, 'enqueue_assets' );
     }
 
     private function define_rest_hooks() {
@@ -48,10 +54,11 @@ class Kinetix_Messaging_By_Ppros {
             new Kinetix_Messaging_By_Ppros_Messenger_Pipe(),
             new Kinetix_Messaging_By_Ppros_Wechat_Pipe(),
             new Kinetix_Messaging_By_Ppros_Sms_Pipe(),
-                        new Kinetix_Messaging_By_Ppros_Line_Pipe(),
-                        new Kinetix_Messaging_By_Ppros_Instagram_Pipe(),
-                        new Kinetix_Messaging_By_Ppros_Viber_Pipe(),
-                    );
+            new Kinetix_Messaging_By_Ppros_Line_Pipe(),
+            new Kinetix_Messaging_By_Ppros_Instagram_Pipe(),
+            new Kinetix_Messaging_By_Ppros_Viber_Pipe(),
+            new Kinetix_Messaging_By_Ppros_Livechat_Pipe(),
+        );
         foreach ( $pipes as $pipe ) {
             $pipe->register_hooks( $this->loader );
         }

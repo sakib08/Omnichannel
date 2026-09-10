@@ -281,16 +281,32 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
 
         $message_id = (int) $wpdb->insert_id;
 
-        $wpdb->update(
-            $wpdb->prefix . 'kmbp_conversations',
-            array(
-                'preview'    => wp_trim_words( wp_strip_all_tags( $body ), 14, '…' ),
-                'updated_at' => current_time( 'mysql' ),
-            ),
-            array( 'id' => $conversation_id ),
-            array( '%s', '%s' ),
-            array( '%d' )
-        );
+        $preview = wp_trim_words( wp_strip_all_tags( $body ), 14, '…' );
+        $now     = current_time( 'mysql' );
+
+        if ( 'contact' === $sender_type ) {
+            $wpdb->query(
+                $wpdb->prepare(
+                    "UPDATE {$wpdb->prefix}kmbp_conversations
+                     SET preview = %s, updated_at = %s, unread_count = unread_count + 1
+                     WHERE id = %d",
+                    $preview,
+                    $now,
+                    $conversation_id
+                )
+            );
+        } else {
+            $wpdb->update(
+                $wpdb->prefix . 'kmbp_conversations',
+                array(
+                    'preview'    => $preview,
+                    'updated_at' => $now,
+                ),
+                array( 'id' => $conversation_id ),
+                array( '%s', '%s' ),
+                array( '%d' )
+            );
+        }
 
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 

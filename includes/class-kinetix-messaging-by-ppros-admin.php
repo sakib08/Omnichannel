@@ -103,6 +103,10 @@ class Kinetix_Messaging_By_Ppros_Admin {
 
             <div class="kmbp-cards">
                 <div class="kmbp-card">
+                    <strong><span class="kmbp-dot-livechat">&#9899;</span> Live Chat</strong>
+                    <span>On-site widget via livechat.pluginpros.co. Enable in Settings, paste your API key, and the chat window appears on the public site. Conversations land in this inbox.</span>
+                </div>
+                <div class="kmbp-card">
                     <strong>&#9993; Email</strong>
                     <span>IMAP polling or inbound webhook (Mailgun / SendGrid / Postmark). SMTP for outbound replies.</span>
                 </div>
@@ -158,6 +162,7 @@ class Kinetix_Messaging_By_Ppros_Admin {
                     <tr><td>Viber</td>          <td><code><?php echo esc_html( $webhook_base . 'viber' ); ?></code></td>         <td>Use the cURL snippet in Settings → Viber → Webhook.</td></tr>
                     <tr><td>WeChat</td>         <td><code><?php echo esc_html( $webhook_base . 'wechat' ); ?></code></td>        <td>Enter as Server URL in WeChat MP admin → Basic configuration.</td></tr>
                     <tr><td>Email (inbound)</td><td><code><?php echo esc_html( $webhook_base . 'email' ); ?></code></td>         <td>For Mailgun / SendGrid / Postmark route forwarding.</td></tr>
+                    <tr><td>Live Chat</td>      <td><em>None — the public widget posts to</em> <code><?php echo esc_html( $rest_base . 'livechat/inbound' ); ?></code></td> <td>Visitor messages are mirrored into the inbox automatically. Agent replies use WebSocket rooms on livechat.pluginpros.co.</td></tr>
                 </tbody>
             </table>
 
@@ -264,7 +269,16 @@ class Kinetix_Messaging_By_Ppros_Admin {
                             <li><strong>Telegram</strong> — enable <em>Auto-reply on /start</em> in Settings → Telegram → Features. The welcome message fires when a user first sends <code>/start</code> to your bot.</li>
                             <li><strong>Messenger / Instagram</strong> — configure the greeting text in the channel's <em>Automation</em> tab.</li>
                             <li><strong>Email</strong> — set the auto-reply subject and body in Settings → Email → Templates.</li>
+                            <li><strong>Live Chat</strong> — enable auto-reply in Settings → Live Chat → Messaging. It is sent into the visitor's WebSocket room on the first message.</li>
                         </ul>
+                    </div>
+                </details>
+
+                <details class="kmbp-faq-item">
+                    <summary>How do I add Live Chat to my website?</summary>
+                    <div class="kmbp-faq-body">
+                        <p>Open <strong>Settings → Live Chat</strong>, paste your API key from <a href="https://livechat.pluginpros.co/" target="_blank" rel="noopener noreferrer">livechat.pluginpros.co</a>, enable the channel, and save. The chat window is injected on every public page automatically — no shortcode required. Visitor messages appear in the inbox under the Live Chat filter; replies you send there are delivered back to the same visitor room.</p>
+                        <p>Unlike webhook-based channels, Live Chat works on <code>localhost</code> because the browser and WordPress connect <em>out</em> to livechat.pluginpros.co. You still need a valid API key.</p>
                     </div>
                 </details>
 
@@ -294,6 +308,9 @@ class Kinetix_Messaging_By_Ppros_Admin {
                     <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>viber/send</code></td>                     <td>Agent</td>    <td>Send a Viber message.</td></tr>
                     <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>viber/set-webhook</code></td>              <td>Admin</td>    <td>Register the Viber webhook via the Chat API.</td></tr>
                     <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>wechat/send</code></td>                    <td>Agent</td>    <td>Send a WeChat message.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>livechat/send</code></td>                  <td>Agent</td>    <td>Send a live chat reply into the visitor's WebSocket room.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>livechat/inbound</code></td>               <td>Widget token</td> <td>Public widget mirrors a visitor message into the inbox.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>livechat/test-connection</code></td>       <td>Admin</td>    <td>WebSocket handshake check against livechat.pluginpros.co.</td></tr>
                     <tr><td><span class="kmbp-badge kmbp-badge-amber">ANY</span></td>   <td><code>webhooks/{channel}</code></td>             <td>Channel secret</td>     <td>Inbound webhook delivery; each channel verifies its own signature or secret token.</td></tr>
                 </tbody>
             </table>

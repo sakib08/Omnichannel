@@ -40,7 +40,7 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
 
     /** Channels supported by the React app — every key matches a wp_option sub-array. */
     public static function supported_channels() {
-        return array( 'messenger', 'email', 'whatsapp', 'telegram', 'sms', 'line', 'viber', 'wechat', 'instagram' );
+        return array( 'messenger', 'email', 'whatsapp', 'telegram', 'sms', 'line', 'viber', 'wechat', 'instagram', 'livechat' );
     }
 
     public function register_routes() {
@@ -327,7 +327,7 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
      * the DB and overwritten on save only when the client sends a new value.
      */
     private function scrub_secrets_for_output( array $values ) {
-        $secret_keys = array( 'accessToken', 'authToken', 'channelSecret', 'appSecret', 'smtpPass', 'imapPass', 'serverToken', 'encodingAesKey', 'pageToken', 'botToken', 'webhookToken', 'webhookSecret', 'verifyToken' );
+        $secret_keys = array( 'accessToken', 'authToken', 'channelSecret', 'appSecret', 'smtpPass', 'imapPass', 'serverToken', 'encodingAesKey', 'pageToken', 'botToken', 'webhookToken', 'webhookSecret', 'verifyToken', 'apiKey' );
         foreach ( $values as $key => $value ) {
             if ( in_array( $key, $secret_keys, true ) && is_string( $value ) && '' !== $value ) {
                 $values[ $key ] = str_repeat( '•', 8 );

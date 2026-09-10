@@ -4,7 +4,7 @@ Tags: whatsapp, messenger, chat, social-media, messaging, omnichannel, telegram,
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.7
+Stable tag: 1.0.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,7 +50,7 @@ Development-only tools (npm packages used at build time, not included in the plu
 
 == External services ==
 
-This plugin is an omnichannel messaging inbox. It does **not** call any third-party API until a site administrator enables a channel and saves that channel's credentials in the plugin settings. No external requests are made on ordinary WordPress page loads for visitors; outbound API calls occur only when an authorized agent sends a message, when the plugin registers or checks a webhook, when optional auto-replies are sent, or when scheduled email polling runs (IMAP, if configured).
+This plugin is an omnichannel messaging inbox. It does **not** call any third-party API until a site administrator enables a channel and saves that channel's credentials in the plugin settings. No external requests are made on ordinary WordPress page loads for visitors, **except** when Live Chat is enabled: the public widget then opens a WebSocket to livechat.pluginpros.co so visitors can chat. Outbound API calls otherwise occur only when an authorized agent sends a message, when the plugin registers or checks a webhook, when optional auto-replies are sent, or when scheduled email polling runs (IMAP, if configured).
 
 Inbound messages are delivered **to** your WordPress site by the messaging provider via webhooks you configure in each provider's dashboard. Those providers may send message content, sender identifiers, and profile metadata to your site.
 
@@ -128,6 +128,14 @@ Inbound email may also be pushed to your site via a webhook URL you configure in
 
 **Data sent (general):** depends on the mail server or inbound-parse provider the administrator configures (typically sender/recipient addresses, subject, and message body).
 
+= Live Chat (livechat.pluginpros.co) =
+
+Used when the Live Chat channel is enabled. The public site widget and agent replies connect to the livechat.pluginpros.co WebSocket service (`wss://livechat.pluginpros.co/ws/chat/<room_id>/`) using the API key saved in Settings. Visitor messages are also stored in your WordPress database so they appear in the inbox.
+
+**Data sent:** API key, conversation room ID, sender name, sender type (visitor or agent), and message text.
+
+**Service provided by Plugin Pros (livechat.pluginpros.co).** Sign in and generate an API key at [livechat.pluginpros.co](https://livechat.pluginpros.co/).
+
 == Installation ==
 
 1. Upload the plugin files to `/wp-content/plugins/kinetix-messaging-by-ppros`, or install through the WordPress plugins screen.
@@ -196,8 +204,18 @@ Most channels have a dedicated auto-reply option in their settings panel:
 * **Telegram** — enable **Auto-reply on /start** in Settings → Telegram → Features. The welcome message fires when a user first sends `/start` to your bot.
 * **Messenger / Instagram** — set a greeting in the **Automation** tab.
 * **Email** — configure the auto-reply subject and body in Settings → Email → Templates.
+* **Live Chat** — enable auto-reply in Settings → Live Chat → Messaging.
+
+= How do I add Live Chat to my website? =
+
+Open **Kinetix Messaging → Settings → Live Chat**, paste an API key from [livechat.pluginpros.co](https://livechat.pluginpros.co/), enable the channel, and save. The chat widget appears on every public page automatically. Visitor messages show up in the inbox; agent replies are sent back through the same live chat room.
+
+Live Chat does not need a public webhook URL, so it can be tested on `localhost` as long as the site can reach livechat.pluginpros.co.
 
 == Changelog ==
+
+= 1.0.8 =
+* Add Live Chat channel with an on-site widget (livechat.pluginpros.co WebSocket rooms) and inbox delivery for visitor conversations.
 
 = 1.0.7 =
 * Fix inbound IMAP messages using quoted-printable or base64 transfer encoding never being decoded, due to incorrect PHP IMAP encoding constants — a major cause of emails silently failing to sync or storing raw, unreadable content.
