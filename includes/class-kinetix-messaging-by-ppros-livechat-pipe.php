@@ -45,6 +45,16 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
 
         register_rest_route(
             $ns,
+            '/livechat/identify',
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array( $this, 'handle_identify' ),
+                'permission_callback' => array( $this, 'check_inbound_permission' ),
+            )
+        );
+
+        register_rest_route(
+            $ns,
             '/livechat/send',
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
@@ -97,14 +107,23 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
             );
         }
 
-        $cfg      = $this->get_settings();
-        $room_id  = $this->sanitize_room_id( (string) $request->get_param( 'roomId' ) );
-        $text     = sanitize_textarea_field( (string) $request->get_param( 'text' ) );
-        $name     = sanitize_text_field( (string) $request->get_param( 'senderName' ) );
-        $msg_uid  = sanitize_text_field( (string) $request->get_param( 'messageId' ) );
+        $cfg     = $this->get_settings();
+        $text    = sanitize_textarea_field( (string) $request->get_param( 'text' ) );
+        $name    = sanitize_text_field( (string) $request->get_param( 'senderName' ) );
+        $email   = sanitize_email( (string) $request->get_param( 'email' ) );
+        $msg_uid = sanitize_text_field( (string) $request->get_param( 'messageId' ) );
 
-        if ( '' === $room_id ) {
-            return new WP_Error( 'kmbp_livechat_bad_room', __( 'A valid room ID is required.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+        $identity = $this->resolve_visitor_identity( $name, $email );
+        $name     = $identity['name'];
+        $email    = $identity['email'];
+        $room_id  = $this->reconcile_room_id(
+            (string) $request->get_param( 'roomId' ),
+            $email,
+            $identity['roomId']
+        );
+
+        if ( '' === $room_id || ! is_email( $email ) ) {
+            return new WP_Error( 'kmbp_livechat_email_required', __( 'A valid email address is required to chat.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
         if ( '' === trim( $text ) ) {
             return new WP_Error( 'kmbp_empty_body', __( 'Message text is required.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
@@ -113,15 +132,17 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
             $text = substr( $text, 0, 4000 );
         }
         if ( '' === $name ) {
-            $name = __( 'Website Visitor', 'kinetix-messaging-by-ppros' );
+            $name = $email;
         }
         $name = mb_substr( $name, 0, 80 );
 
         $subject         = mb_substr( $text, 0, 80 ) ?: __( 'Live chat', 'kinetix-messaging-by-ppros' );
-        $conversation_id = $this->find_or_create_conversation( $room_id, $name, $room_id, $subject );
+        $conversation_id = $this->find_or_create_conversation( $room_id, $name, $email, $subject );
         if ( is_wp_error( $conversation_id ) ) {
             return $conversation_id;
         }
+
+        $this->sync_contact_details( $conversation_id, $name, $email );
 
         $is_first = $this->conversation_message_count( $conversation_id ) === 0;
 
@@ -134,6 +155,7 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
             array(
                 'channel' => 'livechat',
                 'roomId'  => $room_id,
+                'email'   => $email,
             ),
             $external_id
         );
@@ -157,6 +179,35 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
                 'ok'             => true,
                 'conversationId' => $conversation_id,
                 'messageId'      => $message_id,
+                'roomId'         => $room_id,
+            )
+        );
+    }
+
+    /**
+     * Return the canonical WebSocket room for a visitor so the widget never
+     * reuses an old browser room (which mixed unrelated inbox threads).
+     */
+    public function handle_identify( WP_REST_Request $request ) {
+        $name  = sanitize_text_field( (string) $request->get_param( 'senderName' ) );
+        $email = sanitize_email( (string) $request->get_param( 'email' ) );
+        $identity = $this->resolve_visitor_identity( $name, $email );
+
+        if ( '' === $identity['roomId'] || ! is_email( $identity['email'] ) ) {
+            return new WP_Error(
+                'kmbp_livechat_email_required',
+                __( 'A valid email address is required to chat.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        return rest_ensure_response(
+            array(
+                'ok'             => true,
+                'roomId'         => $identity['roomId'],
+                'name'           => $identity['name'],
+                'email'          => $identity['email'],
+                'identityLocked' => ! empty( $identity['locked'] ),
             )
         );
     }
@@ -271,6 +322,76 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
     }
 
     /**
+     * Stable room per logged-in WordPress user or guest email.
+     * Prevents one browser from appending new chats onto an old WebSocket/inbox thread.
+     */
+    public function identity_room_id( string $email = '' ): string {
+        if ( is_user_logged_in() ) {
+            return $this->sanitize_room_id( 'kmbp-user-' . (int) get_current_user_id() );
+        }
+        $email = strtolower( sanitize_email( $email ) );
+        if ( ! is_email( $email ) ) {
+            return '';
+        }
+        return $this->sanitize_room_id( 'kmbp-e-' . substr( md5( 'kmbp|' . $email ), 0, 28 ) );
+    }
+
+    /**
+     * Prefer the WordPress account when the visitor is logged in.
+     *
+     * @return array{name:string,email:string,roomId:string,locked:bool}
+     */
+    public function resolve_visitor_identity( string $name, string $email ): array {
+        $locked = false;
+        $user   = wp_get_current_user();
+        if ( $user instanceof WP_User && $user->ID > 0 ) {
+            $locked = true;
+            if ( is_email( (string) $user->user_email ) ) {
+                $email = (string) $user->user_email;
+            }
+            if ( (string) $user->display_name !== '' ) {
+                $name = sanitize_text_field( (string) $user->display_name );
+            }
+        }
+
+        $email = sanitize_email( $email );
+        $name  = sanitize_text_field( $name );
+        if ( '' === $name && is_email( $email ) ) {
+            $name = $email;
+        }
+
+        return array(
+            'name'   => mb_substr( $name, 0, 80 ),
+            'email'  => $email,
+            'roomId' => $this->identity_room_id( $email ),
+            'locked' => $locked,
+        );
+    }
+
+    /**
+     * Prefer the canonical identity room. If this REST request is unauthenticated
+     * but the widget booted as a logged-in WP user, accept that user room when
+     * the posted email matches the account.
+     */
+    public function reconcile_room_id( string $client_room, string $email, string $canonical = '' ): string {
+        $canonical   = $canonical !== '' ? $canonical : $this->identity_room_id( $email );
+        $client_room = $this->sanitize_room_id( $client_room );
+
+        if ( $canonical && $client_room === $canonical ) {
+            return $canonical;
+        }
+
+        if ( preg_match( '/^kmbp-user-(\d+)$/', $client_room, $m ) ) {
+            $claimed = get_user_by( 'id', (int) $m[1] );
+            if ( $claimed instanceof WP_User && is_email( $claimed->user_email ) && strtolower( $claimed->user_email ) === strtolower( $email ) ) {
+                return $client_room;
+            }
+        }
+
+        return $canonical;
+    }
+
+    /**
      * Ensure a public widget token exists so inbound POSTs can be authenticated
      * without exposing the livechat.pluginpros.co API key as the only secret.
      */
@@ -283,6 +404,21 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
         $token = wp_generate_password( 32, false, false );
         $this->update_channel_setting( 'widgetToken', $token );
         return $token;
+    }
+
+    private function sync_contact_details( int $conversation_id, string $name, string $email ): void {
+        global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- KMBP custom tables.
+        $wpdb->update(
+            $wpdb->prefix . 'kmbp_conversations',
+            array(
+                'contact_name'   => $name,
+                'contact_handle' => $email,
+            ),
+            array( 'id' => $conversation_id ),
+            array( '%s', '%s' ),
+            array( '%d' )
+        );
     }
 
     private function conversation_message_count( int $conversation_id ): int {

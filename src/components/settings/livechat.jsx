@@ -121,7 +121,6 @@ export default function LivechatSettings({ cfg, setCfg }) {
             placeholder="Hi {{name}}, welcome! 👋"
             helper="Token: {{name}} — visitor name, or “there” when unknown."
           />
-          <Input label="Response time label" value={cfg.onlineText} onChange={(v) => S("onlineText", v)} placeholder="A few minutes" />
           <Input label="Agent display name" value={cfg.agentName} onChange={(v) => S("agentName", v)} placeholder="Support" helper="Shown on outbound replies in the widget." />
           <div className="grid grid-cols-2 gap-4">
             <Input label="Accent color" value={cfg.themeColor} onChange={(v) => S("themeColor", v)} placeholder="#7C3AED" />
@@ -135,7 +134,7 @@ export default function LivechatSettings({ cfg, setCfg }) {
               ]}
             />
           </div>
-          <Row label="Ask for visitor name" desc="Show a name field on the welcome screen before the first message.">
+          <Row label="Ask for visitor name" desc="Show a name field on the welcome screen. Email is always required before a visitor can chat.">
             <Toggle checked={cfg.askName} onChange={(v) => S("askName", v)} color={color} />
           </Row>
           <SectionDivider label="Starting sentences" />

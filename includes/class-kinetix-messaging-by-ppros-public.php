@@ -33,7 +33,11 @@ class Kinetix_Messaging_By_Ppros_Public {
         $ice = array_values( array_filter( array_map( 'strval', $ice ), 'strlen' ) );
 
         $user = wp_get_current_user();
-        $visitor_name = ( $user && $user->ID > 0 ) ? (string) $user->display_name : '';
+        $logged_in     = $user instanceof WP_User && $user->ID > 0;
+        $visitor_name  = $logged_in ? (string) $user->display_name : '';
+        $visitor_email = $logged_in ? (string) $user->user_email : '';
+        $identity_locked = $logged_in && is_email( $visitor_email );
+        $visitor_room  = $logged_in ? $pipe->identity_room_id( $visitor_email ) : '';
 
         $theme = sanitize_hex_color( (string) ( $cfg['themeColor'] ?? '' ) );
         if ( ! $theme ) {
@@ -45,18 +49,23 @@ class Kinetix_Messaging_By_Ppros_Public {
             $position = 'bottom-right';
         }
 
+        $css_path = KINETIX_MESSAGING_BY_PPROS_DIR . 'assets/css/livechat-widget.css';
+        $js_path  = KINETIX_MESSAGING_BY_PPROS_DIR . 'assets/js/livechat-widget.js';
+        $css_ver  = file_exists( $css_path ) ? (string) filemtime( $css_path ) : KINETIX_MESSAGING_BY_PPROS_VERSION;
+        $js_ver   = file_exists( $js_path ) ? (string) filemtime( $js_path ) : KINETIX_MESSAGING_BY_PPROS_VERSION;
+
         wp_enqueue_style(
             'kmbp-livechat-widget',
             KINETIX_MESSAGING_BY_PPROS_URL . 'assets/css/livechat-widget.css',
             array(),
-            KINETIX_MESSAGING_BY_PPROS_VERSION
+            $css_ver
         );
 
         wp_enqueue_script(
             'kmbp-livechat-widget',
             KINETIX_MESSAGING_BY_PPROS_URL . 'assets/js/livechat-widget.js',
             array(),
-            KINETIX_MESSAGING_BY_PPROS_VERSION,
+            $js_ver,
             true
         );
 
@@ -75,13 +84,18 @@ class Kinetix_Messaging_By_Ppros_Public {
                 'iceBreakers'    => $ice,
                 'themeColor'     => $theme,
                 'position'       => $position,
-                'onlineText'     => (string) ( $cfg['onlineText'] ?? '' ),
                 'agentName'      => (string) ( $cfg['agentName'] ?? '' ),
                 'askName'        => ! empty( $cfg['askName'] ),
+                'visitorId'      => $logged_in ? (int) $user->ID : 0,
                 'visitorName'    => $visitor_name,
+                'visitorEmail'   => $visitor_email,
+                'roomId'         => $visitor_room,
+                'identityLocked' => $identity_locked,
                 'i18n'           => array(
                     'sendPlaceholder' => __( 'Send a message…', 'kinetix-messaging-by-ppros' ),
                     'namePlaceholder' => __( 'Your name', 'kinetix-messaging-by-ppros' ),
+                    'emailPlaceholder' => __( 'Your email', 'kinetix-messaging-by-ppros' ),
+                    'emailRequired'   => __( 'Enter your email to start chatting.', 'kinetix-messaging-by-ppros' ),
                     'chooseStarter'   => __( 'Please choose a starting sentence.', 'kinetix-messaging-by-ppros' ),
                     'today'           => __( 'Today', 'kinetix-messaging-by-ppros' ),
                     'openChat'        => __( 'Open live chat', 'kinetix-messaging-by-ppros' ),
@@ -92,7 +106,6 @@ class Kinetix_Messaging_By_Ppros_Public {
                     'justNow'         => __( 'Just now', 'kinetix-messaging-by-ppros' ),
                     'defaultWelcome'  => __( 'Hi {{name}}, welcome! 👋', 'kinetix-messaging-by-ppros' ),
                     'defaultTagline'  => __( 'We help your business grow by connecting you to your customers.', 'kinetix-messaging-by-ppros' ),
-                    'defaultOnline'   => __( 'A few minutes', 'kinetix-messaging-by-ppros' ),
                     'visitorFallback' => __( 'there', 'kinetix-messaging-by-ppros' ),
                 ),
             )

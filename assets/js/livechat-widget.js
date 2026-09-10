@@ -7,9 +7,12 @@
   }
 
   var i18n = boot.i18n || {};
-  var storageKeyRoom = "kmbp_livechat_room";
+  var storageKeyRoom = "kmbp_livechat_room_v2";
+  var storageKeyRoomEmail = "kmbp_livechat_room_email";
   var storageKeyName = "kmbp_livechat_name";
+  var storageKeyEmail = "kmbp_livechat_email";
   var storageKeyOpen = "kmbp_livechat_open";
+  var identityLocked = !!(boot.identityLocked && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(boot.visitorEmail || "").trim()));
 
   var state = {
     open: false,
@@ -21,6 +24,10 @@
     pendingOut: {},
     connected: false,
     hadConnect: false,
+    outbox: [],
+    identifiedEmail: "",
+    identifyWaiters: [],
+    identifying: false,
   };
 
   function uid() {
@@ -30,25 +37,52 @@
     return "m" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
   }
 
-  function getRoomId() {
+  function isIdentityRoom(id) {
+    return /^(kmbp-user-\d+|kmbp-e-[a-f0-9]{28})$/.test(String(id || ""));
+  }
+
+  function widgetHeaders() {
+    var headers = {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-KMBP-Widget-Token": boot.widgetToken,
+    };
+    if (boot.nonce) {
+      headers["X-WP-Nonce"] = boot.nonce;
+    }
+    return headers;
+  }
+
+  function persistGuestRoom(id, email) {
+    if (identityLocked) {
+      return;
+    }
     try {
-      var existing = localStorage.getItem(storageKeyRoom);
-      if (existing && /^[A-Za-z0-9][A-Za-z0-9_-]{7,79}$/.test(existing)) {
-        return existing;
+      localStorage.setItem(storageKeyRoom, id);
+      localStorage.setItem(storageKeyRoomEmail, String(email || "").toLowerCase());
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  function initialRoomId() {
+    if (boot.roomId && isIdentityRoom(boot.roomId)) {
+      return boot.roomId;
+    }
+    if (identityLocked) {
+      return "";
+    }
+    try {
+      var stored = localStorage.getItem(storageKeyRoom);
+      var storedEmail = (localStorage.getItem(storageKeyRoomEmail) || "").toLowerCase();
+      var email = (getVisitorEmail() || "").toLowerCase();
+      if (isIdentityRoom(stored) && storedEmail && storedEmail === email) {
+        return stored;
       }
     } catch (e) {
       /* ignore */
     }
-    var raw =
-      (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
-      Date.now().toString(36) + Math.random().toString(36).slice(2);
-    var id = ("kmbp-" + String(raw).replace(/[^A-Za-z0-9-]/g, "")).slice(0, 80);
-    try {
-      localStorage.setItem(storageKeyRoom, id);
-    } catch (e2) {
-      /* ignore */
-    }
-    return id;
+    return "";
   }
 
   function getVisitorName() {
@@ -70,28 +104,35 @@
     }
   }
 
+  function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+  }
+
+  function getVisitorEmail() {
+    if (boot.visitorEmail && isValidEmail(boot.visitorEmail)) {
+      return String(boot.visitorEmail).trim();
+    }
+    try {
+      return localStorage.getItem(storageKeyEmail) || "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function setVisitorEmail(email) {
+    try {
+      localStorage.setItem(storageKeyEmail, String(email || "").trim());
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
   function displayName() {
     return getVisitorName() || i18n.visitorFallback || "there";
   }
 
   function interpolate(template, name) {
     return String(template || "").replace(/\{\{\s*name\s*\}\}/gi, name);
-  }
-
-  function initials(text) {
-    var parts = String(text || "S")
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2);
-    if (!parts.length) {
-      return "S";
-    }
-    return parts
-      .map(function (p) {
-        return p.charAt(0).toUpperCase();
-      })
-      .join("");
   }
 
   function escapeHtml(str) {
@@ -119,14 +160,23 @@
   }
 
   function msgContent(msg) {
-    return msg.content || msg.text || msg.body || "";
+    return String(msg.content || msg.text || msg.body || "").trim();
   }
 
   function msgId(msg) {
     return String(msg.id || msg.message_id || msg.uuid || msgContent(msg) + "|" + (msg.sender_name || "") + "|" + (msg.created_at || ""));
   }
 
-  var roomId = getRoomId();
+  var roomId = initialRoomId();
+  if (roomId && boot.visitorEmail) {
+    state.identifiedEmail = String(boot.visitorEmail).trim().toLowerCase();
+  } else if (roomId) {
+    try {
+      state.identifiedEmail = (localStorage.getItem(storageKeyRoomEmail) || "").toLowerCase();
+    } catch (e) {
+      state.identifiedEmail = "";
+    }
+  }
   var root = document.createElement("div");
   root.id = "kmbp-livechat";
   root.style.setProperty("--kmbp-lc-accent", boot.themeColor || "#7C3AED");
@@ -137,10 +187,7 @@
   var brand = boot.brandName || "Support";
   var tagline = boot.tagline || i18n.defaultTagline || "";
   var welcomeTpl = boot.welcomeMessage || i18n.defaultWelcome || "Hi {{name}}, welcome! 👋";
-  var onlineText = boot.onlineText || i18n.defaultOnline || "A few minutes";
   var ice = Array.isArray(boot.iceBreakers) ? boot.iceBreakers.filter(Boolean) : [];
-  var letters = initials(brand);
-  var avatarColors = ["#7c3aed", "#ec4899", "#f59e0b"];
 
   root.innerHTML =
     '<div class="kmbp-lc-window" role="dialog" aria-label="' +
@@ -154,15 +201,11 @@
     "</div>" +
     '<p class="kmbp-lc-tagline"></p>' +
     "</div>" +
-    '<div class="kmbp-lc-meta">' +
-    '<div class="kmbp-lc-avatars" aria-hidden="true"></div>' +
-    '<div class="kmbp-lc-online"></div>' +
     '<button type="button" class="kmbp-lc-close" aria-label="' +
     escapeHtml(i18n.closeChat || "Close live chat") +
     '">' +
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>' +
     "</button>" +
-    "</div>" +
     "</div>" +
     '<div class="kmbp-lc-status" hidden></div>' +
     '<div class="kmbp-lc-body">' +
@@ -170,9 +213,12 @@
     '<div class="kmbp-lc-day"></div>' +
     '<p class="kmbp-lc-welcome"></p>' +
     '<p class="kmbp-lc-prompt"></p>' +
-    (boot.askName
-      ? '<div class="kmbp-lc-name-field"><input type="text" maxlength="80" autocomplete="name" /></div>'
+    '<div class="kmbp-lc-fields">' +
+    (boot.askName || boot.visitorName
+      ? '<div class="kmbp-lc-field"><input type="text" class="kmbp-lc-name-input" maxlength="80" autocomplete="name" /></div>'
       : "") +
+    '<div class="kmbp-lc-field"><input type="email" class="kmbp-lc-email-input" maxlength="190" autocomplete="email" required /></div>' +
+    "</div>" +
     '<div class="kmbp-lc-ice"></div>' +
     "</div>" +
     '<div class="kmbp-lc-msgs" hidden></div>' +
@@ -195,22 +241,15 @@
     "</button>";
 
   document.body.appendChild(root);
+  if (identityLocked) {
+    root.classList.add("kmbp-lc-known-identity");
+  }
 
   root.querySelector(".kmbp-lc-name").textContent = brand;
   root.querySelector(".kmbp-lc-tagline").textContent = tagline;
-  root.querySelector(".kmbp-lc-online").textContent = onlineText;
   root.querySelector(".kmbp-lc-day").textContent = i18n.today || "Today";
   root.querySelector(".kmbp-lc-prompt").textContent = i18n.chooseStarter || "Please choose a starting sentence.";
   root.querySelector(".kmbp-lc-composer-inner input").placeholder = i18n.sendPlaceholder || "Send a message…";
-
-  var avatarsEl = root.querySelector(".kmbp-lc-avatars");
-  for (var a = 0; a < 3; a++) {
-    var av = document.createElement("span");
-    av.className = "kmbp-lc-avatar";
-    av.style.background = avatarColors[a];
-    av.textContent = letters.charAt(a % letters.length) || "S";
-    avatarsEl.appendChild(av);
-  }
 
   var iceEl = root.querySelector(".kmbp-lc-ice");
   ice.forEach(function (label) {
@@ -229,13 +268,41 @@
     root.querySelector(".kmbp-lc-prompt").hidden = true;
   }
 
-  var nameInput = root.querySelector(".kmbp-lc-name-field input");
+  var nameInput = root.querySelector(".kmbp-lc-name-input");
   if (nameInput) {
     nameInput.placeholder = i18n.namePlaceholder || "Your name";
     nameInput.value = getVisitorName();
-    nameInput.addEventListener("change", function () {
-      setVisitorName(nameInput.value.trim());
-      refreshWelcome();
+    if (boot.visitorName) {
+      nameInput.readOnly = true;
+    }
+    if (!identityLocked) {
+      nameInput.addEventListener("input", function () {
+        setVisitorName(nameInput.value.trim());
+        refreshWelcome();
+      });
+    }
+  }
+
+  var emailInput = root.querySelector(".kmbp-lc-email-input");
+  emailInput.placeholder = i18n.emailPlaceholder || "Your email";
+  emailInput.value = getVisitorEmail();
+  if (identityLocked) {
+    emailInput.readOnly = true;
+  } else {
+    emailInput.addEventListener("input", function () {
+      emailInput.classList.remove("kmbp-lc-invalid");
+      if (isValidEmail(emailInput.value)) {
+        setVisitorEmail(emailInput.value.trim());
+        showStatus("");
+        syncChatLock();
+        ensureIdentity(function (ok) {
+          if (ok && state.open) {
+            connect();
+          }
+        });
+      } else {
+        syncChatLock();
+      }
     });
   }
 
@@ -250,6 +317,37 @@
   }
   refreshWelcome();
 
+  function currentEmail() {
+    if (identityLocked) {
+      return String(boot.visitorEmail || "").trim();
+    }
+    return emailInput ? String(emailInput.value || "").trim() : getVisitorEmail();
+  }
+
+  function hasValidEmail() {
+    return isValidEmail(currentEmail());
+  }
+
+  function syncChatLock() {
+    var locked = !hasValidEmail();
+    root.classList.toggle("kmbp-lc-locked", locked);
+    composeInput.disabled = locked;
+    root.querySelector(".kmbp-lc-send").disabled = locked;
+  }
+
+  function requireEmail() {
+    if (hasValidEmail()) {
+      setVisitorEmail(currentEmail());
+      emailInput.classList.remove("kmbp-lc-invalid");
+      showStatus("");
+      return true;
+    }
+    showStatus(i18n.emailRequired || "Enter your email to start chatting.");
+    emailInput.classList.add("kmbp-lc-invalid");
+    emailInput.focus();
+    return false;
+  }
+
   function setOpen(open) {
     state.open = open;
     root.classList.toggle("kmbp-lc-open", open);
@@ -259,8 +357,18 @@
       /* ignore */
     }
     if (open) {
-      connect();
-      composeInput.focus();
+      if (hasValidEmail()) {
+        ensureIdentity(function (ok) {
+          if (ok) {
+            connect();
+          }
+        });
+        composeInput.focus();
+      } else if (emailInput && !emailInput.readOnly) {
+        emailInput.focus();
+      } else {
+        composeInput.focus();
+      }
     }
   }
 
@@ -307,8 +415,17 @@
 
   function ingestIncoming(incoming) {
     var content = msgContent(incoming);
-    if (!isAgentMsg(incoming) && content && state.pendingOut[content] && Date.now() - state.pendingOut[content] < 30000) {
+    if (!content) {
+      return;
+    }
+    // Echo of a message we already drew locally — keep the bubble, just
+    // remember the server id so a later history dump cannot drop or duplicate it.
+    if (!isAgentMsg(incoming) && state.pendingOut[content] && Date.now() - state.pendingOut[content] < 30000) {
       delete state.pendingOut[content];
+      var echoedId = msgId(incoming);
+      if (echoedId) {
+        state.seen[echoedId] = true;
+      }
       return;
     }
     appendMessage(incoming);
@@ -318,12 +435,120 @@
     if (!Array.isArray(list) || !list.length) {
       return;
     }
-    msgsEl.innerHTML = "";
+    // Merge only. Replacing the DOM here is what made visitor messages vanish:
+    // the server often re-sends history on connect (and when an agent joins the
+    // room) *before* the newest visitor line is included.
+    list.forEach(function (msg) {
+      ingestIncoming(msg);
+    });
+  }
+
+  function disconnect() {
+    if (state.reconnectTimer) {
+      clearTimeout(state.reconnectTimer);
+      state.reconnectTimer = null;
+    }
+    if (state.ws) {
+      state.ws.onclose = null;
+      state.ws.onerror = null;
+      state.ws.onmessage = null;
+      try {
+        state.ws.close();
+      } catch (e) {
+        /* ignore */
+      }
+      state.ws = null;
+    }
+    state.connected = false;
+  }
+
+  function resetTranscript() {
     state.messages = [];
     state.seen = {};
-    list.forEach(function (msg) {
-      appendMessage(msg);
+    state.pendingOut = {};
+    state.outbox = [];
+    msgsEl.innerHTML = "";
+    msgsEl.hidden = true;
+    landing.hidden = false;
+  }
+
+  function applyIdentifiedRoom(nextId, email) {
+    if (!isIdentityRoom(nextId)) {
+      return false;
+    }
+    var nextEmail = String(email || "").trim().toLowerCase();
+    var changed = nextId !== roomId;
+    if (changed) {
+      disconnect();
+      if (roomId) {
+        resetTranscript();
+      }
+      roomId = nextId;
+    }
+    state.identifiedEmail = nextEmail;
+    persistGuestRoom(nextId, nextEmail);
+    return true;
+  }
+
+  function flushIdentifyWaiters(ok) {
+    var waiters = state.identifyWaiters.slice();
+    state.identifyWaiters = [];
+    waiters.forEach(function (fn) {
+      fn(ok);
     });
+  }
+
+  function ensureIdentity(cb) {
+    cb = cb || function () {};
+    var email = currentEmail();
+    if (!isValidEmail(email)) {
+      cb(false);
+      return;
+    }
+
+    if (identityLocked && boot.roomId) {
+      applyIdentifiedRoom(boot.roomId, boot.visitorEmail);
+      cb(!!roomId);
+      return;
+    }
+
+    if (roomId && state.identifiedEmail === email.toLowerCase()) {
+      cb(true);
+      return;
+    }
+
+    state.identifyWaiters.push(cb);
+    if (state.identifying) {
+      return;
+    }
+    state.identifying = true;
+    fetch(boot.restUrl + "livechat/identify", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: widgetHeaders(),
+      body: JSON.stringify({
+        email: email,
+        senderName: getVisitorName() || displayName(),
+      }),
+    })
+      .then(function (res) {
+        return res.json();
+      })
+      .then(function (data) {
+        state.identifying = false;
+        if (data && data.roomId && applyIdentifiedRoom(data.roomId, data.email || email)) {
+          if (data.name && nameInput && !boot.visitorName) {
+            nameInput.value = data.name;
+          }
+          flushIdentifyWaiters(true);
+          return;
+        }
+        flushIdentifyWaiters(false);
+      })
+      .catch(function () {
+        state.identifying = false;
+        flushIdentifyWaiters(false);
+      });
   }
 
   function mirrorToInbox(text, messageId) {
@@ -333,26 +558,27 @@
     fetch(boot.restUrl + "livechat/inbound", {
       method: "POST",
       credentials: "same-origin",
-      headers: (function () {
-        var headers = {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "X-KMBP-Widget-Token": boot.widgetToken,
-        };
-        if (boot.nonce) {
-          headers["X-WP-Nonce"] = boot.nonce;
-        }
-        return headers;
-      })(),
+      headers: widgetHeaders(),
       body: JSON.stringify({
         roomId: roomId,
         text: text,
-        senderName: getVisitorName() || "Website Visitor",
+        senderName: getVisitorName() || currentEmail() || "Website Visitor",
+        email: currentEmail(),
         messageId: messageId,
       }),
-    }).catch(function () {
-      /* inbox mirror is best-effort; the WebSocket is the live path */
-    });
+    })
+      .then(function (res) {
+        return res.json();
+      })
+      .then(function (data) {
+        if (data && data.roomId && data.roomId !== roomId) {
+          applyIdentifiedRoom(data.roomId, currentEmail());
+          connect(true);
+        }
+      })
+      .catch(function () {
+        /* inbox mirror is best-effort; the WebSocket is the live path */
+      });
   }
 
   function sendText(text) {
@@ -360,34 +586,55 @@
     if (!text) {
       return;
     }
-    if (nameInput && nameInput.value.trim()) {
+    if (!requireEmail()) {
+      return;
+    }
+    if (nameInput && nameInput.value.trim() && !boot.visitorName) {
       setVisitorName(nameInput.value.trim());
     }
-    var local = {
-      id: uid(),
-      content: text,
-      sender_name: getVisitorName() || displayName(),
-      sender_type: "visitor",
-      created_at: new Date().toISOString(),
-    };
-    appendMessage(local);
-    state.pendingOut[text] = Date.now();
-    if (state.ws && state.ws.readyState === 1) {
-      state.ws.send(
-        JSON.stringify({
-          content: text,
-          sender_name: local.sender_name,
-          sender_type: "visitor",
-        })
-      );
-    }
-    mirrorToInbox(text, local.id);
-    composeInput.value = "";
+    ensureIdentity(function (ok) {
+      if (!ok || !roomId) {
+        showStatus(i18n.emailRequired || "Enter your email to start chatting.");
+        return;
+      }
+      connect();
+      var local = {
+        id: uid(),
+        content: text,
+        sender_name: getVisitorName() || displayName(),
+        sender_type: "visitor",
+        created_at: new Date().toISOString(),
+      };
+      appendMessage(local);
+      state.pendingOut[text] = Date.now();
+      enqueueWs({
+        content: text,
+        sender_name: local.sender_name,
+        sender_type: "visitor",
+      });
+      mirrorToInbox(text, local.id);
+      composeInput.value = "";
+    });
   }
 
-  function connect() {
-    if (state.ws && (state.ws.readyState === 0 || state.ws.readyState === 1)) {
+  function enqueueWs(payload) {
+    var json = JSON.stringify(payload);
+    if (state.ws && state.ws.readyState === 1) {
+      state.ws.send(json);
       return;
+    }
+    state.outbox.push(json);
+  }
+
+  function connect(force) {
+    if (!roomId) {
+      return;
+    }
+    if (!force && state.ws && (state.ws.readyState === 0 || state.ws.readyState === 1)) {
+      return;
+    }
+    if (force) {
+      disconnect();
     }
     var url = String(boot.wsUrl || "").replace(/\/$/, "") + "/" + encodeURIComponent(roomId) + "/?api_key=" + encodeURIComponent(boot.apiKey);
     var ws;
@@ -405,6 +652,9 @@
       state.hadConnect = true;
       state.reconnectMs = 1200;
       showStatus("");
+      while (state.outbox.length) {
+        ws.send(state.outbox.shift());
+      }
     };
 
     ws.onmessage = function (event) {
@@ -482,4 +732,5 @@
   } catch (e) {
     /* ignore */
   }
+  syncChatLock();
 })();

@@ -316,6 +316,12 @@ export default function OmnichannelApp() {
         ...prev,
         [selected]: [...(prev[selected] || []), newMsg],
       }));
+      if (newMsg.id) {
+        lastMsgIdRef.current[selected] = Math.max(
+          lastMsgIdRef.current[selected] || 0,
+          Number(newMsg.id) || 0
+        );
+      }
       setConversations((prev) =>
         prev.map((c) =>
           c.id === selected
