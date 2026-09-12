@@ -222,8 +222,14 @@ export default function OmnichannelApp() {
   // ── Scroll to bottom when new messages arrive ──────────────────────────────
   const selectedMessages = messagesByConvId[selected];
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [selectedMessages?.length]);
+    if (loadingMsgs) return;
+    const end = messagesEndRef.current;
+    if (!end) return;
+    const scroller = end.parentElement;
+    if (scroller) {
+      scroller.scrollTop = scroller.scrollHeight;
+    }
+  }, [selectedMessages?.length, loadingMsgs]);
 
   // ── Derived conversation (merged with loaded messages + notes) ─────────────
   const selectedConv = useMemo(() => {
@@ -420,22 +426,29 @@ export default function OmnichannelApp() {
 
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
 
+  const handleChannelChange = (channelId) => {
+    setActiveChannel(channelId);
+    setSelected(null);
+  };
+
+  const handleBackToList = () => setSelected(null);
+
   return (
     <div className={`kmbp-app-root theme-${theme} flex bg-gray-50 font-sans overflow-hidden`}>
       <Sidebar
         activeChannel={activeChannel}
         conversations={conversations}
-        setActiveChannel={setActiveChannel}
+        setActiveChannel={handleChannelChange}
         theme={theme}
         toggleTheme={toggleTheme}
       />
 
       {activeChannel === "settings" ? (
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-hidden min-w-0">
           <IntegrationSettings theme={theme} toggleTheme={toggleTheme} />
         </main>
       ) : (
-        <>
+        <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">
           <ConversationList
             activeChannel={activeChannel}
             deleteConversation={deleteConversation}
@@ -458,6 +471,7 @@ export default function OmnichannelApp() {
             loadingMessages={loadingMsgs}
             messagesEndRef={messagesEndRef}
             noteText={noteText}
+            onBack={handleBackToList}
             replyText={replyText}
             selectedConv={selectedConv}
             sendError={sendError}
@@ -471,7 +485,7 @@ export default function OmnichannelApp() {
             updateAssignee={updateAssignee}
             updateStatus={updateStatus}
           />
-        </>
+        </div>
       )}
     </div>
   );

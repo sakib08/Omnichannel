@@ -57,12 +57,46 @@ export default function LivechatSettings({ cfg, setCfg }) {
       {tab === "api" && (
         <div className="space-y-4">
           <InfoBox type="info">
-            Create a free API key at{" "}
-            <a href="https://livechat.pluginpros.co/" target="_blank" rel="noopener noreferrer" className="underline font-semibold">
-              livechat.pluginpros.co
-            </a>
-            . Rooms are created automatically the first time a visitor connects. Messages appear in this inbox like any other channel.
+            Rooms are created automatically the first time a visitor connects. Messages appear in this inbox like any other channel. Edit the visitor tagline, welcome line, and starter buttons on the Widget tab.
           </InfoBox>
+          <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 px-4 py-4 space-y-3">
+            <div className="text-sm font-semibold text-slate-200">Get a free API key</div>
+            <ol className="space-y-2 text-sm text-slate-300 leading-relaxed">
+              <li>
+                Create a free account at{" "}
+                <a
+                  href="https://livechat.pluginpros.co/register"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline font-semibold text-indigo-400"
+                >
+                  livechat.pluginpros.co/register
+                </a>{" "}
+                — no credit card needed.
+              </li>
+              <li>
+                Confirm your email, then sign in.
+              </li>
+              <li>
+                Go to Dashboard → API Keys.
+              </li>
+              <li>
+                Name the key (for example “My website”) and click Create key.
+              </li>
+              <li>
+                Copy the key immediately. It is shown only once.
+              </li>
+            </ol>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              The Free plan includes 100 conversations per month and unlimited API keys. Upgrade later from Billing if you need more volume.
+            </p>
+            <p className="text-sm text-slate-400">
+              Questions:{" "}
+              <a href="mailto:info@pluginpros.co" className="underline font-semibold text-indigo-400">
+                info@pluginpros.co
+              </a>
+            </p>
+          </div>
           <Row label="Enable Live Chat" desc="Show the chat window on your website and receive conversations in the inbox.">
             <Toggle checked={cfg.enabled} onChange={(v) => S("enabled", v)} color={color} />
           </Row>
@@ -110,16 +144,31 @@ export default function LivechatSettings({ cfg, setCfg }) {
       {tab === "widget" && (
         <div className="space-y-4">
           <InfoBox type="tip">
-            The window appears automatically on every public page once Live Chat is enabled and saved. Style it to match the floating chat card: welcome line, starter buttons, then the conversation.
+            These texts appear on the public chat window. After you save, hard-refresh the website to see the widget update.
           </InfoBox>
-          <Input label="Brand name" value={cfg.brandName} onChange={(v) => S("brandName", v)} placeholder="Shown in the widget header (defaults to your site title)" />
-          <Input label="Tagline" value={cfg.tagline} onChange={(v) => S("tagline", v)} placeholder="We help your business grow by connecting you to your customers." />
-          <Input
-            label="Welcome message"
-            value={cfg.welcomeMessage}
+          <Input label="Brand name" value={cfg.brandName || ""} onChange={(v) => S("brandName", v)} placeholder="Shown in the widget header (defaults to your site title)" />
+          <Textarea
+            label="Header tagline"
+            value={cfg.tagline || ""}
+            onChange={(v) => S("tagline", v)}
+            rows={2}
+            placeholder="We help your business grow by connecting you to your customers."
+            helper="Gray subtitle under the brand name. Leave blank to hide it."
+          />
+          <Textarea
+            label="Welcome heading"
+            value={cfg.welcomeMessage || ""}
             onChange={(v) => S("welcomeMessage", v)}
+            rows={2}
             placeholder="Hi {{name}}, welcome! 👋"
             helper="Token: {{name}} — visitor name, or “there” when unknown."
+          />
+          <Input
+            label="Starter prompt"
+            value={cfg.starterPrompt || ""}
+            onChange={(v) => S("starterPrompt", v)}
+            placeholder="Please choose a starting sentence."
+            helper="Shown above the purple starter buttons. Hidden automatically if you remove all starters."
           />
           <Input label="Agent display name" value={cfg.agentName} onChange={(v) => S("agentName", v)} placeholder="Support" helper="Shown on outbound replies in the widget." />
           <div className="grid grid-cols-2 gap-4">
@@ -137,8 +186,8 @@ export default function LivechatSettings({ cfg, setCfg }) {
           <Row label="Ask for visitor name" desc="Show a name field on the welcome screen. Email is always required before a visitor can chat.">
             <Toggle checked={cfg.askName} onChange={(v) => S("askName", v)} color={color} />
           </Row>
-          <SectionDivider label="Starting sentences" />
-          <p className="text-xs text-slate-500">Purple shortcut buttons on the welcome screen. Clicking one sends that text as the first message.</p>
+          <SectionDivider label="Starter buttons" />
+          <p className="text-xs text-slate-500">Purple shortcut buttons on the welcome screen. Clicking one sends that text as the first message. You can edit, remove, or add up to 6.</p>
           {ice.map((item, i) => (
             <div key={i} className="flex gap-2">
               <div className="flex-1">

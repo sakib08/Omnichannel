@@ -12,7 +12,7 @@ export default function RightPanel({ agents, selectedConv, setActiveTab, setRepl
   const currentValue = selectedConv.assigneeId ? String(selectedConv.assigneeId) : "";
 
   return (
-    <div className="w-72 bg-white border-l border-gray-100 flex flex-col overflow-y-auto">
+    <div className="hidden lg:flex w-72 shrink-0 bg-white border-l border-gray-100 flex-col overflow-y-auto">
       {/* Assignee */}
       <div className="px-4 py-4 border-b border-gray-100">
         <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Assignee</div>

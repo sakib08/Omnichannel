@@ -185,8 +185,9 @@
   }
 
   var brand = boot.brandName || "Support";
-  var tagline = boot.tagline || i18n.defaultTagline || "";
+  var tagline = typeof boot.tagline === "string" ? boot.tagline : (i18n.defaultTagline || "");
   var welcomeTpl = boot.welcomeMessage || i18n.defaultWelcome || "Hi {{name}}, welcome! 👋";
+  var starterPrompt = String(boot.starterPrompt || "").trim() || i18n.chooseStarter || "Please choose a starting sentence.";
   var ice = Array.isArray(boot.iceBreakers) ? boot.iceBreakers.filter(Boolean) : [];
 
   root.innerHTML =
@@ -247,8 +248,9 @@
 
   root.querySelector(".kmbp-lc-name").textContent = brand;
   root.querySelector(".kmbp-lc-tagline").textContent = tagline;
+  root.querySelector(".kmbp-lc-tagline").hidden = !String(tagline).trim();
   root.querySelector(".kmbp-lc-day").textContent = i18n.today || "Today";
-  root.querySelector(".kmbp-lc-prompt").textContent = i18n.chooseStarter || "Please choose a starting sentence.";
+  root.querySelector(".kmbp-lc-prompt").textContent = starterPrompt;
   root.querySelector(".kmbp-lc-composer-inner input").placeholder = i18n.sendPlaceholder || "Send a message…";
 
   var iceEl = root.querySelector(".kmbp-lc-ice");

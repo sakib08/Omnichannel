@@ -28,19 +28,21 @@ function MessageBubble({ message, conv, onDelete }) {
 
   return (
     <div
-      className={`flex gap-3 group ${message.isAgent ? "flex-row-reverse" : ""}`}
+      className={`flex gap-2 sm:gap-3 group min-w-0 ${message.isAgent ? "flex-row-reverse" : ""}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); setConfirming(false); }}
     >
-      <Avatar initials={avatarInitials} color={avatarColor} size={32} />
-      <div className={`${message.isHtml ? "max-w-xl" : "max-w-md"} ${message.isAgent ? "items-end" : "items-start"} flex flex-col gap-1`}>
+      <div className="shrink-0">
+        <Avatar initials={avatarInitials} color={avatarColor} size={32} />
+      </div>
+      <div className={`min-w-0 max-w-[min(28rem,calc(100%-2.75rem))] ${message.isAgent ? "items-end" : "items-start"} flex flex-col gap-1`}>
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-gray-500">{message.sender}</span>
           <span className="text-xs text-gray-400">{message.time}</span>
         </div>
-        <div className="relative">
+        <div className="relative min-w-0 w-full">
           <div
-            className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+            className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
               message.isAgent
                 ? "bg-indigo-600 text-white rounded-tr-sm"
                 : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm"
@@ -53,7 +55,7 @@ function MessageBubble({ message, conv, onDelete }) {
                 dangerouslySetInnerHTML={{ __html: message.text }}
               />
             ) : (
-              <span style={{ whiteSpace: "pre-wrap" }}>{message.text}</span>
+              <span className="break-words" style={{ whiteSpace: "pre-wrap" }}>{message.text}</span>
             )}
           </div>
           {hovered && !confirming && (
@@ -110,10 +112,11 @@ export default function ConversationView({
   showSaved,
   updateAssignee,
   updateStatus,
+  onBack,
 }) {
   if (!selectedConv) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 gap-4 text-gray-400">
+      <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-gray-50 gap-4 text-gray-400">
         <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center">
           <i className="ti ti-messages text-indigo-400" style={{ fontSize: 32 }} />
         </div>
@@ -128,31 +131,41 @@ export default function ConversationView({
   const isEmail = selectedConv.channel === "email";
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
+      <div className="bg-white border-b border-gray-100 px-3 md:px-6 py-3 flex items-center justify-between gap-2 shadow-sm">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="md:hidden shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100"
+              aria-label="Back to conversations"
+            >
+              <i className="ti ti-arrow-left" style={{ fontSize: 18 }} />
+            </button>
+          )}
           <Avatar
             initials={selectedConv.avatar}
             color={channelMeta(selectedConv.channel).color || "#6366F1"}
             size={40}
           />
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-gray-900">{selectedConv.name}</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-gray-900 truncate">{selectedConv.name}</span>
               <ChannelBadge channelId={selectedConv.channel} />
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusConfig[selectedConv.status]?.cls || ""}`}>
                 {statusConfig[selectedConv.status]?.label || selectedConv.status}
               </span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${priorityConfig[selectedConv.priority]?.bg || ""}`}>
+              <span className={`hidden sm:inline-flex text-xs px-2 py-0.5 rounded-full font-medium ${priorityConfig[selectedConv.priority]?.bg || ""}`}>
                 <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${priorityConfig[selectedConv.priority]?.dot || ""}`} />
                 {priorityConfig[selectedConv.priority]?.label || selectedConv.priority}
               </span>
             </div>
-            <div className="text-sm text-gray-500 flex items-center gap-2">
-              <span>{selectedConv.subject}</span>
+            <div className="text-sm text-gray-500 flex items-center gap-2 min-w-0">
+              <span className="truncate">{selectedConv.subject}</span>
               {isEmail && selectedConv.contactHandle && (
-                <span className="text-gray-400">
+                <span className="text-gray-400 truncate hidden sm:inline">
                   &lt;{selectedConv.contactHandle}&gt;
                 </span>
               )}
@@ -160,27 +173,27 @@ export default function ConversationView({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <select
             value={selectedConv.status}
             onChange={(e) => updateStatus(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white outline-none focus:ring-2 focus:ring-indigo-200"
+            className="text-sm border border-gray-200 rounded-lg px-2 md:px-3 py-1.5 bg-white outline-none focus:ring-2 focus:ring-indigo-200"
           >
             <option value="open">Open</option>
             <option value="pending">Pending</option>
             <option value="resolved">Resolved</option>
           </select>
-          <button className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600">
+          <button className="hidden md:inline-flex px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600">
             <i className="ti ti-dots mr-1" style={{ fontSize: 14 }} />
             More
           </button>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
           {/* Message thread */}
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 md:px-6 py-4 space-y-4">
             {loadingMessages ? (
               <div className="flex flex-col items-center justify-center h-40 gap-3 text-gray-400">
                 <svg className="animate-spin w-6 h-6 text-indigo-500" viewBox="0 0 24 24" fill="none">
@@ -203,7 +216,7 @@ export default function ConversationView({
           </div>
 
           {/* Compose area */}
-          <div className="bg-white border-t border-gray-100 px-4 py-3">
+          <div className="bg-white border-t border-gray-100 px-3 md:px-4 py-3 shrink-0">
             <div className="flex gap-1 mb-2 border-b border-gray-100 pb-2">
               {["reply", "note"].map((tab) => (
                 <button
@@ -275,7 +288,7 @@ export default function ConversationView({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">Ctrl+Enter to send</span>
+                    <span className="text-xs text-gray-400 hidden sm:inline">Ctrl+Enter to send</span>
                     <button
                       onClick={sendReply}
                       disabled={!replyText.trim() || sendingReply}

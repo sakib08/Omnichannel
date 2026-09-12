@@ -15,7 +15,7 @@
  * Settings keys (stored under kmbp_platform_settings['livechat']):
  *   enabled, apiKey, host, widgetToken, brandName, tagline, welcomeMessage,
  *   iceList, themeColor, position, onlineText, agentName, askName,
- *   autoReply, autoReplyMsg, autoAssign
+ *   starterPrompt, autoReply, autoReplyMsg, autoAssign
  *
  * @package Kinetix_Messaging_By_Ppros
  */

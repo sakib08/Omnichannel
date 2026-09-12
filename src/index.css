@@ -5,6 +5,9 @@
    their real bottom instead of being clipped under the chrome. */
 .kmbp-app-root {
   height: calc(100vh - 32px);
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
 }
 @media screen and (max-width: 782px) {
   .kmbp-app-root {

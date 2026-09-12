@@ -32,6 +32,7 @@ const CHANNEL_DEFAULTS = {
     enabled: false, apiKey: "", host: "livechat.pluginpros.co",
     brandName: "", tagline: "We help your business grow by connecting you to your customers.",
     welcomeMessage: "Hi {{name}}, welcome! 👋",
+    starterPrompt: "Please choose a starting sentence.",
     iceList: ["Just browsing!", "I'd like to learn more", "I have a question"],
     themeColor: "#7C3AED", position: "bottom-right", onlineText: "A few minutes",
     agentName: "", askName: true, autoReply: true,

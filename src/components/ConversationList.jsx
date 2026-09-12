@@ -111,7 +111,11 @@ export default function ConversationList({
   const title = channelMeta(activeChannel).label === "All" ? "Unified Inbox" : channelMeta(activeChannel).label;
 
   return (
-    <div className="w-80 bg-white border-r border-gray-100 flex flex-col shadow-sm">
+    <div
+      className={`min-h-0 min-w-0 bg-white border-r border-gray-100 flex-col shadow-sm ${
+        selected ? "hidden md:flex" : "flex"
+      } flex-1 md:flex-none md:w-80`}
+    >
       <div className="px-4 pt-4 pb-3 border-b border-gray-100">
         <div className="flex flex-col gap-2 mb-3">
           <h1 className="text-sm font-semibold text-gray-800">{title}</h1>

@@ -29,8 +29,9 @@ class Kinetix_Messaging_By_Ppros_Public {
         $host  = $pipe->normalized_host( $cfg );
         $token = $pipe->ensure_widget_token();
 
-        $ice = isset( $cfg['iceList'] ) && is_array( $cfg['iceList'] ) ? $cfg['iceList'] : array();
-        $ice = array_values( array_filter( array_map( 'strval', $ice ), 'strlen' ) );
+        $ice = isset( $cfg['iceList'] ) && is_array( $cfg['iceList'] )
+            ? array_values( array_filter( array_map( 'strval', $cfg['iceList'] ), 'strlen' ) )
+            : array( 'Just browsing!', "I'd like to learn more", 'I have a question' );
 
         $user = wp_get_current_user();
         $logged_in     = $user instanceof WP_User && $user->ID > 0;
@@ -79,8 +80,15 @@ class Kinetix_Messaging_By_Ppros_Public {
                 'apiKey'         => (string) $cfg['apiKey'],
                 'wsUrl'          => 'wss://' . $host . '/ws/chat',
                 'brandName'      => (string) ( $cfg['brandName'] ?? '' ) !== '' ? (string) $cfg['brandName'] : (string) get_bloginfo( 'name' ),
-                'tagline'        => (string) ( $cfg['tagline'] ?? '' ),
-                'welcomeMessage' => (string) ( $cfg['welcomeMessage'] ?? '' ),
+                'tagline'        => array_key_exists( 'tagline', $cfg )
+                    ? (string) $cfg['tagline']
+                    : __( 'We help your business grow by connecting you to your customers.', 'kinetix-messaging-by-ppros' ),
+                'welcomeMessage' => array_key_exists( 'welcomeMessage', $cfg )
+                    ? (string) $cfg['welcomeMessage']
+                    : __( 'Hi {{name}}, welcome! 👋', 'kinetix-messaging-by-ppros' ),
+                'starterPrompt'  => array_key_exists( 'starterPrompt', $cfg )
+                    ? (string) $cfg['starterPrompt']
+                    : __( 'Please choose a starting sentence.', 'kinetix-messaging-by-ppros' ),
                 'iceBreakers'    => $ice,
                 'themeColor'     => $theme,
                 'position'       => $position,
