@@ -6,7 +6,7 @@
  * @author    Plugin Pros - https://pluginpros.co
  * Author: sakibbd08
  * Author URI: https://profiles.wordpress.org/sakibbd08/
- * Tested up to: 6.7
+ * Tested up to: 7.1
  * Text Domain: kinetix-messaging-by-ppros
  * Domain Path: /languages
  * License: GPLv2 or later
