@@ -34,6 +34,8 @@ function getChannelDirectLink(channel, cfg) {
     }
     case "email":
       return cfg.inboxEmail ? `mailto:${cfg.inboxEmail}` : "";
+    case "livechat":
+      return "";
     default:
       return "";
   }
@@ -273,6 +275,10 @@ export function ChannelSharePanel({ channel, cfg, color }) {
           <div className="pt-2">
             {directLink ? (
               <Input label="Channel direct link — share or use in your CTA" value={directLink} readOnly mono />
+            ) : channel === "livechat" ? (
+              <InfoBox type="info">
+                Live Chat does not use a shareable deep-link. Enable the channel and save — the widget appears automatically on every public page of this site.
+              </InfoBox>
             ) : channel === "wechat" ? (
               <InfoBox type="info">
                 WeChat does not support universal deep-links. Share your Official Account QR code instead — download it from the WeChat Official Account platform.
@@ -284,6 +290,8 @@ export function ChannelSharePanel({ channel, cfg, color }) {
             )}
           </div>
 
+          {channel !== "livechat" && (
+          <>
           <SectionDivider label="Embed on your site" />
 
           {/* Embed tab switcher */}
@@ -338,6 +346,8 @@ export function ChannelSharePanel({ channel, cfg, color }) {
                 Works with <strong className={strongText}>Elementor Free</strong> and <strong className={strongText}>Elementor Pro</strong>. No coding required.
               </p>
             </div>
+          )}
+          </>
           )}
         </div>
       )}

@@ -111,6 +111,7 @@ export const api = {
 
   sendEmail:    (payload) => request("email/send",    { method: "POST", body: payload }),
   pollEmail:    () =>        request("email/poll",    { method: "POST" }),
+  getEmailPollStatus: () =>  request("email/poll-status"),
   testEmailConnection: (type) => request("email/test-connection", { method: "POST", body: { type } }),
 
   // Channel-specific outbound send (all share the same { conversationId, recipientId, text } shape).
@@ -122,6 +123,8 @@ export const api = {
   sendLine:       (payload) => request("line/send",       { method: "POST", body: payload }),
   sendInstagram:  (payload) => request("instagram/send",  { method: "POST", body: payload }),
   sendViber:      (payload) => request("viber/send",      { method: "POST", body: payload }),
+  sendLivechat:   (payload) => request("livechat/send",   { method: "POST", body: payload }),
+  testLivechat:   () =>        request("livechat/test-connection", { method: "POST" }),
 
   /** Generic channel send — picks the right endpoint from the channel slug. */
   sendChannel: (channel, payload) => {
@@ -135,6 +138,7 @@ export const api = {
       line:      "line/send",
       instagram: "instagram/send",
       viber:     "viber/send",
+      livechat:  "livechat/send",
     };
     const path = map[channel];
     if (!path) return Promise.reject(new Error(`No send endpoint for channel: ${channel}`));

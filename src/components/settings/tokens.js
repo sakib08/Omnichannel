@@ -1,5 +1,6 @@
 export const TOKEN = {
   messenger:  { label: "Messenger",     color: "#0866FF", bg: "#0866FF", icon: "M",  grad: "from-blue-600 to-blue-400" },
+  livechat:   { label: "Live Chat",     color: "#7C3AED", bg: "#7C3AED", icon: "LC", grad: "from-violet-600 to-purple-400" },
   email:      { label: "Email Pipe",    color: "#10B981", bg: "#10B981", icon: "@",  grad: "from-emerald-600 to-teal-400" },
   whatsapp:   { label: "WhatsApp",      color: "#25D366", bg: "#25D366", icon: "W",  grad: "from-green-500 to-green-400" },
   telegram:   { label: "Telegram",      color: "#229ED9", bg: "#229ED9", icon: "T",  grad: "from-sky-500 to-cyan-400" },

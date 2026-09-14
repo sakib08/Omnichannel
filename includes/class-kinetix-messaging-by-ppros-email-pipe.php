@@ -35,6 +35,13 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
     // ── Cron schedule name (registered via cron_schedules) ──────────────────
     const CRON_SCHEDULE = 'kmbp_every_5_minutes';
 
+    // ── Per-mailbox UID high-water-mark, so a message that gets marked \Seen
+    //    by another mail client (webmail, phone, etc.) is never skipped ─────
+    const IMAP_CURSOR_OPTION = 'kmbp_imap_cursor';
+
+    // ── Always-on poll status (visible without WP_DEBUG) ─────────────────────
+    const POLL_STATUS_OPTION = 'kmbp_email_poll_status';
+
     // ─────────────────────────────────────────────────────────────────────────
     //  Registration helpers called from the main Kinetix_Messaging_By_Ppros
     // ─────────────────────────────────────────────────────────────────────────
@@ -129,6 +136,17 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => array( $this, 'handle_manual_poll' ),
+                'permission_callback' => array( $this, 'check_manage_settings' ),
+            )
+        );
+
+        // ── Poll status (last run outcome + cron schedule, for diagnostics) ────
+        register_rest_route(
+            $ns,
+            '/email/poll-status',
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array( $this, 'handle_poll_status' ),
                 'permission_callback' => array( $this, 'check_manage_settings' ),
             )
         );
@@ -397,7 +415,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         $subject = sanitize_text_field( (string) ( $params['subject'] ?? $params['Subject'] ?? '(no subject)' ) );
 
         // ── Body ──────────────────────────────────────────────────────────────
-        $body_html  = wp_kses_post( (string) ( $params['body-html'] ?? $params['HtmlBody'] ?? $params['html'] ?? '' ) );
+        $body_html  = self::sanitize_inbound_email_html( (string) ( $params['body-html'] ?? $params['HtmlBody'] ?? $params['html'] ?? '' ) );
         $body_plain = sanitize_textarea_field( (string) ( $params['body-plain'] ?? $params['TextBody'] ?? $params['text'] ?? '' ) );
 
         if ( '' === $body_html && '' !== $body_plain ) {
@@ -431,11 +449,22 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
 
     /**
      * WordPress cron handler — fires every 5 minutes.
+     *
+     * Always records the outcome to POLL_STATUS_OPTION (regardless of
+     * WP_DEBUG) so admins can see why nothing is coming in without needing
+     * shell/log access — including when the poll never ran at all because
+     * the channel is disabled or IMAP isn't configured.
      */
     public function run_imap_poll(): void {
         $cfg = $this->get_settings();
 
-        if ( empty( $cfg['enabled'] ) || empty( $cfg['imapHost'] ) ) {
+        if ( empty( $cfg['enabled'] ) ) {
+            $this->record_poll_status( false, __( 'Email channel is disabled — poll skipped.', 'kinetix-messaging-by-ppros' ) );
+            return;
+        }
+
+        if ( empty( $cfg['imapHost'] ) ) {
+            $this->record_poll_status( false, __( 'IMAP is not configured — poll skipped.', 'kinetix-messaging-by-ppros' ) );
             return;
         }
 
@@ -444,16 +473,36 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         if ( is_wp_error( $results ) ) {
             // Log and bail; avoid crashing the cron runner.
             $this->log_debug( '[KMBP Email Pipe] IMAP poll error: ' . $results->get_error_message() );
+            $this->record_poll_status( false, $results->get_error_message() );
             return;
         }
 
-        if ( ! empty( $results ) ) {
-            $this->log_debug( sprintf( '[KMBP Email Pipe] IMAP poll: processed %d new message(s).', count( $results ) ) );
+        $processed = $results['processed'];
+        $skipped   = $results['skipped'];
+
+        if ( ! empty( $processed ) ) {
+            $this->log_debug( sprintf( '[KMBP Email Pipe] IMAP poll: processed %d new message(s).', count( $processed ) ) );
         }
+        if ( ! empty( $skipped ) ) {
+            $this->log_debug( '[KMBP Email Pipe] IMAP poll skipped ' . count( $skipped ) . ' message(s): ' . implode( ' | ', $skipped ) );
+        }
+
+        $this->record_poll_status(
+            true,
+            sprintf(
+                /* translators: 1: number of messages imported, 2: number skipped */
+                __( 'Poll complete — %1$d imported, %2$d skipped.', 'kinetix-messaging-by-ppros' ),
+                count( $processed ),
+                count( $skipped )
+            ),
+            count( $processed ),
+            count( $skipped )
+        );
     }
 
     /**
      * REST handler — POST /email/poll  (manual trigger for admins/agents).
+     * Bypasses WP-Cron entirely so a poll can be verified immediately.
      */
     public function handle_manual_poll( WP_REST_Request $request ) {
         $cfg = $this->get_settings();
@@ -465,24 +514,91 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         $results = $this->poll_imap( $cfg );
 
         if ( is_wp_error( $results ) ) {
+            $this->record_poll_status( false, $results->get_error_message() );
             return $results;
         }
 
+        $processed = $results['processed'];
+        $skipped   = $results['skipped'];
+
+        $this->record_poll_status(
+            true,
+            sprintf(
+                /* translators: 1: number of messages imported, 2: number skipped */
+                __( 'Poll complete — %1$d imported, %2$d skipped.', 'kinetix-messaging-by-ppros' ),
+                count( $processed ),
+                count( $skipped )
+            ),
+            count( $processed ),
+            count( $skipped )
+        );
+
         return rest_ensure_response(
             array(
-                'polled'    => true,
-                'processed' => count( $results ),
-                'threads'   => $results,
+                'polled'         => true,
+                'processed'      => count( $processed ),
+                'skipped'        => count( $skipped ),
+                'skippedReasons' => $skipped,
+                'threads'        => $processed,
             )
         );
     }
 
     /**
-     * Connect to IMAP, fetch unseen messages, process each one, return a
-     * summary array (one entry per message processed).
+     * REST handler — GET /email/poll-status
+     * Surfaces the last poll outcome and cron schedule state so IMAP sync
+     * issues can be diagnosed from the settings UI, without server access.
+     */
+    public function handle_poll_status( WP_REST_Request $request ) {
+        $status = (array) get_option( self::POLL_STATUS_OPTION, array() );
+        $next   = wp_next_scheduled( self::CRON_HOOK );
+
+        return rest_ensure_response(
+            array(
+                'lastRunAt'      => isset( $status['ranAt'] ) ? (int) $status['ranAt'] : null,
+                'ok'             => $status['ok'] ?? null,
+                'message'        => $status['message'] ?? '',
+                'processed'      => $status['processed'] ?? 0,
+                'skipped'        => $status['skipped'] ?? 0,
+                'cronRegistered' => (bool) $next,
+                'nextRunAt'      => $next ? (int) $next : null,
+            )
+        );
+    }
+
+    /**
+     * Persist the outcome of the most recent poll (cron or manual) so it can
+     * be surfaced in the UI even when WP_DEBUG is off.
+     */
+    private function record_poll_status( bool $ok, string $message, int $processed = 0, int $skipped = 0 ): void {
+        update_option(
+            self::POLL_STATUS_OPTION,
+            array(
+                'ok'        => $ok,
+                'message'   => $message,
+                'processed' => $processed,
+                'skipped'   => $skipped,
+                'ranAt'     => time(),
+            ),
+            false
+        );
+    }
+
+    /**
+     * Connect to IMAP, fetch new messages, process each one, return a
+     * summary of what happened.
+     *
+     * Messages are tracked with a persistent per-mailbox UID high-water-mark
+     * (IMAP_CURSOR_OPTION) rather than relying solely on the \Seen flag.
+     * Using \Seen alone means a message opened from any other mail client
+     * (webmail, phone, Outlook, etc.) between polls becomes permanently
+     * invisible to this plugin. On the very first poll for a mailbox we
+     * still import whatever is currently unseen (so a fresh setup shows
+     * results immediately), then track only the UID cursor from that point
+     * forward, so no message is ever missed regardless of its read state.
      *
      * @param array $cfg Email settings from wp_options.
-     * @return array|\WP_Error  Array of processed message summaries on success.
+     * @return array{processed: array, skipped: array}|\WP_Error
      */
     public function poll_imap( array $cfg = array() ) {
         if ( ! function_exists( 'imap_open' ) ) {
@@ -526,39 +642,116 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
             return new \WP_Error( 'kmbp_imap_connect_failed', $msg, array( 'status' => 502 ) );
         }
 
-        // Fetch unseen messages.
-        $uids = imap_search( $imap, 'UNSEEN', SE_UID );
-        if ( false === $uids || empty( $uids ) ) {
-            imap_close( $imap );
-            return array();
+        // ── Resolve which UIDs to fetch via the persistent cursor ───────────
+        $mailbox_key = md5( strtolower( $host . '|' . $user . '|' . $mailbox ) );
+        $cursors     = (array) get_option( self::IMAP_CURSOR_OPTION, array() );
+        $cursor      = isset( $cursors[ $mailbox_key ] ) ? (array) $cursors[ $mailbox_key ] : array();
+
+        $mailbox_status = @imap_status( $imap, $connection_string, SA_UIDVALIDITY | SA_UIDNEXT );
+        $uidvalidity    = $mailbox_status ? (string) $mailbox_status->uidvalidity : '';
+        $uidnext        = $mailbox_status ? (int) $mailbox_status->uidnext : 0;
+
+        // No cursor yet, or the mailbox's UIDs were reset (UIDVALIDITY changed) —
+        // fall back to whatever is currently unseen so a fresh setup shows
+        // results right away; the cursor baseline is then set below so every
+        // later poll relies on UID order instead of the \Seen flag.
+        $is_first_run = empty( $cursor ) || ( isset( $cursor['uidvalidity'] ) && $cursor['uidvalidity'] !== $uidvalidity );
+
+        if ( $is_first_run ) {
+            $uids = imap_search( $imap, 'UNSEEN', SE_UID );
+            $uids = is_array( $uids ) ? $uids : array();
+        } else {
+            $uids = $this->imap_uids_since( $imap, (int) ( $cursor['lastUid'] ?? 0 ) );
         }
 
         $processed = array();
+        $skipped   = array();
+        $max_uid   = (int) ( $cursor['lastUid'] ?? 0 );
 
         foreach ( $uids as $uid ) {
+            $uid     = (int) $uid;
+            $max_uid = max( $max_uid, $uid );
+
             $email_data = $this->fetch_imap_message( $imap, $uid );
             if ( is_wp_error( $email_data ) ) {
+                $skipped[] = sprintf( 'UID %d: %s', $uid, $email_data->get_error_message() );
                 continue;
             }
 
             $conversation_id = $this->process_inbound( $email_data );
 
-            if ( ! is_wp_error( $conversation_id ) ) {
-                // Mark as seen.
-                imap_setflag_full( $imap, (string) $uid, '\\Seen', ST_UID );
-
-                $processed[] = array(
-                    'uid'            => $uid,
-                    'from'           => $email_data['from_email'],
-                    'subject'        => $email_data['subject'],
-                    'conversationId' => $conversation_id,
-                );
+            if ( is_wp_error( $conversation_id ) ) {
+                $skipped[] = sprintf( 'UID %d (%s): %s', $uid, $email_data['from_email'], $conversation_id->get_error_message() );
+                continue;
             }
+
+            if ( ! empty( $cfg['imapDelete'] ) ) {
+                imap_delete( $imap, (string) $uid, FT_UID );
+            } else {
+                imap_setflag_full( $imap, (string) $uid, '\\Seen', ST_UID );
+            }
+
+            $processed[] = array(
+                'uid'            => $uid,
+                'from'           => $email_data['from_email'],
+                'subject'        => $email_data['subject'],
+                'conversationId' => $conversation_id,
+            );
         }
+
+        if ( ! empty( $cfg['imapDelete'] ) && ! empty( $processed ) ) {
+            imap_expunge( $imap );
+        }
+
+        // Persist the new high-water-mark. Advancing past skipped UIDs too
+        // (not just successfully processed ones) prevents a single
+        // permanently-unparseable message from blocking every poll after it.
+        $cursors[ $mailbox_key ] = array(
+            'uidvalidity' => $uidvalidity,
+            'lastUid'     => max( $max_uid, $uidnext > 0 ? $uidnext - 1 : $max_uid ),
+            'updatedAt'   => time(),
+        );
+        update_option( self::IMAP_CURSOR_OPTION, $cursors, false );
 
         imap_close( $imap );
 
-        return $processed;
+        return array(
+            'processed' => $processed,
+            'skipped'   => $skipped,
+        );
+    }
+
+    /**
+     * Return UIDs strictly greater than $last_uid using imap_fetch_overview,
+     * which lets us query "everything new" without depending on \Seen.
+     *
+     * @param resource $imap
+     * @param int      $last_uid
+     * @return int[]
+     */
+    private function imap_uids_since( $imap, int $last_uid ): array {
+        if ( $last_uid <= 0 ) {
+            $uids = imap_search( $imap, 'UNSEEN', SE_UID );
+            return is_array( $uids ) ? array_map( 'intval', $uids ) : array();
+        }
+
+        $overview = @imap_fetch_overview( $imap, ( $last_uid + 1 ) . ':*', FT_UID );
+        if ( ! is_array( $overview ) ) {
+            return array();
+        }
+
+        $uids = array();
+        foreach ( $overview as $item ) {
+            $uid = isset( $item->uid ) ? (int) $item->uid : 0;
+            // Defensive: some IMAP servers return the last existing message
+            // even when the requested range is entirely out of bounds.
+            if ( $uid > $last_uid ) {
+                $uids[] = $uid;
+            }
+        }
+        sort( $uids );
+
+        return $uids;
     }
 
     /**
@@ -607,7 +800,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
             'from_name'   => $from_name,
             'to'          => '',
             'subject'     => sanitize_text_field( $subject ),
-            'body_html'   => wp_kses_post( $body_html ),
+            'body_html'   => self::sanitize_inbound_email_html( $body_html ),
             'body_plain'  => sanitize_textarea_field( $body_plain ),
             'message_id'  => sanitize_text_field( $message_id ),
             'in_reply_to' => sanitize_text_field( $in_reply_to ),
@@ -657,15 +850,19 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
             ? imap_fetchbody( $imap, $uid, '1', FT_UID )
             : imap_fetchbody( $imap, $uid, $section, FT_UID );
 
-        // Decode transfer encoding.
-        $encoding = $struct->encoding ?? 0;
-        switch ( $encoding ) {
-            case 1: // quoted-printable
-                $raw = quoted_printable_decode( $raw );
-                break;
-            case 2: // base64
-                $raw = base64_decode( $raw );
-                break;
+        // Decode transfer encoding. PHP's imap extension encodes this as:
+        // 0=7BIT 1=8BIT 2=BINARY 3=BASE64 4=QUOTED-PRINTABLE 5=OTHER.
+        // (Using the named constants where available avoids ever mixing
+        // these up again — a previous version of this switch checked
+        // case 1/2, which are 8BIT/BINARY, so QP- and base64-encoded
+        // bodies were silently stored undecoded.)
+        $encoding      = $struct->encoding ?? 0;
+        $enc_base64    = defined( 'ENCBASE64' ) ? ENCBASE64 : 3;
+        $enc_qp        = defined( 'ENCQUOTEDPRINTABLE' ) ? ENCQUOTEDPRINTABLE : 4;
+        if ( $enc_qp === $encoding ) {
+            $raw = quoted_printable_decode( $raw );
+        } elseif ( $enc_base64 === $encoding ) {
+            $raw = base64_decode( $raw );
         }
 
         // Convert charset.
@@ -680,6 +877,179 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
         }
 
         return array( $html, $plain );
+    }
+
+    /**
+     * Sanitize a raw HTML email body for safe storage + display.
+     *
+     * `wp_kses_post()` alone is not enough for real-world HTML email: it
+     * removes disallowed tags like <style>, <script>, and <title> but
+     * leaves their *text content* behind as visible garbage (e.g. a
+     * `<style>` block turns into raw CSS text at the top of the message),
+     * and it mangles Outlook "mso" conditional comments into stray
+     * `<!--`/`-->` fragments. Strip those out first so the sanitized
+     * result actually looks like the original email.
+     *
+     * @param string $html Raw HTML sourced from an inbound email.
+     * @return string Sanitized HTML fragment safe to store and render.
+     */
+    public static function sanitize_inbound_email_html( string $html ): string {
+        if ( '' === trim( $html ) ) {
+            return '';
+        }
+
+        // Repair content that still has raw quoted-printable transfer
+        // encoding baked in. This happens when a message's
+        // Content-Transfer-Encoding was never decoded (see the historical
+        // encoding-constant bug in decode_imap_body()) or a relay forwards
+        // raw MIME without decoding it first. Two tell-tale, essentially
+        // never-coincidental signals:
+        //   1. A bare "=" immediately followed by a newline — the QP
+        //      soft-line-break marker (splits words/tags across lines).
+        //   2. Several literal "=3D" sequences — QP's escaped form of a
+        //      literal "=" character. Undecoded HTML attributes like
+        //      `role=3D"presentation"` are common because the "=" in
+        //      `name=value` markup must itself be escaped for transport,
+        //      and once wp_kses_post() gets hold of a tag with that stray
+        //      "3D" it can't parse the attribute normally and re-emits it
+        //      as `role="3D&quot;presentation&quot;"` — visible attribute
+        //      soup instead of a normal working tag.
+        if (
+            ( substr_count( $html, "=\r\n" ) + substr_count( $html, "=\n" ) ) >= 3
+            || substr_count( $html, '=3D' ) >= 3
+        ) {
+            $html = quoted_printable_decode( $html );
+        }
+
+        // Repair a subtler, second-order form of the same corruption: rows
+        // that already went through wp_kses_post() once *before* any QP
+        // decoding happened. In `name=3D"value"`, the literal "=" that
+        // kses needs for its own `name=value` syntax and the "=" that
+        // starts the QP escape are the same character, so kses's parser
+        // consumes it as its own assignment operator and is left staring
+        // at a value that starts with a stray "3D" followed by an
+        // embedded, now-escaped quote — which it faithfully re-emits as
+        // `name="3D&quot;value&quot;"` (optionally with a trailing "="
+        // left over from a soft line break that landed inside the value).
+        // There's no literal "=3D" substring left for the check above to
+        // find, so repair this exact shape directly wherever it recurs.
+        $html = (string) preg_replace( '#="3D&quot;(.*?)&quot;=?"#s', '="$1"', $html );
+
+        // `href`/`src` go through WordPress's own URL cleaner (clean_url())
+        // during the same kses pass, which recognizes and strips the
+        // leading "3D\"" prefix as invalid-URL noise on its own but leaves
+        // the trailing escaped quote behind — e.g.
+        // `href="//example.com&quot;"` instead of `href="//example.com"`.
+        // Fix up that leftover so links actually work again.
+        $html = (string) preg_replace( '#\b(href|src)="([^"]*?)&quot;"#', '$1="$2"', $html );
+
+        // Drop the whole <head> (title/meta/style) before its text can leak.
+        $html = (string) preg_replace( '#<head\b[^>]*>.*?</head>#is', '', $html );
+
+        // Drop any remaining <style>/<script> blocks anywhere in the body.
+        $html = (string) preg_replace( '#<(style|script)\b[^>]*>.*?</\1>#is', '', $html );
+
+        // Drop HTML comments, including Outlook MSO conditional comments.
+        $html = (string) preg_replace( '#<!--.*?-->#s', '', $html );
+
+        // Unwrap the outer document shell; we only want the body fragment.
+        $html = (string) preg_replace( '#</?(?:!DOCTYPE|html|body)\b[^>]*>#is', '', $html );
+
+        // Strip any leaked raw CSS text anywhere in the body — the residue
+        // left behind when a <style> tag was already removed by an
+        // earlier/less-careful sanitization pass (e.g. rows stored before
+        // this method existed) but its text content wasn't. Real HTML
+        // emails frequently ship *multiple* separate <style> blocks (one
+        // in <head>, another mobile-override block, a link-pseudo-class
+        // reset block, etc.), so leaked residue can show up anywhere in
+        // the document, not just at the very start — this is intentionally
+        // not anchored to the start of the string. Requires 2+ chained
+        // "selector { declarations }" blocks so a single stray "{" in
+        // legitimate prose is never touched. The brace group is recursive
+        // so nested rules inside @media/@supports/@keyframes blocks are
+        // matched as a single balanced unit too.
+        $balanced_braces = '(?<kmbp_brace>\{(?:[^{}]++|(?&kmbp_brace))*\})';
+        $css_block       = '(?:/\*.*?\*/|[^{}<>]{1,200}' . $balanced_braces . ')';
+        $html            = (string) preg_replace( '#(?:' . $css_block . '\s*){2,}#s', '', $html );
+
+        return wp_kses_post( trim( $html ) );
+    }
+
+    /**
+     * One-time cleanup: re-run `sanitize_inbound_email_html()` over every
+     * already-stored email message body.
+     *
+     * Messages imported before this sanitizer existed can have raw CSS/JS
+     * text and mangled Outlook comments baked directly into the stored
+     * `body` column (see class docblock). This re-processes them in place
+     * so previously-broken threads render correctly without waiting for a
+     * new message to arrive. Safe to call repeatedly — rows are only
+     * written when the sanitized result actually differs.
+     *
+     * @return int Number of message rows updated.
+     */
+    public static function resanitize_stored_email_messages(): int {
+        global $wpdb;
+
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- KMBP custom tables; identifiers use $wpdb->prefix + esc_sql() and cannot be placeholders.
+        $messages_table      = esc_sql( $wpdb->prefix . 'kmbp_messages' );
+        $conversations_table = esc_sql( $wpdb->prefix . 'kmbp_conversations' );
+
+        $rows = $wpdb->get_results(
+            "SELECT m.id, m.conversation_id, m.body
+             FROM {$messages_table} m
+             INNER JOIN {$conversations_table} c ON c.id = m.conversation_id
+             WHERE c.channel = 'email'"
+        );
+
+        if ( ! $rows ) {
+            return 0;
+        }
+
+        $updated_count          = 0;
+        $touched_conversation_ids = array();
+
+        foreach ( $rows as $row ) {
+            $clean = self::sanitize_inbound_email_html( (string) $row->body );
+            if ( '' === $clean || $clean === $row->body ) {
+                continue;
+            }
+
+            $wpdb->update(
+                $messages_table,
+                array( 'body' => $clean ),
+                array( 'id' => (int) $row->id ),
+                array( '%s' ),
+                array( '%d' )
+            );
+
+            $touched_conversation_ids[ (int) $row->conversation_id ] = true;
+            ++$updated_count;
+        }
+
+        // Recompute the conversation preview from its latest message so the
+        // inbox list stops showing stale/garbled text too.
+        foreach ( array_keys( $touched_conversation_ids ) as $conversation_id ) {
+            $latest_body = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT body FROM {$messages_table} WHERE conversation_id = %d ORDER BY sent_at DESC, id DESC LIMIT 1",
+                    $conversation_id
+                )
+            );
+            if ( null === $latest_body ) {
+                continue;
+            }
+            $wpdb->update(
+                $conversations_table,
+                array( 'preview' => wp_trim_words( wp_strip_all_tags( $latest_body ), 14, '…' ) ),
+                array( 'id' => $conversation_id ),
+                array( '%s' ),
+                array( '%d' )
+            );
+        }
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+
+        return $updated_count;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
