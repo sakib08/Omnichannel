@@ -2,9 +2,9 @@
 Contributors: sakibbd08
 Tags: omnichannel, unified, Livechat, whatsapp, email
 Requires at least: 6.0
-Tested up to: 7.1
+Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -221,6 +221,9 @@ Open **Kinetix Messaging → Settings → Live Chat**, paste an API key from [li
 Live Chat does not need a public webhook URL, so it can be tested on `localhost` as long as the site can reach livechat.pluginpros.co.
 
 == Changelog ==
+
+= 1.1.1 =
+* Fix a fatal error on activation from WordPress.org caused by a missing deactivation-feedback class in the 1.1.0 package.
 
 = 1.1.0 =
 * Keep the conversation list and details sidebar visible on desktop, and hide them only on mobile when a thread is open.
