@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Kinetix Messaging by Ppros
  * Description: A powerful plugin that synchronizes messaging across multiple platforms, ensuring seamless communication and enhanced user engagement.
- * Version: 1.0.8
+ * Version: 1.1.0
  * @author    Plugin Pros - https://pluginpros.co
  * Author: sakibbd08
  * Author URI: https://profiles.wordpress.org/sakibbd08/
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
-define( 'KINETIX_MESSAGING_BY_PPROS_VERSION', '1.0.8' );
+define( 'KINETIX_MESSAGING_BY_PPROS_VERSION', '1.1.0' );
 define( 'KINETIX_MESSAGING_BY_PPROS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KINETIX_MESSAGING_BY_PPROS_URL', plugin_dir_url( __FILE__ ) );
 define( 'KINETIX_MESSAGING_BY_PPROS_FILE', __FILE__ );
@@ -24,6 +24,7 @@ define( 'KINETIX_MESSAGING_BY_PPROS_BASENAME', plugin_basename( __FILE__ ) );
 require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros-loader.php';
 require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros-activator.php';
 require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros-admin.php';
+require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros-deactivate-feedback.php';
 require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros-public.php';
 require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros-rest-api.php';
 require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros-email-pipe.php';

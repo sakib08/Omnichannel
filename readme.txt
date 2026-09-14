@@ -1,10 +1,10 @@
 === Kinetix Messaging by Ppros ===
 Contributors: sakibbd08
-Tags: whatsapp, messenger, chat, social-media, messaging, omnichannel, telegram, email, social
+Tags: omnichannel, unified, Livechat, whatsapp, email
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.8
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,7 +50,7 @@ Development-only tools (npm packages used at build time, not included in the plu
 
 == External services ==
 
-This plugin is an omnichannel messaging inbox. It does **not** call any third-party API until a site administrator enables a channel and saves that channel's credentials in the plugin settings. No external requests are made on ordinary WordPress page loads for visitors, **except** when Live Chat is enabled: the public widget then opens a WebSocket to livechat.pluginpros.co so visitors can chat. Outbound API calls otherwise occur only when an authorized agent sends a message, when the plugin registers or checks a webhook, when optional auto-replies are sent, or when scheduled email polling runs (IMAP, if configured).
+This plugin is an omnichannel messaging inbox. It does **not** call any third-party API until a site administrator enables a channel and saves that channel's credentials in the plugin settings. No external requests are made on ordinary WordPress page loads for visitors, **except** when Live Chat is enabled: the public widget then opens a WebSocket to livechat.pluginpros.co so visitors can chat. Outbound API calls otherwise occur only when an authorized agent sends a message, when the plugin registers or checks a webhook, when optional auto-replies are sent, when scheduled email polling runs (IMAP, if configured), or when an administrator optionally submits the deactivation feedback form.
 
 Inbound messages are delivered **to** your WordPress site by the messaging provider via webhooks you configure in each provider's dashboard. Those providers may send message content, sender identifiers, and profile metadata to your site.
 
@@ -136,6 +136,14 @@ Used when the Live Chat channel is enabled. The public site widget and agent rep
 
 **Service provided by Plugin Pros (livechat.pluginpros.co).** Sign in and generate an API key at [livechat.pluginpros.co](https://livechat.pluginpros.co/).
 
+= Deactivation feedback =
+
+Optional. When an administrator deactivates the plugin from the Plugins screen, they may submit a short feedback form. Submitting the form POSTs the feedback over HTTPS so Plugin Pros can email support@pluginpros.co. This does **not** depend on the site's PHP `mail()` / sendmail setup, so it also works on local development sites. Choosing **Skip & Deactivate** (or closing the dialog) deactivates the plugin without sending anything.
+
+**Data sent (only if the form is submitted):** deactivation reason, optional comments, site URL, WordPress version, PHP version, plugin version, and the administrator's name and email (used as Reply-To).
+
+Primary endpoint: `https://pluginpros.co/wp-json/kmbp/v1/deactivate-feedback` — **Service provided by Plugin Pros:** [pluginpros.co](https://pluginpros.co/). Contact: support@pluginpros.co.
+
 == Installation ==
 
 1. Upload the plugin files to `/wp-content/plugins/kinetix-messaging-by-ppros`, or install through the WordPress plugins screen.
@@ -213,6 +221,18 @@ Open **Kinetix Messaging → Settings → Live Chat**, paste an API key from [li
 Live Chat does not need a public webhook URL, so it can be tested on `localhost` as long as the site can reach livechat.pluginpros.co.
 
 == Changelog ==
+
+= 1.1.0 =
+* Keep the conversation list and details sidebar visible on desktop, and hide them only on mobile when a thread is open.
+* Add an optional deactivation feedback popup on the Plugins screen that emails the reason to support@pluginpros.co.
+
+= 1.0.9 =
+* Give each Live Chat visitor their own conversation room so new chats no longer attach to an old browser thread.
+* Auto-fill the widget name and email from the logged-in WordPress account and hide those fields when both are known.
+* Require a valid email before a guest can send a Live Chat message.
+* Show the conversation thread on mobile instead of leaving visitor messages off-screen, and keep the latest bubbles above the reply box.
+* Add Widget settings for the header tagline, welcome heading, starter prompt, and starter buttons.
+* Add step-by-step “Get a free API key” instructions on Settings → Live Chat → API Setup.
 
 = 1.0.8 =
 * Add Live Chat channel with an on-site widget (livechat.pluginpros.co WebSocket rooms) and inbox delivery for visitor conversations.

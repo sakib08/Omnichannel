@@ -116,7 +116,7 @@ export default function ConversationView({
 }) {
   if (!selectedConv) {
     return (
-      <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-gray-50 gap-4 text-gray-400">
+      <div className="flex max-md:hidden flex-1 flex-col items-center justify-center bg-gray-50 gap-4 text-gray-400">
         <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center">
           <i className="ti ti-messages text-indigo-400" style={{ fontSize: 32 }} />
         </div>
@@ -157,7 +157,7 @@ export default function ConversationView({
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusConfig[selectedConv.status]?.cls || ""}`}>
                 {statusConfig[selectedConv.status]?.label || selectedConv.status}
               </span>
-              <span className={`hidden sm:inline-flex text-xs px-2 py-0.5 rounded-full font-medium ${priorityConfig[selectedConv.priority]?.bg || ""}`}>
+              <span className={`inline-flex max-sm:hidden text-xs px-2 py-0.5 rounded-full font-medium ${priorityConfig[selectedConv.priority]?.bg || ""}`}>
                 <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${priorityConfig[selectedConv.priority]?.dot || ""}`} />
                 {priorityConfig[selectedConv.priority]?.label || selectedConv.priority}
               </span>
@@ -165,7 +165,7 @@ export default function ConversationView({
             <div className="text-sm text-gray-500 flex items-center gap-2 min-w-0">
               <span className="truncate">{selectedConv.subject}</span>
               {isEmail && selectedConv.contactHandle && (
-                <span className="text-gray-400 truncate hidden sm:inline">
+                <span className="text-gray-400 truncate inline max-sm:hidden">
                   &lt;{selectedConv.contactHandle}&gt;
                 </span>
               )}
@@ -183,7 +183,7 @@ export default function ConversationView({
             <option value="pending">Pending</option>
             <option value="resolved">Resolved</option>
           </select>
-          <button className="hidden md:inline-flex px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600">
+          <button className="inline-flex max-md:hidden px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600">
             <i className="ti ti-dots mr-1" style={{ fontSize: 14 }} />
             More
           </button>
@@ -288,7 +288,7 @@ export default function ConversationView({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 hidden sm:inline">Ctrl+Enter to send</span>
+                    <span className="text-xs text-gray-400 inline max-sm:hidden">Ctrl+Enter to send</span>
                     <button
                       onClick={sendReply}
                       disabled={!replyText.trim() || sendingReply}

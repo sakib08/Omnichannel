@@ -472,6 +472,7 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
 
     // ── Minimal WebSocket client (RFC 6455 text frames) ───────────────────
 
+    // phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fwrite, WordPress.WP.AlternativeFunctions.file_system_operations_fclose, WordPress.WP.AlternativeFunctions.file_system_operations_fread -- RFC 6455 sockets cannot use WP_Filesystem or wp_remote_*.
     /**
      * Open a short-lived TLS WebSocket, send one JSON text frame, then close.
      *
@@ -710,4 +711,5 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
         }
         return $data;
     }
+    // phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fwrite, WordPress.WP.AlternativeFunctions.file_system_operations_fclose, WordPress.WP.AlternativeFunctions.file_system_operations_fread
 }

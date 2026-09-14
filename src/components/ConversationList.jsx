@@ -113,7 +113,7 @@ export default function ConversationList({
   return (
     <div
       className={`min-h-0 min-w-0 bg-white border-r border-gray-100 flex-col shadow-sm ${
-        selected ? "hidden md:flex" : "flex"
+        selected ? "flex max-md:hidden" : "flex"
       } flex-1 md:flex-none md:w-80`}
     >
       <div className="px-4 pt-4 pb-3 border-b border-gray-100">

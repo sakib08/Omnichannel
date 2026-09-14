@@ -30,6 +30,12 @@ class Kinetix_Messaging_By_Ppros {
         $admin = new Kinetix_Messaging_By_Ppros_Admin();
         $this->loader->add_action( 'admin_menu', $admin, 'register_menu' );
         $this->loader->add_action( 'admin_enqueue_scripts', $admin, 'enqueue_assets' );
+
+        $feedback = new Kinetix_Messaging_By_Ppros_Deactivate_Feedback();
+        $this->loader->add_action( 'admin_enqueue_scripts', $feedback, 'enqueue_assets' );
+        $this->loader->add_action( 'admin_footer', $feedback, 'render_modal' );
+        $this->loader->add_action( 'wp_ajax_kmbp_deactivate_feedback', $feedback, 'handle_ajax' );
+        $this->loader->add_action( 'rest_api_init', $feedback, 'register_rest_route' );
     }
 
     private function define_public_hooks() {

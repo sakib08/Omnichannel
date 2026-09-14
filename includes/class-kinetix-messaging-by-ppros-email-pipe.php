@@ -991,9 +991,9 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
     public static function resanitize_stored_email_messages(): int {
         global $wpdb;
 
-        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- KMBP custom tables; no WordPress core API exists.
-        $messages_table      = $wpdb->prefix . 'kmbp_messages';
-        $conversations_table = $wpdb->prefix . 'kmbp_conversations';
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- KMBP custom tables; identifiers use $wpdb->prefix + esc_sql() and cannot be placeholders.
+        $messages_table      = esc_sql( $wpdb->prefix . 'kmbp_messages' );
+        $conversations_table = esc_sql( $wpdb->prefix . 'kmbp_conversations' );
 
         $rows = $wpdb->get_results(
             "SELECT m.id, m.conversation_id, m.body
@@ -1047,7 +1047,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
                 array( '%d' )
             );
         }
-        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 
         return $updated_count;
     }
