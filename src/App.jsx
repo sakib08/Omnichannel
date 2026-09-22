@@ -3,7 +3,7 @@ import ConversationList from "./components/ConversationList.jsx";
 import ConversationView from "./components/ConversationView.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import IntegrationSettings from "./components/settings/Setttings.js";
-import { api, currentUser } from "./api/client.js";
+import { api, currentUser, gmtOffsetHours } from "./api/client.js";
 
 // ── Data normalisers ─────────────────────────────────────────────────────────
 
@@ -16,10 +16,27 @@ function makeInitials(name = "") {
     .join("");
 }
 
+function parseSiteDate(dateStr) {
+  if (!dateStr) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/.exec(dateStr);
+  if (!match) {
+    const fallback = new Date(dateStr);
+    return Number.isNaN(fallback.getTime()) ? null : fallback;
+  }
+  const offsetMin = Math.round(gmtOffsetHours * 60);
+  return new Date(Date.UTC(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    Number(match[4]),
+    Number(match[5]),
+    Number(match[6] || 0),
+  ) - offsetMin * 60_000);
+}
+
 function relativeTime(dateStr) {
-  if (!dateStr) return "";
-  const date = new Date(dateStr.replace(" ", "T"));
-  if (isNaN(date.getTime())) return dateStr;
+  const date = parseSiteDate(dateStr);
+  if (!date) return "";
   const diffMs = Date.now() - date.getTime();
   const diffMin = Math.floor(diffMs / 60_000);
   if (diffMin < 1) return "just now";
@@ -50,7 +67,7 @@ export function normaliseConversation(raw) {
     status: raw.status || "open",
     subject: raw.subject || "(no subject)",
     preview: raw.preview || "",
-    time: relativeTime(raw.updatedAt),
+    time: relativeTime(raw.lastMessageAt || raw.createdAt),
     unread: raw.unreadCount || 0,
     assigneeId: raw.assigneeId || null,
     assignee: "Unassigned",

@@ -44,6 +44,8 @@ export const isLocalWebhookSite = (() => {
   return false;
 })();
 export const restNonce = boot.nonce || "";
+/** WordPress site GMT offset in hours. MySQL datetimes are stored in this zone. */
+export const gmtOffsetHours = Number.isFinite(Number(boot.gmtOffset)) ? Number(boot.gmtOffset) : 0;
 export const currentUser = boot.user || { id: 0, name: "Guest", email: "", roles: [] };
 export const caps = boot.caps || {
   isAdmin: false,

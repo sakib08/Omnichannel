@@ -557,40 +557,42 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
         $channel = (string) $request->get_param( 'channel' );
         $status  = (string) $request->get_param( 'status' );
 
-        $has_channel = '' !== $channel && 'all' !== $channel;
-        $has_status  = '' !== $status && 'all' !== $status;
+        $conversations = $wpdb->prefix . 'kmbp_conversations';
+        $messages      = $wpdb->prefix . 'kmbp_messages';
 
-        if ( $has_channel && $has_status ) {
-            $rows = $wpdb->get_results(
-                $wpdb->prepare(
-                    "SELECT * FROM {$wpdb->prefix}kmbp_conversations WHERE channel = %s AND status = %s ORDER BY updated_at DESC LIMIT 200",
-                    $channel,
-                    $status
-                ),
-                ARRAY_A
-            );
-        } elseif ( $has_channel ) {
-            $rows = $wpdb->get_results(
-                $wpdb->prepare(
-                    "SELECT * FROM {$wpdb->prefix}kmbp_conversations WHERE channel = %s ORDER BY updated_at DESC LIMIT 200",
-                    $channel
-                ),
-                ARRAY_A
-            );
-        } elseif ( $has_status ) {
-            $rows = $wpdb->get_results(
-                $wpdb->prepare(
-                    "SELECT * FROM {$wpdb->prefix}kmbp_conversations WHERE status = %s ORDER BY updated_at DESC LIMIT 200",
-                    $status
-                ),
-                ARRAY_A
-            );
-        } else {
-            $rows = $wpdb->get_results(
-                "SELECT * FROM {$wpdb->prefix}kmbp_conversations ORDER BY updated_at DESC LIMIT 200",
-                ARRAY_A
-            );
+        $where  = array();
+        $params = array();
+
+        if ( '' !== $channel && 'all' !== $channel ) {
+            $where[]  = 'c.channel = %s';
+            $params[] = $channel;
         }
+        if ( '' !== $status && 'all' !== $status ) {
+            $where[]  = 'c.status = %s';
+            $params[] = $status;
+        }
+
+        // last_message_at is the real end of the thread. updated_at also moves
+        // when a row is edited (assignee, status), so it is not the list time.
+        $sql = "SELECT c.*, lm.last_message_at
+                FROM {$conversations} c
+                LEFT JOIN (
+                    SELECT conversation_id, MAX(sent_at) AS last_message_at
+                    FROM {$messages}
+                    GROUP BY conversation_id
+                ) lm ON lm.conversation_id = c.id";
+
+        if ( $where ) {
+            $sql .= ' WHERE ' . implode( ' AND ', $where );
+        }
+
+        $sql .= ' ORDER BY COALESCE(lm.last_message_at, c.created_at) DESC LIMIT 200';
+
+        if ( $params ) {
+            $sql = $wpdb->prepare( $sql, $params );
+        }
+
+        $rows = $wpdb->get_results( $sql, ARRAY_A );
 
         return rest_ensure_response( array_map( array( $this, 'format_conversation_row' ), (array) $rows ) );
     }
@@ -780,8 +782,13 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
         }
 
         if ( ! empty( $data ) ) {
-            $data['updated_at'] = current_time( 'mysql' );
-            $format[]           = '%s';
+            // Marking a thread read is not new activity. Leave updated_at alone
+            // so opening a conversation does not look like it just happened.
+            $mark_read_only = array( 'unread_count' ) === array_keys( $data );
+            if ( ! $mark_read_only ) {
+                $data['updated_at'] = current_time( 'mysql' );
+                $format[]           = '%s';
+            }
             $wpdb->update( $wpdb->prefix . 'kmbp_conversations', $data, array( 'id' => $id ), $format, array( '%d' ) );
         }
 
@@ -809,6 +816,7 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
             'unreadCount'    => (int) $row['unread_count'],
             'createdAt'      => (string) $row['created_at'],
             'updatedAt'      => (string) $row['updated_at'],
+            'lastMessageAt'  => (string) ( $row['last_message_at'] ?? '' ),
         );
     }
 

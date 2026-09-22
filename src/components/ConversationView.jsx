@@ -35,7 +35,7 @@ function MessageBubble({ message, conv, onDelete }) {
       <div className="shrink-0">
         <Avatar initials={avatarInitials} color={avatarColor} size={32} />
       </div>
-      <div className={`min-w-0 max-w-[min(28rem,calc(100%-2.75rem))] ${message.isAgent ? "items-end" : "items-start"} flex flex-col gap-1`}>
+      <div className={`min-w-0 flex flex-col gap-1 ${message.isHtml ? "flex-1" : "max-w-[min(28rem,calc(100%-2.75rem))]"} ${message.isAgent ? "items-end" : "items-start"}`}>
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-gray-500">{message.sender}</span>
           <span className="text-xs text-gray-400">{message.time}</span>
