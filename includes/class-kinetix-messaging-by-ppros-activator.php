@@ -18,7 +18,7 @@ defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 class Kinetix_Messaging_By_Ppros_Activator {
 
     const DB_VERSION_OPTION         = 'kmbp_db_version';
-    const DB_VERSION                = '1.0.0';
+    const DB_VERSION                = '1.1.0';
     const SETTINGS_OPTION           = 'kmbp_platform_settings';
 	const EMAIL_HTML_CLEANED_OPTION = 'kmbp_email_html_resanitized_v5';
     const AGENT_ROLE                = 'kmbp_agent';
@@ -57,10 +57,114 @@ class Kinetix_Messaging_By_Ppros_Activator {
             self::seed_default_departments();
         }
 
+        self::maybe_upgrade_ai_schema();
+        self::seed_ai_settings();
         self::register_roles_and_caps();
         self::migrate_settings_keys();
         self::migrate_resanitize_email_html();
         Kinetix_Messaging_By_Ppros_Email_Pipe::schedule_cron();
+    }
+
+    /**
+     * Add AI columns/tables when upgrading from DB versions before 1.1.0.
+     */
+    private static function maybe_upgrade_ai_schema() {
+        global $wpdb;
+
+        $current = (string) get_option( self::DB_VERSION_OPTION, '1.0.0' );
+        if ( version_compare( $current, '1.1.0', '>=' ) ) {
+            // Still ensure KB tables exist (fresh installs create them in create_tables).
+            self::ensure_ai_tables();
+            return;
+        }
+
+        $table = $wpdb->prefix . 'kmbp_conversations';
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $col = $wpdb->get_results( "SHOW COLUMNS FROM `{$table}` LIKE 'ai_status'" );
+        if ( empty( $col ) ) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            $wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN ai_status VARCHAR(40) NULL DEFAULT NULL AFTER department_id" );
+        }
+
+        self::ensure_ai_tables();
+        update_option( self::DB_VERSION_OPTION, self::DB_VERSION );
+    }
+
+    /**
+     * Create RAG knowledge-base tables if missing.
+     */
+    private static function ensure_ai_tables() {
+        global $wpdb;
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+        $charset_collate = $wpdb->get_charset_collate();
+        $prefix          = $wpdb->prefix;
+
+        $docs_sql = "CREATE TABLE {$prefix}kmbp_kb_documents (
+            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            title VARCHAR(255) NOT NULL,
+            source_type VARCHAR(40) NOT NULL DEFAULT 'manual',
+            source_id BIGINT(20) UNSIGNED NULL,
+            content LONGTEXT NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'active',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            KEY source_type (source_type),
+            KEY source_id (source_id),
+            KEY status (status)
+        ) {$charset_collate};";
+
+        $chunks_sql = "CREATE TABLE {$prefix}kmbp_kb_chunks (
+            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            document_id BIGINT(20) UNSIGNED NOT NULL,
+            chunk_index INT(11) NOT NULL DEFAULT 0,
+            content LONGTEXT NOT NULL,
+            embedding LONGTEXT NULL,
+            PRIMARY KEY  (id),
+            KEY document_id (document_id)
+        ) {$charset_collate};";
+
+        dbDelta( $docs_sql );
+        dbDelta( $chunks_sql );
+    }
+
+    /**
+     * Ensure the global AI settings key exists without overwriting user values.
+     */
+    public static function seed_ai_settings() {
+        $settings = (array) get_option( self::SETTINGS_OPTION, array() );
+        $defaults = self::default_ai_settings();
+        if ( ! isset( $settings['ai'] ) || ! is_array( $settings['ai'] ) ) {
+            $settings['ai'] = $defaults;
+            update_option( self::SETTINGS_OPTION, $settings, false );
+            return;
+        }
+        $merged = array_merge( $defaults, (array) $settings['ai'] );
+        if ( $merged !== $settings['ai'] ) {
+            $settings['ai'] = $merged;
+            update_option( self::SETTINGS_OPTION, $settings, false );
+        }
+    }
+
+    /**
+     * Default AI assistant settings.
+     *
+     * @return array
+     */
+    public static function default_ai_settings() {
+        return array(
+            'enabled'         => false,
+            'provider'        => 'openai',
+            'baseUrl'         => 'https://api.openai.com/v1',
+            'apiKey'          => '',
+            'chatModel'       => 'gpt-4o-mini',
+            'embeddingModel'  => 'text-embedding-3-small',
+            'assistantName'   => 'AI Assistant',
+            'welcomeMsg'      => 'Hi! I\'m the AI assistant. How can I help you today? You can ask me a question or say "talk to a human" anytime.',
+            'waitForAgentMsg' => 'No problem — I\'m connecting you with a human agent. Please wait a moment.',
+            'indexWpContent'  => true,
+        );
     }
 
     /**
@@ -185,6 +289,7 @@ class Kinetix_Messaging_By_Ppros_Activator {
             priority VARCHAR(20) NOT NULL DEFAULT 'medium',
             assignee_id BIGINT(20) UNSIGNED NULL,
             department_id BIGINT(20) UNSIGNED NULL,
+            ai_status VARCHAR(40) NULL DEFAULT NULL,
             unread_count INT(11) NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -225,6 +330,7 @@ class Kinetix_Messaging_By_Ppros_Activator {
         dbDelta( $conversations_sql );
         dbDelta( $messages_sql );
         dbDelta( $agent_dept_sql );
+        self::ensure_ai_tables();
 
         update_option( self::DB_VERSION_OPTION, self::DB_VERSION );
     }
@@ -366,6 +472,7 @@ class Kinetix_Messaging_By_Ppros_Activator {
                 'serverToken'    => '',
                 'encodingAesKey' => '',
             ),
+            'ai' => self::default_ai_settings(),
         );
 
         add_option( self::SETTINGS_OPTION, $defaults, '', false );

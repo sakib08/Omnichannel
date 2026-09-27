@@ -96,6 +96,11 @@ export const api = {
   listAgents:        () => request("agents"),
   assignAgentDepts:  (id, departmentIds) => request(`agents/${id}/departments`, { method: "POST", body: { departmentIds } }),
 
+  listKb:     () => request("ai/kb"),
+  saveKb:     (payload) => request("ai/kb", { method: "POST", body: payload }),
+  deleteKb:   (id) => request(`ai/kb/${id}`, { method: "DELETE" }),
+  reindexKb:  () => request("ai/kb/reindex", { method: "POST" }),
+
   /** Lightweight heartbeat — single DB query, ~80 bytes. */
   poll: () => request("poll"),
 

@@ -40,7 +40,7 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
 
     /** Channels supported by the React app — every key matches a wp_option sub-array. */
     public static function supported_channels() {
-        return array( 'messenger', 'email', 'whatsapp', 'telegram', 'sms', 'line', 'viber', 'wechat', 'instagram', 'livechat' );
+        return array( 'messenger', 'email', 'whatsapp', 'telegram', 'sms', 'line', 'viber', 'wechat', 'instagram', 'livechat', 'ai' );
     }
 
     public function register_routes() {
@@ -210,6 +210,44 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
                 'methods'             => WP_REST_Server::DELETABLE,
                 'callback'            => array( $this, 'delete_message' ),
                 'permission_callback' => array( $this, 'check_delete_message' ),
+            )
+        );
+
+        // ─── AI knowledge base ───────────────────────────────────────────────
+        register_rest_route(
+            self::NAMESPACE_V1,
+            '/ai/kb',
+            array(
+                array(
+                    'methods'             => WP_REST_Server::READABLE,
+                    'callback'            => array( $this, 'list_kb_documents' ),
+                    'permission_callback' => array( $this, 'check_manage_settings' ),
+                ),
+                array(
+                    'methods'             => WP_REST_Server::CREATABLE,
+                    'callback'            => array( $this, 'save_kb_document' ),
+                    'permission_callback' => array( $this, 'check_manage_settings' ),
+                ),
+            )
+        );
+
+        register_rest_route(
+            self::NAMESPACE_V1,
+            '/ai/kb/(?P<id>\d+)',
+            array(
+                'methods'             => WP_REST_Server::DELETABLE,
+                'callback'            => array( $this, 'delete_kb_document' ),
+                'permission_callback' => array( $this, 'check_manage_settings' ),
+            )
+        );
+
+        register_rest_route(
+            self::NAMESPACE_V1,
+            '/ai/kb/reindex',
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array( $this, 'reindex_kb' ),
+                'permission_callback' => array( $this, 'check_manage_settings' ),
             )
         );
     }
@@ -557,42 +595,37 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
         $channel = (string) $request->get_param( 'channel' );
         $status  = (string) $request->get_param( 'status' );
 
-        $conversations = $wpdb->prefix . 'kmbp_conversations';
-        $messages      = $wpdb->prefix . 'kmbp_messages';
-
-        $where  = array();
-        $params = array();
-
-        if ( '' !== $channel && 'all' !== $channel ) {
-            $where[]  = 'c.channel = %s';
-            $params[] = $channel;
+        if ( 'all' === $channel ) {
+            $channel = '';
         }
-        if ( '' !== $status && 'all' !== $status ) {
-            $where[]  = 'c.status = %s';
-            $params[] = $status;
+        if ( 'all' === $status ) {
+            $status = '';
         }
 
         // last_message_at is the real end of the thread. updated_at also moves
         // when a row is edited (assignee, status), so it is not the list time.
-        $sql = "SELECT c.*, lm.last_message_at
-                FROM {$conversations} c
+        // Empty channel/status match every row; otherwise the value is compared exactly.
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT c.*, lm.last_message_at
+                FROM {$wpdb->prefix}kmbp_conversations c
                 LEFT JOIN (
                     SELECT conversation_id, MAX(sent_at) AS last_message_at
-                    FROM {$messages}
+                    FROM {$wpdb->prefix}kmbp_messages
                     GROUP BY conversation_id
-                ) lm ON lm.conversation_id = c.id";
-
-        if ( $where ) {
-            $sql .= ' WHERE ' . implode( ' AND ', $where );
-        }
-
-        $sql .= ' ORDER BY COALESCE(lm.last_message_at, c.created_at) DESC LIMIT 200';
-
-        if ( $params ) {
-            $sql = $wpdb->prepare( $sql, $params );
-        }
-
-        $rows = $wpdb->get_results( $sql, ARRAY_A );
+                ) lm ON lm.conversation_id = c.id
+                WHERE (%s = '' OR c.channel = %s)
+                  AND (%s = '' OR c.status = %s)
+                ORDER BY COALESCE(lm.last_message_at, c.created_at) DESC
+                LIMIT %d",
+                $channel,
+                $channel,
+                $status,
+                $status,
+                200
+            ),
+            ARRAY_A
+        );
 
         return rest_ensure_response( array_map( array( $this, 'format_conversation_row' ), (array) $rows ) );
     }
@@ -781,6 +814,22 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
             $format[]             = '%d';
         }
 
+        if ( $request->has_param( 'aiStatus' ) ) {
+            $val = $request->get_param( 'aiStatus' );
+            if ( null === $val || '' === $val ) {
+                // Clear via raw SQL after update for NULL support.
+                $clear_ai = true;
+            } else {
+                $allowed_ai       = array( 'active', 'handed_off' );
+                $sanitized        = sanitize_key( (string) $val );
+                $data['ai_status'] = in_array( $sanitized, $allowed_ai, true ) ? $sanitized : null;
+                $format[]          = '%s';
+                $clear_ai          = null === $data['ai_status'];
+            }
+        } else {
+            $clear_ai = false;
+        }
+
         if ( ! empty( $data ) ) {
             // Marking a thread read is not new activity. Leave updated_at alone
             // so opening a conversation does not look like it just happened.
@@ -789,7 +838,24 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
                 $data['updated_at'] = current_time( 'mysql' );
                 $format[]           = '%s';
             }
-            $wpdb->update( $wpdb->prefix . 'kmbp_conversations', $data, array( 'id' => $id ), $format, array( '%d' ) );
+            // Strip null ai_status from update array — handled below.
+            if ( isset( $data['ai_status'] ) && null === $data['ai_status'] ) {
+                unset( $data['ai_status'] );
+                array_pop( $format );
+            }
+            if ( ! empty( $data ) ) {
+                $wpdb->update( $wpdb->prefix . 'kmbp_conversations', $data, array( 'id' => $id ), $format, array( '%d' ) );
+            }
+        }
+
+        if ( ! empty( $clear_ai ) ) {
+            $wpdb->query(
+                $wpdb->prepare(
+                    "UPDATE {$wpdb->prefix}kmbp_conversations SET ai_status = NULL, updated_at = %s WHERE id = %d",
+                    current_time( 'mysql' ),
+                    $id
+                )
+            );
         }
 
         $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}kmbp_conversations WHERE id = %d", $id ), ARRAY_A );
@@ -813,6 +879,7 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
             'priority'       => (string) $row['priority'],
             'assigneeId'     => $row['assignee_id'] ? (int) $row['assignee_id'] : null,
             'departmentId'   => $row['department_id'] ? (int) $row['department_id'] : null,
+            'aiStatus'       => ! empty( $row['ai_status'] ) ? (string) $row['ai_status'] : null,
             'unreadCount'    => (int) $row['unread_count'],
             'createdAt'      => (string) $row['created_at'],
             'updatedAt'      => (string) $row['updated_at'],
@@ -825,6 +892,9 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
             return null;
         }
         $meta = json_decode( (string) $row['meta'], true );
+        if ( ! is_array( $meta ) ) {
+            $meta = array();
+        }
         return array(
             'id'             => (int) $row['id'],
             'conversationId' => (int) $row['conversation_id'],
@@ -833,8 +903,82 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
             'senderId'       => $row['sender_id'] ? (int) $row['sender_id'] : null,
             'senderName'     => (string) $row['sender_name'],
             'body'           => (string) $row['body'],
-            'meta'           => is_array( $meta ) ? $meta : array(),
+            'meta'           => $meta,
             'sentAt'         => (string) $row['sent_at'],
+            'isAi'           => ! empty( $meta['ai'] ),
+        );
+    }
+
+    // ─── AI knowledge base ───────────────────────────────────────────────────
+    public function list_kb_documents() {
+        $rag = new Kinetix_Messaging_By_Ppros_Ai_Rag();
+        return rest_ensure_response( $rag->list_documents() );
+    }
+
+    public function save_kb_document( WP_REST_Request $request ) {
+        $title   = sanitize_text_field( (string) $request->get_param( 'title' ) );
+        $content = (string) $request->get_param( 'content' );
+        $id      = $request->get_param( 'id' ) ? (int) $request->get_param( 'id' ) : null;
+
+        if ( '' === $title || '' === trim( $content ) ) {
+            return new WP_Error(
+                'kmbp_kb_invalid',
+                __( 'Title and content are required.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $rag = new Kinetix_Messaging_By_Ppros_Ai_Rag();
+        $doc_id = $rag->upsert_manual_document( $title, $content, $id );
+        if ( is_wp_error( $doc_id ) ) {
+            return $doc_id;
+        }
+
+        $docs = $rag->list_documents( 'manual' );
+        foreach ( $docs as $doc ) {
+            if ( (int) $doc['id'] === (int) $doc_id ) {
+                return rest_ensure_response( $doc );
+            }
+        }
+        return rest_ensure_response( array( 'id' => (int) $doc_id ) );
+    }
+
+    public function delete_kb_document( WP_REST_Request $request ) {
+        $id  = (int) $request->get_param( 'id' );
+        $rag = new Kinetix_Messaging_By_Ppros_Ai_Rag();
+        $ok  = $rag->delete_document( $id );
+        if ( ! $ok ) {
+            return new WP_Error( 'kmbp_kb_missing', __( 'Document not found.', 'kinetix-messaging-by-ppros' ), array( 'status' => 404 ) );
+        }
+        return rest_ensure_response( array( 'deleted' => true, 'id' => $id ) );
+    }
+
+    public function reindex_kb( WP_REST_Request $request ) {
+        $rag    = new Kinetix_Messaging_By_Ppros_Ai_Rag();
+        $manual = 0;
+        $errors = 0;
+
+        foreach ( $rag->list_documents( 'manual' ) as $doc ) {
+            $result = $rag->reindex_document( (int) $doc['id'] );
+            if ( is_wp_error( $result ) ) {
+                ++$errors;
+            } else {
+                ++$manual;
+            }
+        }
+
+        $wp = array( 'indexed' => 0, 'errors' => 0 );
+        $all = (array) get_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, array() );
+        $ai  = isset( $all['ai'] ) && is_array( $all['ai'] ) ? $all['ai'] : array();
+        if ( ! empty( $ai['indexWpContent'] ) ) {
+            $wp = $rag->index_wp_content( 150 );
+        }
+
+        return rest_ensure_response(
+            array(
+                'manual' => array( 'indexed' => $manual, 'errors' => $errors ),
+                'wp'     => $wp,
+            )
         );
     }
 }

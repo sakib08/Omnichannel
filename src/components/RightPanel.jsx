@@ -86,6 +86,20 @@ export default function RightPanel({ agents, selectedConv, setActiveTab, setRepl
               {priorityConfig[selectedConv.priority]?.label || selectedConv.priority}
             </span>
           </div>
+          {selectedConv.aiStatus && (
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500">AI</span>
+              <span
+                className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  selectedConv.aiStatus === "active"
+                    ? "bg-violet-100 text-violet-700"
+                    : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {selectedConv.aiStatus === "active" ? "Handling" : "Handed off"}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-gray-500">Messages</span>
             <span className="font-medium text-gray-700">{selectedConv.messages.length}</span>

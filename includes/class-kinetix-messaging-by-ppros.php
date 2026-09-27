@@ -19,6 +19,7 @@ class Kinetix_Messaging_By_Ppros {
         $this->define_rest_hooks();
         $this->define_email_pipe_hooks();
         $this->define_channel_pipe_hooks();
+        $this->define_ai_hooks();
         $this->define_shortcode_hooks();
     }
 
@@ -68,6 +69,11 @@ class Kinetix_Messaging_By_Ppros {
         foreach ( $pipes as $pipe ) {
             $pipe->register_hooks( $this->loader );
         }
+    }
+
+    private function define_ai_hooks() {
+        $ai = new Kinetix_Messaging_By_Ppros_Ai();
+        $ai->register_hooks( $this->loader );
     }
 
     private function define_shortcode_hooks() {

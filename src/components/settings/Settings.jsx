@@ -9,6 +9,7 @@ import ViberSettings from "./Viber.jsx";
 import WeChatSettings from "./WeChat.jsx";
 import WhatsAppSettings from "./whatsapp.jsx";
 import LivechatSettings from "./livechat.jsx";
+import AiSettings from "./Ai.jsx";
 import { ChannelCard, SettingsThemeContext } from "./shared.jsx";
 import TeamSettings from "./Team.jsx";
 import { TOKEN } from "./tokens.js";
@@ -105,6 +106,20 @@ const CHANNEL_DEFAULTS = {
   },
 };
 
+const AI_DEFAULTS = {
+  enabled: false,
+  provider: "openai",
+  baseUrl: "https://api.openai.com/v1",
+  apiKey: "",
+  chatModel: "gpt-4o-mini",
+  embeddingModel: "text-embedding-3-small",
+  assistantName: "AI Assistant",
+  welcomeMsg:
+    "Hi! I'm the AI assistant. How can I help you today? You can ask me a question or say \"talk to a human\" anytime.",
+  waitForAgentMsg: "No problem — I'm connecting you with a human agent. Please wait a moment.",
+  indexWpContent: true,
+};
+
 const CHANNEL_ORDER = Object.keys(CHANNEL_DEFAULTS);
 
 // Strip masked secret placeholders ("••••••••") so they're not posted back to
@@ -122,9 +137,10 @@ function stripMaskedSecrets(values) {
 
 export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
   const [active, setActive] = useState("messenger");
-  const [configs, setConfigs] = useState(() =>
-    Object.fromEntries(CHANNEL_ORDER.map((id) => [id, { ...CHANNEL_DEFAULTS[id] }]))
-  );
+  const [configs, setConfigs] = useState(() => ({
+    ...Object.fromEntries(CHANNEL_ORDER.map((id) => [id, { ...CHANNEL_DEFAULTS[id] }])),
+    ai: { ...AI_DEFAULTS },
+  }));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -142,6 +158,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
           for (const id of CHANNEL_ORDER) {
             next[id] = { ...CHANNEL_DEFAULTS[id], ...(remote?.[id] || {}) };
           }
+          next.ai = { ...AI_DEFAULTS, ...(remote?.ai || {}) };
           return next;
         });
       })
@@ -171,12 +188,14 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
       const payload = Object.fromEntries(
         CHANNEL_ORDER.map((id) => [id, stripMaskedSecrets(configs[id])])
       );
+      payload.ai = stripMaskedSecrets(configs.ai || {});
       const remote = await api.saveSettings(payload);
       setConfigs((previous) => {
         const next = { ...previous };
         for (const id of CHANNEL_ORDER) {
           next[id] = { ...CHANNEL_DEFAULTS[id], ...(remote?.[id] || {}) };
         }
+        next.ai = { ...AI_DEFAULTS, ...(remote?.ai || {}) };
         return next;
       });
       setSaved(true);
@@ -189,7 +208,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
     }
   };
 
-  const channels = useMemo(() => [...CHANNEL_ORDER, "team"], []);
+  const channels = useMemo(() => [...CHANNEL_ORDER, "ai", "team"], []);
   const canManageSettings = caps?.canManageSettings || caps?.isAdmin;
   const showSaveButton = active !== "team" && canManageSettings;
 
@@ -214,7 +233,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
           </div>
           <span className="text-sm font-bold text-white tracking-tight">Integration Settings</span>
           <span className="text-xs text-slate-600 hidden sm:block">
-            / {active === "team" ? "Team & Departments" : "Channel Connections"}
+            / {active === "team" ? "Team & Departments" : active === "ai" ? "AI Support" : "Channel Connections"}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -252,6 +271,20 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
             />
           ))}
 
+          <p className="px-3 mt-6 text-xs font-bold uppercase tracking-widest text-slate-600 mb-2">Intelligence</p>
+          <button
+            onClick={() => setActive("ai")}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-150 ${active === "ai" ? "bg-slate-800 shadow-md border border-slate-700/60" : "hover:bg-slate-800/50 border border-transparent"}`}
+          >
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white bg-gradient-to-br from-indigo-500 to-violet-600 shrink-0">
+              <i className="ti ti-robot" />
+            </div>
+            <div className="flex-1 text-left min-w-0">
+              <p className={`text-sm font-semibold truncate ${active === "ai" ? "text-gray-500" : "text-slate-300"}`}>AI Support</p>
+              <p className="text-xs text-slate-500">{configs.ai?.enabled ? "Enabled" : "Disabled"}</p>
+            </div>
+          </button>
+
           <p className="px-3 mt-6 text-xs font-bold uppercase tracking-widest text-slate-600 mb-2">Team</p>
           <button
             onClick={() => setActive("team")}
@@ -286,6 +319,8 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
           <SettingsThemeContext.Provider value={theme}>
             {active === "team" ? (
               <TeamSettings />
+            ) : active === "ai" ? (
+              <AiSettings cfg={configs.ai || AI_DEFAULTS} setCfg={setChannel("ai")} />
             ) : (
               <>
                 {active === "messenger" && (

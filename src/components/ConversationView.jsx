@@ -7,8 +7,8 @@ import { channelMeta, priorityConfig, SAVED_REPLIES, statusConfig } from "../con
 function MessageBubble({ message, conv, onDelete }) {
   const [hovered, setHovered] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const avatarInitials = message.isAgent ? "AG" : conv.avatar;
-  const avatarColor = message.isAgent ? "#6366F1" : (channelMeta(conv.channel).color || "#6366F1");
+  const avatarInitials = message.isAi ? "AI" : message.isAgent ? "AG" : conv.avatar;
+  const avatarColor = message.isAi ? "#8B5CF6" : message.isAgent ? "#6366F1" : (channelMeta(conv.channel).color || "#6366F1");
 
   const handleDeleteClick = (e) => {
     e.stopPropagation();
@@ -38,12 +38,19 @@ function MessageBubble({ message, conv, onDelete }) {
       <div className={`min-w-0 flex flex-col gap-1 ${message.isHtml ? "flex-1" : "max-w-[min(28rem,calc(100%-2.75rem))]"} ${message.isAgent ? "items-end" : "items-start"}`}>
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-gray-500">{message.sender}</span>
+          {message.isAi && (
+            <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">
+              AI
+            </span>
+          )}
           <span className="text-xs text-gray-400">{message.time}</span>
         </div>
         <div className="relative min-w-0 w-full">
           <div
             className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
-              message.isAgent
+              message.isAi
+                ? "bg-violet-600 text-white rounded-tr-sm"
+                : message.isAgent
                 ? "bg-indigo-600 text-white rounded-tr-sm"
                 : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm"
             }`}

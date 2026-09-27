@@ -438,6 +438,40 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
      */
     abstract protected function send_message( string $recipient_id, string $text, array $cfg = array() );
 
+    /**
+     * Public helper for the AI assistant: send via the channel API and store the message.
+     *
+     * @param int    $conversation_id
+     * @param string $recipient_id
+     * @param string $text
+     * @param string $sender_name
+     * @return int|\WP_Error Message ID or error.
+     */
+    public function deliver_ai_message( int $conversation_id, string $recipient_id, string $text, string $sender_name = 'AI Assistant' ) {
+        $cfg = $this->get_settings();
+        if ( empty( $cfg['enabled'] ) ) {
+            return new WP_Error( 'kmbp_channel_disabled', __( 'Channel is not enabled.', 'kinetix-messaging-by-ppros' ) );
+        }
+
+        $result = $this->send_message( $recipient_id, $text, $cfg );
+        if ( is_wp_error( $result ) ) {
+            return $result;
+        }
+
+        return $this->store_message(
+            $conversation_id,
+            $text,
+            'agent',
+            $sender_name,
+            array(
+                'direction'  => 'outbound',
+                'ai'         => true,
+                'recipientId'=> $recipient_id,
+                'apiResult'  => $result,
+            )
+        );
+    }
+
     // ── Auto-reply helper ────────────────────────────────────────────────
 
     /**

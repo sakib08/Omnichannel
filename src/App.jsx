@@ -72,6 +72,7 @@ export function normaliseConversation(raw) {
     assigneeId: raw.assigneeId || null,
     assignee: "Unassigned",
     departmentId: raw.departmentId || null,
+    aiStatus: raw.aiStatus || null,
     priority: VALID_PRIORITIES.has(raw.priority) ? raw.priority : "medium",
     slaDeadline: 0,
     slaUnit: "hr",
@@ -88,6 +89,7 @@ export function normaliseMessage(raw) {
     isHtml: /<[a-z][\s\S]*>/i.test(body),
     time: formatTime(raw.sentAt),
     isAgent: raw.senderType === "agent",
+    isAi: !!(raw.isAi || raw.meta?.ai),
   };
 }
 

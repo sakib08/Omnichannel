@@ -39,6 +39,10 @@ require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-
 require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros-viber-pipe.php';
 require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros-livechat-pipe.php';
 require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros-shortcodes.php';
+require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros-ai-client.php';
+require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros-ai-router.php';
+require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros-ai-rag.php';
+require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros-ai.php';
 require_once KINETIX_MESSAGING_BY_PPROS_DIR . 'includes/class-kinetix-messaging-by-ppros.php';
 
 register_activation_hook( __FILE__, array( 'Kinetix_Messaging_By_Ppros_Activator', 'activate' ) );
