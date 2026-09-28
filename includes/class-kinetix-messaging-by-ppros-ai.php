@@ -486,34 +486,24 @@ class Kinetix_Messaging_By_Ppros_Ai {
     private function update_conversation( int $conversation_id, array $fields ): void {
         global $wpdb;
 
-        // wpdb::update does not reliably set NULL; use explicit SQL for nullables.
-        $sets   = array();
-        $params = array();
+        $allowed = array( 'assignee_id', 'department_id', 'ai_status' );
+        $data    = array();
+        $format  = array();
         foreach ( $fields as $col => $val ) {
-            $col = preg_replace( '/[^a-z0-9_]/', '', (string) $col );
-            if ( '' === $col ) {
+            if ( ! in_array( $col, $allowed, true ) ) {
                 continue;
             }
-            if ( null === $val ) {
-                $sets[] = "`{$col}` = NULL";
-            } elseif ( is_int( $val ) ) {
-                $sets[]   = "`{$col}` = %d";
-                $params[] = $val;
-            } else {
-                $sets[]   = "`{$col}` = %s";
-                $params[] = (string) $val;
-            }
+            $data[ $col ] = $val;
+            $format[]     = is_int( $val ) ? '%d' : '%s';
         }
-        if ( empty( $sets ) ) {
+        if ( empty( $data ) ) {
             return;
         }
-        $sets[]   = '`updated_at` = %s';
-        $params[] = current_time( 'mysql' );
-        $params[] = $conversation_id;
+        $data['updated_at'] = current_time( 'mysql' );
+        $format[]           = '%s';
 
-        $sql = "UPDATE {$wpdb->prefix}kmbp_conversations SET " . implode( ', ', $sets ) . ' WHERE id = %d';
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-        $wpdb->query( $wpdb->prepare( $sql, $params ) );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- KMBP custom table; no WordPress core API exists.
+        $wpdb->update( $wpdb->prefix . 'kmbp_conversations', $data, array( 'id' => $conversation_id ), $format, array( '%d' ) );
     }
 
     private function is_first_contact_message( int $conversation_id ): bool {

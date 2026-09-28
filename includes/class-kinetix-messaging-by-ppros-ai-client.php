@@ -11,6 +11,22 @@ class Kinetix_Messaging_By_Ppros_Ai_Client {
 
     const PROVIDERS = array( 'openai', 'grok', 'claude', 'gemini', 'openai_compat' );
 
+    /**
+     * Provider API roots. AI is configured and managed inside this plugin
+     * (admin picks the provider and supplies their own API key), so these
+     * services are called directly; each is disclosed in readme.txt.
+     */
+    const ENDPOINTS = array(
+        // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Admin-configured provider, disclosed in readme.
+        'openai' => 'https://api.openai.com/v1',
+        // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Admin-configured provider, disclosed in readme.
+        'grok'   => 'https://api.x.ai/v1',
+        // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Admin-configured provider, disclosed in readme.
+        'claude' => 'https://api.anthropic.com',
+        // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Admin-configured provider, disclosed in readme.
+        'gemini' => 'https://generativelanguage.googleapis.com/v1beta',
+    );
+
     /** @var array */
     private $cfg;
 
@@ -44,35 +60,35 @@ class Kinetix_Messaging_By_Ppros_Ai_Client {
         return array(
             'openai' => array(
                 'label'          => 'OpenAI',
-                'baseUrl'        => 'https://api.openai.com/v1',
+                'baseUrl'        => self::ENDPOINTS['openai'],
                 'chatModel'      => 'gpt-4o-mini',
                 'embeddingModel' => 'text-embedding-3-small',
                 'supportsEmbed'  => true,
             ),
             'grok' => array(
                 'label'          => 'Grok (xAI)',
-                'baseUrl'        => 'https://api.x.ai/v1',
+                'baseUrl'        => self::ENDPOINTS['grok'],
                 'chatModel'      => 'grok-3-mini',
                 'embeddingModel' => '',
                 'supportsEmbed'  => false,
             ),
             'claude' => array(
                 'label'          => 'Claude (Anthropic)',
-                'baseUrl'        => 'https://api.anthropic.com',
+                'baseUrl'        => self::ENDPOINTS['claude'],
                 'chatModel'      => 'claude-sonnet-4-5',
                 'embeddingModel' => '',
                 'supportsEmbed'  => false,
             ),
             'gemini' => array(
                 'label'          => 'Gemini (Google)',
-                'baseUrl'        => 'https://generativelanguage.googleapis.com/v1beta',
+                'baseUrl'        => self::ENDPOINTS['gemini'],
                 'chatModel'      => 'gemini-2.0-flash',
                 'embeddingModel' => 'text-embedding-004',
                 'supportsEmbed'  => true,
             ),
             'openai_compat' => array(
                 'label'          => 'OpenAI-compatible (custom)',
-                'baseUrl'        => 'https://api.openai.com/v1',
+                'baseUrl'        => self::ENDPOINTS['openai'],
                 'chatModel'      => 'gpt-4o-mini',
                 'embeddingModel' => 'text-embedding-3-small',
                 'supportsEmbed'  => true,
@@ -98,6 +114,10 @@ class Kinetix_Messaging_By_Ppros_Ai_Client {
      * Whether the client has enough config to call the API.
      */
     public function is_configured(): bool {
+        // readme.txt promises no provider calls while AI Support is off.
+        if ( empty( $this->cfg['enabled'] ) ) {
+            return false;
+        }
         if ( '' === trim( (string) ( $this->cfg['apiKey'] ?? '' ) ) ) {
             return false;
         }
@@ -246,7 +266,7 @@ class Kinetix_Messaging_By_Ppros_Ai_Client {
         if ( '' === $base ) {
             $presets = self::provider_presets();
             $p       = $this->get_provider();
-            $base    = rtrim( (string) ( $presets[ $p ]['baseUrl'] ?? 'https://api.openai.com/v1' ), '/' );
+            $base    = rtrim( (string) ( $presets[ $p ]['baseUrl'] ?? self::ENDPOINTS['openai'] ), '/' );
         }
         return $base . '/' . ltrim( $path, '/' );
     }
@@ -298,7 +318,7 @@ class Kinetix_Messaging_By_Ppros_Ai_Client {
 
         $base = rtrim( (string) ( $this->cfg['baseUrl'] ?? '' ), '/' );
         if ( '' === $base ) {
-            $base = 'https://api.anthropic.com';
+            $base = self::ENDPOINTS['claude'];
         }
         $url = $base . '/v1/messages';
 
@@ -427,7 +447,7 @@ class Kinetix_Messaging_By_Ppros_Ai_Client {
     private function gemini_model_url( string $model, string $method ): string {
         $base = rtrim( (string) ( $this->cfg['baseUrl'] ?? '' ), '/' );
         if ( '' === $base ) {
-            $base = 'https://generativelanguage.googleapis.com/v1beta';
+            $base = self::ENDPOINTS['gemini'];
         }
         $model = preg_replace( '#^models/#', '', $model );
         $key   = rawurlencode( (string) $this->cfg['apiKey'] );

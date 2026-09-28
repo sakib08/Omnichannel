@@ -4,7 +4,7 @@ Tags: omnichannel, unified, Livechat, whatsapp, email
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.2
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,7 +50,7 @@ Development-only tools (npm packages used at build time, not included in the plu
 
 == External services ==
 
-This plugin is an omnichannel messaging inbox. It does **not** call any third-party API until a site administrator enables a channel and saves that channel's credentials in the plugin settings. No external requests are made on ordinary WordPress page loads for visitors, **except** when Live Chat is enabled: the public widget then opens a WebSocket to livechat.pluginpros.co so visitors can chat. Outbound API calls otherwise occur only when an authorized agent sends a message, when the plugin registers or checks a webhook, when optional auto-replies are sent, when scheduled email polling runs (IMAP, if configured), or when an administrator optionally submits the deactivation feedback form.
+This plugin is an omnichannel messaging inbox. It does **not** call any third-party API until a site administrator enables a channel and saves that channel's credentials in the plugin settings. No external requests are made on ordinary WordPress page loads for visitors, **except** when Live Chat is enabled: the public widget then opens a WebSocket to livechat.pluginpros.co so visitors can chat. Outbound API calls otherwise occur only when an authorized agent sends a message, when the plugin registers or checks a webhook, when optional auto-replies are sent, when scheduled email polling runs (IMAP, if configured), when the optional AI Support feature is enabled with an administrator-supplied API key, or when an administrator optionally submits the deactivation feedback form.
 
 Inbound messages are delivered **to** your WordPress site by the messaging provider via webhooks you configure in each provider's dashboard. Those providers may send message content, sender identifiers, and profile metadata to your site.
 
@@ -135,6 +135,27 @@ Used when the Live Chat channel is enabled. The public site widget and agent rep
 **Data sent:** API key, conversation room ID, sender name, sender type (visitor or agent), and message text.
 
 **Service provided by Plugin Pros (livechat.pluginpros.co).** Sign in and generate an API key at [livechat.pluginpros.co](https://livechat.pluginpros.co/).
+
+= AI Support providers =
+
+Optional and off by default. AI is configured entirely inside this plugin (Settings → AI Support): the administrator turns the feature on, picks exactly one provider, and saves their own API key for it. Nothing is sent to any AI provider until that is done.
+
+When enabled, the plugin calls the selected provider:
+
+* when a customer message arrives in a conversation that has no human agent assigned, to decide which department it belongs to and to write a reply;
+* when an administrator adds, edits, or re-indexes a knowledge-base article, and when a published post or page is saved while "Index WordPress posts & pages" is on, to create search embeddings (OpenAI, Gemini, and OpenAI-compatible endpoints only).
+
+**Data sent:** the API key, the chosen model name, the customer's latest message and up to the 12 most recent messages in that conversation, the names and slugs of your departments, and knowledge-base excerpts that match the question (from articles you add and, if enabled, your published posts and pages). No data is sent for conversations that already have a human agent assigned or where the customer asked for a human.
+
+**OpenAI** (`https://api.openai.com/v1/chat/completions` and `/v1/embeddings`) — **Service provided by OpenAI, L.L.C.:** [Terms of Use](https://openai.com/policies/terms-of-use), [Privacy Policy](https://openai.com/policies/privacy-policy).
+
+**Grok by xAI** (`https://api.x.ai/v1/chat/completions`) — **Service provided by X.AI LLC:** [Terms of Service](https://x.ai/legal/terms-of-service), [Privacy Policy](https://x.ai/legal/privacy-policy).
+
+**Claude by Anthropic** (`https://api.anthropic.com/v1/messages`) — **Service provided by Anthropic, PBC:** [Commercial Terms](https://www.anthropic.com/legal/commercial-terms), [Privacy Policy](https://www.anthropic.com/legal/privacy).
+
+**Gemini by Google** (`https://generativelanguage.googleapis.com/v1beta/models/`) — the API key is sent as a URL query parameter, as Google's API requires. **Service provided by Google LLC:** [Gemini API Additional Terms](https://ai.google.dev/gemini-api/terms), [Privacy Policy](https://policies.google.com/privacy).
+
+**OpenAI-compatible endpoint** — the same data is sent to the base URL the administrator enters (for example Azure OpenAI, Groq, or a self-hosted Ollama server). The terms and privacy policy of that service apply.
 
 = Deactivation feedback =
 
@@ -221,6 +242,15 @@ Open **Kinetix Messaging → Settings → Live Chat**, paste an API key from [li
 Live Chat does not need a public webhook URL, so it can be tested on `localhost` as long as the site can reach livechat.pluginpros.co.
 
 == Changelog ==
+
+= 1.2.0 =
+* Add AI Support (Settings → AI Support): when enabled, an AI assistant greets new unassigned conversations and replies on the same channel.
+* Support OpenAI, Grok (xAI), Claude (Anthropic), Gemini (Google), and any OpenAI-compatible endpoint, with preset base URLs and models for each provider.
+* Answer questions from a knowledge base (RAG) built from articles you add in settings and, optionally, your published WordPress posts and pages. Posts are re-indexed automatically when published, updated, or deleted.
+* Detect the right department from the conversation and assign the least-busy agent in it. If the department has no agents, assign an administrator to route it manually.
+* When no agents are set up in any department, the AI keeps answering from the knowledge base until a human is assigned.
+* Leave the conversation with a configurable wait message when the customer asks for a human, and stop replying once an agent is assigned.
+* Mark AI replies with an "AI" badge in the inbox and show whether the AI is handling or has handed off a conversation in the details sidebar.
 
 = 1.1.2 =
 * Show HTML emails across the full conversation width instead of capping them at a chat-bubble width.

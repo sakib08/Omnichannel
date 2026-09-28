@@ -78,12 +78,11 @@ class Kinetix_Messaging_By_Ppros_Activator {
             return;
         }
 
-        $table = $wpdb->prefix . 'kmbp_conversations';
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-        $col = $wpdb->get_results( "SHOW COLUMNS FROM `{$table}` LIKE 'ai_status'" );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-time schema check on upgrade.
+        $col = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM {$wpdb->prefix}kmbp_conversations LIKE %s", 'ai_status' ) );
         if ( empty( $col ) ) {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-            $wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN ai_status VARCHAR(40) NULL DEFAULT NULL AFTER department_id" );
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-time schema migration on upgrade.
+            $wpdb->query( "ALTER TABLE {$wpdb->prefix}kmbp_conversations ADD COLUMN ai_status VARCHAR(40) NULL DEFAULT NULL AFTER department_id" );
         }
 
         self::ensure_ai_tables();
@@ -156,7 +155,7 @@ class Kinetix_Messaging_By_Ppros_Activator {
         return array(
             'enabled'         => false,
             'provider'        => 'openai',
-            'baseUrl'         => 'https://api.openai.com/v1',
+            'baseUrl'         => Kinetix_Messaging_By_Ppros_Ai_Client::ENDPOINTS['openai'],
             'apiKey'          => '',
             'chatModel'       => 'gpt-4o-mini',
             'embeddingModel'  => 'text-embedding-3-small',
