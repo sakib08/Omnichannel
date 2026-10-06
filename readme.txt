@@ -4,7 +4,7 @@ Tags: live chat, whatsapp, chat, omnichannel, shared inbox
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -242,6 +242,15 @@ Open **Kinetix Messaging → Settings → Live Chat**, paste an API key from [li
 Live Chat does not need a public webhook URL, so it can be tested on `localhost` as long as the site can reach livechat.pluginpros.co.
 
 == Changelog ==
+
+= 1.3.0 =
+* Add agent presence: agents set themselves Online or Away from their avatar in the inbox sidebar. Online agents stay available while the inbox or any admin page is open, including in a background tab, and go offline after about 3 minutes without activity or when the inbox tab closes.
+* Show each agent's Online, Away, or Offline status in the assignee dropdown and in Settings → Agents & Departments.
+* Add Settings → Availability with weekly business hours in the site timezone, including overnight and 24-hour days.
+* Optionally treat the team as offline when no agent is online, even inside business hours.
+* Add an optional offline notice with {{hours}}, {{next_open}}, and {{customer_name}} placeholders, sent at most once per conversation every 12 hours. While it is on and the team is offline, the channel's "an agent will reply shortly" auto-reply is skipped.
+* AI Support now assigns only agents who are online. When a department's agents are all offline, the AI tells the customer when the team is back and keeps answering from the knowledge base.
+* When a customer asks for a human, the AI assigns an online agent from their department, or any online agent, and includes the offline notice if nobody is available.
 
 = 1.2.0 =
 * Add AI Support (Settings → AI Support): when enabled, an AI assistant greets new unassigned conversations and replies on the same channel.
