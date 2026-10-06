@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api, { caps } from "../../api/client.js";
+import PresenceDot from "../PresenceDot.jsx";
 
 function Pill({ active, color = "#6366f1", onClick, children }) {
   return (
@@ -232,7 +233,8 @@ export default function TeamSettings() {
                     return (
                       <tr key={agent.id} className="align-top">
                         <td className="px-4 py-3">
-                          <p className="text-sm font-semibold text-slate-100">
+                          <p className="text-sm font-semibold text-slate-100 flex items-center gap-2">
+                            <PresenceDot presence={agent.presence} />
                             {agent.name}
                             {!agent.isAgent && (
                               <span className="ml-2 text-[10px] uppercase tracking-widest text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">

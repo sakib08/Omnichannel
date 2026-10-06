@@ -46,6 +46,8 @@ export const isLocalWebhookSite = (() => {
 export const restNonce = boot.nonce || "";
 /** WordPress site GMT offset in hours. MySQL datetimes are stored in this zone. */
 export const gmtOffsetHours = Number.isFinite(Number(boot.gmtOffset)) ? Number(boot.gmtOffset) : 0;
+/** WordPress site timezone (Settings → General), e.g. "Asia/Dhaka" or "+06:00". */
+export const siteTimezone = boot.timezone || "UTC";
 export const currentUser = boot.user || { id: 0, name: "Guest", email: "", roles: [] };
 export const caps = boot.caps || {
   isAdmin: false,
@@ -100,6 +102,16 @@ export const api = {
   saveKb:     (payload) => request("ai/kb", { method: "POST", body: payload }),
   deleteKb:   (id) => request(`ai/kb/${id}`, { method: "DELETE" }),
   reindexKb:  () => request("ai/kb/reindex", { method: "POST" }),
+
+  getPresence: () => request("presence"),
+  /** Heartbeat that keeps me online; pass "online" or "away" to change status. */
+  sendPresence: (status) => request("presence", { method: "POST", body: status ? { status } : {} }),
+  /** Fire-and-forget on tab close (fetch may be cancelled during unload). */
+  markOfflineBeacon: () => {
+    if (typeof navigator === "undefined" || !navigator.sendBeacon) return;
+    const url = `${restUrl}presence/offline${restNonce ? `?_wpnonce=${encodeURIComponent(restNonce)}` : ""}`;
+    navigator.sendBeacon(url);
+  },
 
   /** Lightweight heartbeat — single DB query, ~80 bytes. */
   poll: () => request("poll"),

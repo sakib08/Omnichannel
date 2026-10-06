@@ -20,6 +20,11 @@
  *     GET  /agents                       — list users in kmbp_agent role
  *     POST /agents/(?P<id>\d+)/departments — assign departments to an agent
  *
+ *   Presence
+ *     GET  /presence          — my status, every agent's presence, business-hours state
+ *     POST /presence          — heartbeat; optional { status: "online" | "away" }
+ *     POST /presence/offline  — mark me offline (tab closed)
+ *
  *   Messages / conversations
  *     GET    /conversations
  *     GET    /conversations/(?P<id>\d+)/messages
@@ -40,7 +45,7 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
 
     /** Channels supported by the React app — every key matches a wp_option sub-array. */
     public static function supported_channels() {
-        return array( 'messenger', 'email', 'whatsapp', 'telegram', 'sms', 'line', 'viber', 'wechat', 'instagram', 'livechat', 'ai' );
+        return array( 'messenger', 'email', 'whatsapp', 'telegram', 'sms', 'line', 'viber', 'wechat', 'instagram', 'livechat', 'ai', Kinetix_Messaging_By_Ppros_Availability::SETTINGS_KEY );
     }
 
     public function register_routes() {
@@ -132,6 +137,34 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => array( $this, 'assign_agent_departments' ),
                 'permission_callback' => array( $this, 'check_manage_depts' ),
+            )
+        );
+
+        // ─── Presence ────────────────────────────────────────────────────────
+        register_rest_route(
+            self::NAMESPACE_V1,
+            '/presence',
+            array(
+                array(
+                    'methods'             => WP_REST_Server::READABLE,
+                    'callback'            => array( $this, 'get_presence' ),
+                    'permission_callback' => array( $this, 'check_access_messaging' ),
+                ),
+                array(
+                    'methods'             => WP_REST_Server::CREATABLE,
+                    'callback'            => array( $this, 'update_presence' ),
+                    'permission_callback' => array( $this, 'check_access_messaging' ),
+                ),
+            )
+        );
+
+        register_rest_route(
+            self::NAMESPACE_V1,
+            '/presence/offline',
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array( $this, 'mark_presence_offline' ),
+                'permission_callback' => array( $this, 'check_access_messaging' ),
             )
         );
 
@@ -513,9 +546,39 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
                 'isAgent'       => (bool) $is_agent,
                 'roles'         => $user_obj ? (array) $user_obj->roles : array(),
                 'departmentIds' => isset( $map[ (int) $user->ID ] ) ? $map[ (int) $user->ID ] : array(),
+                'presence'      => Kinetix_Messaging_By_Ppros_Availability::presence( (int) $user->ID ),
             );
         }
         return rest_ensure_response( $out );
+    }
+
+    // ─── Presence ────────────────────────────────────────────────────────────
+    public function get_presence() {
+        return rest_ensure_response( Kinetix_Messaging_By_Ppros_Availability::snapshot( get_current_user_id() ) );
+    }
+
+    /**
+     * POST /presence — heartbeat; optional { status: "online" | "away" }.
+     */
+    public function update_presence( WP_REST_Request $request ) {
+        $user_id = get_current_user_id();
+        $status  = sanitize_key( (string) $request->get_param( 'status' ) );
+        if ( '' !== $status ) {
+            if ( ! in_array( $status, array( 'online', 'away' ), true ) ) {
+                return new WP_Error( 'kmbp_invalid_status', __( 'Status must be online or away.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+            }
+            Kinetix_Messaging_By_Ppros_Availability::set_status( $user_id, $status );
+        }
+        Kinetix_Messaging_By_Ppros_Availability::touch( $user_id );
+        return rest_ensure_response( Kinetix_Messaging_By_Ppros_Availability::snapshot( $user_id ) );
+    }
+
+    /**
+     * POST /presence/offline — sent with navigator.sendBeacon when the inbox tab closes.
+     */
+    public function mark_presence_offline() {
+        Kinetix_Messaging_By_Ppros_Availability::mark_offline( get_current_user_id() );
+        return rest_ensure_response( array( 'ok' => true ) );
     }
 
     public function assign_agent_departments( WP_REST_Request $request ) {

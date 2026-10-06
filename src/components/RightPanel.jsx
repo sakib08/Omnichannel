@@ -1,21 +1,29 @@
 import ChannelBadge from "./ChannelBadge.jsx";
 import SLABadge from "./SLABadge.jsx";
+import PresenceDot, { PRESENCE_STYLES } from "./PresenceDot.jsx";
 import { priorityConfig, SAVED_REPLIES, statusConfig } from "../constants/config";
 
 export default function RightPanel({ agents, selectedConv, setActiveTab, setReplyText, updateAssignee }) {
   // Build agent options: "Unassigned" + all agents from API.
   const agentOptions = [
     { id: "", name: "Unassigned" },
-    ...(agents || []).map((a) => ({ id: String(a.id), name: a.name || a.login })),
+    ...(agents || []).map((a) => ({
+      id: String(a.id),
+      name: `${a.name || a.login} · ${(PRESENCE_STYLES[a.presence] || PRESENCE_STYLES.offline).label}`,
+    })),
   ];
 
   const currentValue = selectedConv.assigneeId ? String(selectedConv.assigneeId) : "";
+  const currentAgent = (agents || []).find((a) => String(a.id) === currentValue);
 
   return (
     <div className="flex max-md:hidden w-72 shrink-0 bg-white border-l border-gray-100 flex-col overflow-y-auto">
       {/* Assignee */}
       <div className="px-4 py-4 border-b border-gray-100">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Assignee</div>
+        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+          Assignee
+          {currentAgent && <PresenceDot presence={currentAgent.presence} />}
+        </div>
         <select
           value={currentValue}
           onChange={(e) => updateAssignee(e.target.value || null)}

@@ -5,6 +5,8 @@ import Sidebar from "./components/Sidebar.jsx";
 import IntegrationSettings from "./components/settings/Setttings.js";
 import { api, currentUser, gmtOffsetHours } from "./api/client.js";
 
+const PRESENCE_INTERVAL = 60_000; // must stay well under the server's 180 s online window
+
 // ── Data normalisers ─────────────────────────────────────────────────────────
 
 function makeInitials(name = "") {
@@ -123,6 +125,35 @@ export default function OmnichannelApp() {
   useEffect(() => {
     api.listAgents().then((data) => setAgents(data || [])).catch(() => {});
   }, []);
+
+  // ── Presence heartbeat ──────────────────────────────────────────────────────
+  //  Unlike the poller this keeps running in background tabs, so an agent with
+  //  the inbox open in another tab still counts as online for routing.
+  const [presence, setPresence] = useState(null);
+
+  const applyPresence = useCallback((snap) => {
+    if (!snap) return;
+    setPresence(snap);
+    const byId = new Map((snap.agents || []).map((a) => [a.id, a.presence]));
+    setAgents((prev) => prev.map((a) => (byId.has(a.id) ? { ...a, presence: byId.get(a.id) } : a)));
+  }, []);
+
+  useEffect(() => {
+    const beat = () => api.sendPresence().then(applyPresence).catch(() => {});
+    beat();
+    const timer = setInterval(beat, PRESENCE_INTERVAL);
+    const onHide = () => api.markOfflineBeacon();
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("pagehide", onHide);
+    };
+  }, [applyPresence]);
+
+  const changeMyStatus = useCallback(
+    (status) => api.sendPresence(status).then(applyPresence).catch(() => {}),
+    [applyPresence]
+  );
 
   // ── Load conversations ──────────────────────────────────────────────────────
   const loadConversations = useCallback(async () => {
@@ -460,6 +491,8 @@ export default function OmnichannelApp() {
         setActiveChannel={handleChannelChange}
         theme={theme}
         toggleTheme={toggleTheme}
+        presence={presence}
+        onChangeStatus={changeMyStatus}
       />
 
       {activeChannel === "settings" ? (

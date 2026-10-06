@@ -448,6 +448,20 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
      * @return int|\WP_Error Message ID or error.
      */
     public function deliver_ai_message( int $conversation_id, string $recipient_id, string $text, string $sender_name = 'AI Assistant' ) {
+        return $this->deliver_system_message( $conversation_id, $recipient_id, $text, $sender_name, array( 'ai' => true ) );
+    }
+
+    /**
+     * Send an automated (non-agent) message via the channel API and store it.
+     *
+     * @param int    $conversation_id
+     * @param string $recipient_id
+     * @param string $text
+     * @param string $sender_name
+     * @param array  $meta Extra message meta, e.g. array( 'ai' => true ).
+     * @return int|\WP_Error Message ID or error.
+     */
+    public function deliver_system_message( int $conversation_id, string $recipient_id, string $text, string $sender_name, array $meta = array() ) {
         $cfg = $this->get_settings();
         if ( empty( $cfg['enabled'] ) ) {
             return new WP_Error( 'kmbp_channel_disabled', __( 'Channel is not enabled.', 'kinetix-messaging-by-ppros' ) );
@@ -463,11 +477,13 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
             $text,
             'agent',
             $sender_name,
-            array(
-                'direction'  => 'outbound',
-                'ai'         => true,
-                'recipientId'=> $recipient_id,
-                'apiResult'  => $result,
+            array_merge(
+                array(
+                    'direction'   => 'outbound',
+                    'recipientId' => $recipient_id,
+                    'apiResult'   => $result,
+                ),
+                $meta
             )
         );
     }
@@ -484,6 +500,10 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
     protected function maybe_send_auto_reply( string $recipient_id, string $customer_name, string $ticket_id ): void {
         $cfg = $this->get_settings();
         if ( empty( $cfg['autoReply'] ) || empty( $cfg['autoReplyMsg'] ) ) {
+            return;
+        }
+        // "An agent will reply shortly" is wrong while offline; the offline notice replaces it.
+        if ( Kinetix_Messaging_By_Ppros_Availability::offline_notice_enabled() && Kinetix_Messaging_By_Ppros_Availability::is_offline() ) {
             return;
         }
         $msg = str_replace(

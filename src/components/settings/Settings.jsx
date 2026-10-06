@@ -10,6 +10,7 @@ import WeChatSettings from "./WeChat.jsx";
 import WhatsAppSettings from "./whatsapp.jsx";
 import LivechatSettings from "./livechat.jsx";
 import AiSettings from "./Ai.jsx";
+import AvailabilitySettings, { AVAILABILITY_DEFAULTS } from "./Availability.jsx";
 import { ChannelCard, SettingsThemeContext } from "./shared.jsx";
 import TeamSettings from "./Team.jsx";
 import { TOKEN } from "./tokens.js";
@@ -140,6 +141,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
   const [configs, setConfigs] = useState(() => ({
     ...Object.fromEntries(CHANNEL_ORDER.map((id) => [id, { ...CHANNEL_DEFAULTS[id] }])),
     ai: { ...AI_DEFAULTS },
+    availability: { ...AVAILABILITY_DEFAULTS },
   }));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -159,6 +161,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
             next[id] = { ...CHANNEL_DEFAULTS[id], ...(remote?.[id] || {}) };
           }
           next.ai = { ...AI_DEFAULTS, ...(remote?.ai || {}) };
+          next.availability = { ...AVAILABILITY_DEFAULTS, ...(remote?.availability || {}) };
           return next;
         });
       })
@@ -189,6 +192,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
         CHANNEL_ORDER.map((id) => [id, stripMaskedSecrets(configs[id])])
       );
       payload.ai = stripMaskedSecrets(configs.ai || {});
+      payload.availability = { ...(configs.availability || {}) };
       const remote = await api.saveSettings(payload);
       setConfigs((previous) => {
         const next = { ...previous };
@@ -196,6 +200,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
           next[id] = { ...CHANNEL_DEFAULTS[id], ...(remote?.[id] || {}) };
         }
         next.ai = { ...AI_DEFAULTS, ...(remote?.ai || {}) };
+        next.availability = { ...AVAILABILITY_DEFAULTS, ...(remote?.availability || {}) };
         return next;
       });
       setSaved(true);
@@ -233,7 +238,13 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
           </div>
           <span className="text-sm font-bold text-white tracking-tight">Integration Settings</span>
           <span className="text-xs text-slate-600 hidden sm:block">
-            / {active === "team" ? "Team & Departments" : active === "ai" ? "AI Support" : "Channel Connections"}
+            / {active === "team"
+              ? "Team & Departments"
+              : active === "ai"
+              ? "AI Support"
+              : active === "availability"
+              ? "Availability"
+              : "Channel Connections"}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -298,6 +309,18 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
               <p className="text-xs text-slate-500">Manage assignments</p>
             </div>
           </button>
+          <button
+            onClick={() => setActive("availability")}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-150 ${active === "availability" ? "bg-slate-800 shadow-md border border-slate-700/60" : "hover:bg-slate-800/50 border border-transparent"}`}
+          >
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white bg-gradient-to-br from-emerald-500 to-teal-600 shrink-0">
+              <i className="ti ti-clock" />
+            </div>
+            <div className="flex-1 text-left min-w-0">
+              <p className={`text-sm font-semibold truncate ${active === "availability" ? "text-gray-500" : "text-slate-300"}`}>Availability</p>
+              <p className="text-xs text-slate-500">{configs.availability?.hoursEnabled ? "Business hours on" : "Always open"}</p>
+            </div>
+          </button>
 
           <div className="flex-1" />
 
@@ -321,6 +344,8 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
               <TeamSettings />
             ) : active === "ai" ? (
               <AiSettings cfg={configs.ai || AI_DEFAULTS} setCfg={setChannel("ai")} />
+            ) : active === "availability" ? (
+              <AvailabilitySettings cfg={configs.availability || AVAILABILITY_DEFAULTS} setCfg={setChannel("availability")} />
             ) : (
               <>
                 {active === "messenger" && (

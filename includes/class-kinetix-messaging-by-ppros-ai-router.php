@@ -53,13 +53,24 @@ class Kinetix_Messaging_By_Ppros_Ai_Router {
     }
 
     /**
-     * Agents mapped to a department (kmbp_agent or administrator).
-     * Sorted by fewest open assigned conversations first.
+     * Online agents in a department, fewest open conversations first.
      *
      * @param int $department_id
      * @return int[] User IDs.
      */
     public function find_available_agents( int $department_id ): array {
+        return $this->sort_by_load(
+            Kinetix_Messaging_By_Ppros_Availability::filter_online( $this->find_department_agents( $department_id ) )
+        );
+    }
+
+    /**
+     * Agents mapped to a department (kmbp_agent or administrator), online or not.
+     *
+     * @param int $department_id
+     * @return int[] User IDs.
+     */
+    public function find_department_agents( int $department_id ): array {
         global $wpdb;
         if ( $department_id <= 0 ) {
             return array();
@@ -90,7 +101,7 @@ class Kinetix_Messaging_By_Ppros_Ai_Router {
             }
         }
 
-        return $this->sort_by_load( $eligible );
+        return $eligible;
     }
 
     /**
@@ -101,6 +112,13 @@ class Kinetix_Messaging_By_Ppros_Ai_Router {
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}kmbp_agent_departments" );
         return $count > 0;
+    }
+
+    /**
+     * Whether any agent or administrator is online right now.
+     */
+    public function has_online_agents(): bool {
+        return Kinetix_Messaging_By_Ppros_Availability::has_online_agents();
     }
 
     /**

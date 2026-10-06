@@ -1,6 +1,6 @@
 === Kinetix Messaging by Ppros ===
 Contributors: sakibbd08
-Tags: omnichannel, unified, Livechat, whatsapp, email
+Tags: live chat, whatsapp, chat, omnichannel, shared inbox
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4

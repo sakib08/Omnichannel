@@ -102,27 +102,14 @@ class Kinetix_Messaging_By_Ppros_Ai {
             return;
         }
 
-        $cfg = $this->client->get_config();
-        if ( empty( $cfg['enabled'] ) ) {
-            return;
-        }
-
         $conv = $this->get_conversation( $conversation_id );
         if ( ! $conv ) {
             return;
         }
 
-        // Human already assigned — stay out.
-        if ( ! empty( $conv['assignee_id'] ) && 'active' !== (string) ( $conv['ai_status'] ?? '' ) ) {
-            return;
-        }
-        if ( ! empty( $conv['assignee_id'] ) && 'active' === (string) ( $conv['ai_status'] ?? '' ) ) {
-            // Agent was assigned while AI was active — stop.
-            $this->set_ai_status( $conversation_id, null );
-            return;
-        }
-
-        if ( 'handed_off' === (string) ( $conv['ai_status'] ?? '' ) ) {
+        $cfg = $this->client->get_config();
+        if ( empty( $cfg['enabled'] ) || ! $this->ai_should_handle( $conversation_id, $conv ) ) {
+            $this->maybe_send_offline_notice( $conversation_id, $channel, $conv, $context );
             return;
         }
 
@@ -154,17 +141,19 @@ class Kinetix_Messaging_By_Ppros_Ai {
             return;
         }
 
+        // Nobody online → the AI answers from the knowledge base itself.
+        $force_rag = ! $this->router->has_online_agents();
+
         if ( 'route' === $action && ! empty( $decision['departmentSlug'] ) ) {
             $routed = $this->do_route( $conversation_id, $channel, $conv, $context, $cfg, (string) $decision['departmentSlug'], (string) ( $decision['reply'] ?? '' ) );
             if ( $routed ) {
                 return;
             }
+            $force_rag = true;
         }
 
-        // No agents mapped site-wide → always RAG.
-        // Or action is answer / route failed → RAG (or clarify reply from model).
         $reply = (string) ( $decision['reply'] ?? '' );
-        if ( 'answer' === $action || '' === $reply || ! $this->router->has_any_mapped_agents() ) {
+        if ( 'answer' === $action || '' === $reply || $force_rag ) {
             $history = $this->get_recent_history( $conversation_id );
             $rag     = $this->rag->answer( $text, $history );
             if ( ! is_wp_error( $rag ) && '' !== trim( (string) $rag ) ) {
@@ -330,6 +319,16 @@ class Kinetix_Messaging_By_Ppros_Ai {
             return true;
         }
 
+        // The team exists but nobody is online: keep helping, and say so once.
+        if ( ! empty( $this->router->find_department_agents( (int) $dept['id'] ) ) ) {
+            $already_told = (int) ( $conv['department_id'] ?? 0 ) === (int) $dept['id'];
+            $this->update_conversation( $conversation_id, array( 'department_id' => (int) $dept['id'] ) );
+            if ( ! $already_told ) {
+                $this->send_reply( $conversation_id, $channel, $conv, $this->team_offline_message( (string) $dept['name'] ), $context );
+            }
+            return false;
+        }
+
         // No agents in department → assign admin for manual routing.
         $admin_id = $this->router->get_fallback_admin_id();
         $this->update_conversation(
@@ -358,6 +357,31 @@ class Kinetix_Messaging_By_Ppros_Ai {
             $wait = __( 'Please wait while we connect you to an agent.', 'kinetix-messaging-by-ppros' );
         }
 
+        // Prefer an online agent from the conversation's department, then anyone online.
+        $dept_id  = (int) ( $conv['department_id'] ?? 0 );
+        $online   = $dept_id > 0 ? $this->router->find_available_agents( $dept_id ) : array();
+        $agent_id = ! empty( $online )
+            ? (int) $online[0]
+            : $this->router->pick_least_loaded( Kinetix_Messaging_By_Ppros_Availability::online_agent_ids() );
+
+        if ( $agent_id > 0 ) {
+            $this->update_conversation(
+                $conversation_id,
+                array(
+                    'ai_status'   => 'handed_off',
+                    'assignee_id' => $agent_id,
+                )
+            );
+            $agent = get_userdata( $agent_id );
+            $msg   = $wait;
+            if ( $agent ) {
+                /* translators: %s: agent display name */
+                $msg .= "\n\n" . sprintf( __( '%s from our team will be with you shortly.', 'kinetix-messaging-by-ppros' ), $agent->display_name );
+            }
+            $this->send_reply( $conversation_id, $channel, $conv, $msg, $context );
+            return;
+        }
+
         $this->update_conversation(
             $conversation_id,
             array(
@@ -366,35 +390,108 @@ class Kinetix_Messaging_By_Ppros_Ai {
             )
         );
 
-        $this->send_reply( $conversation_id, $channel, $conv, $wait, $context );
+        $msg = $wait;
+        if ( Kinetix_Messaging_By_Ppros_Availability::is_offline() ) {
+            $msg .= "\n\n" . $this->offline_suffix( (string) ( $conv['contact_name'] ?? '' ) );
+            Kinetix_Messaging_By_Ppros_Availability::mark_offline_notice_sent( $conversation_id );
+        }
+        $this->send_reply( $conversation_id, $channel, $conv, $msg, $context );
     }
 
     /**
-     * Send an AI reply on the conversation's channel.
+     * Whether the AI should reply in this conversation (no human owns it, not handed off).
      */
-    private function send_reply( int $conversation_id, string $channel, array $conv, string $text, array $context ): void {
-        $cfg          = $this->client->get_config();
-        $sender_name  = (string) ( $cfg['assistantName'] ?? 'AI Assistant' );
+    private function ai_should_handle( int $conversation_id, array $conv ): bool {
+        $status = (string) ( $conv['ai_status'] ?? '' );
+        if ( ! empty( $conv['assignee_id'] ) ) {
+            if ( 'active' === $status ) {
+                // Agent was assigned while AI was active — stop.
+                $this->set_ai_status( $conversation_id, null );
+            }
+            return false;
+        }
+        return 'handed_off' !== $status;
+    }
+
+    /**
+     * Tell the customer the team is away, at most once per cooldown window.
+     */
+    private function maybe_send_offline_notice( int $conversation_id, string $channel, array $conv, array $context ): void {
+        $assignee = (int) ( $conv['assignee_id'] ?? 0 );
+        if ( $assignee > 0 && Kinetix_Messaging_By_Ppros_Availability::is_online( $assignee ) ) {
+            return;
+        }
+        if ( ! Kinetix_Messaging_By_Ppros_Availability::should_send_offline_notice( $conversation_id ) ) {
+            return;
+        }
+        Kinetix_Messaging_By_Ppros_Availability::mark_offline_notice_sent( $conversation_id );
+        $text = Kinetix_Messaging_By_Ppros_Availability::offline_notice_text( (string) ( $conv['contact_name'] ?? '' ) );
+        $this->send_reply( $conversation_id, $channel, $conv, $text, $context, false );
+    }
+
+    private function team_offline_message( string $dept_name ): string {
+        $next = Kinetix_Messaging_By_Ppros_Availability::next_open();
+        if ( '' !== $next ) {
+            return sprintf(
+                /* translators: 1: department name, 2: when the team is back, e.g. "tomorrow at 9:00 am" */
+                __( "Our %1\$s team is offline right now and back %2\$s. I'll help in the meantime, or say \"talk to a human\" and they'll pick this up when they're back.", 'kinetix-messaging-by-ppros' ),
+                $dept_name,
+                $next
+            );
+        }
+        return sprintf(
+            /* translators: %s: department name */
+            __( "No one from our %s team is online right now. I'll help in the meantime, or say \"talk to a human\" and they'll reply as soon as they're available.", 'kinetix-messaging-by-ppros' ),
+            $dept_name
+        );
+    }
+
+    private function offline_suffix( string $customer_name ): string {
+        if ( Kinetix_Messaging_By_Ppros_Availability::offline_notice_enabled() ) {
+            return Kinetix_Messaging_By_Ppros_Availability::offline_notice_text( $customer_name );
+        }
+        $next = Kinetix_Messaging_By_Ppros_Availability::next_open();
+        if ( '' !== $next ) {
+            /* translators: %s: when the team is back, e.g. "tomorrow at 9:00 am" */
+            return sprintf( __( "Our team is away right now and back %s. We'll reply then.", 'kinetix-messaging-by-ppros' ), $next );
+        }
+        return __( 'No agents are online right now, so a reply may take a little longer.', 'kinetix-messaging-by-ppros' );
+    }
+
+    /**
+     * Send an automated reply on the conversation's channel.
+     *
+     * @param bool $as_ai True for AI replies (AI badge, assistant name); false for plain auto-replies.
+     */
+    private function send_reply( int $conversation_id, string $channel, array $conv, string $text, array $context, bool $as_ai = true ): void {
+        if ( $as_ai ) {
+            $cfg         = $this->client->get_config();
+            $sender_name = (string) ( $cfg['assistantName'] ?? 'AI Assistant' );
+            $meta        = array( 'ai' => true );
+        } else {
+            $sender_name = get_bloginfo( 'name' ) ? get_bloginfo( 'name' ) : __( 'Auto-reply', 'kinetix-messaging-by-ppros' );
+            $meta        = array( 'auto' => true );
+        }
         $recipient_id = $this->resolve_recipient( $conv, $context );
 
         if ( 'email' === $channel ) {
-            $this->send_email_reply( $conversation_id, $conv, $text, $sender_name );
+            $this->send_email_reply( $conversation_id, $conv, $text, $sender_name, $meta );
             return;
         }
 
         $pipe = $this->get_pipe( $channel );
         if ( $pipe && '' !== $recipient_id ) {
-            $result = $pipe->deliver_ai_message( $conversation_id, $recipient_id, $text, $sender_name );
+            $result = $pipe->deliver_system_message( $conversation_id, $recipient_id, $text, $sender_name, $meta );
             if ( ! is_wp_error( $result ) ) {
                 return;
             }
         }
 
-        // Fallback: store only so inbox still shows the AI reply.
-        $this->store_ai_message( $conversation_id, $text, $sender_name );
+        // Fallback: store only so the inbox still shows the reply.
+        $this->store_system_message( $conversation_id, $text, $sender_name, $meta );
     }
 
-    private function send_email_reply( int $conversation_id, array $conv, string $text, string $sender_name ): void {
+    private function send_email_reply( int $conversation_id, array $conv, string $text, string $sender_name, array $meta ): void {
         $to = (string) ( $conv['contact_handle'] ?? '' );
         if ( is_email( $to ) && class_exists( 'Kinetix_Messaging_By_Ppros_Email_Pipe' ) ) {
             $pipe    = new Kinetix_Messaging_By_Ppros_Email_Pipe();
@@ -404,10 +501,10 @@ class Kinetix_Messaging_By_Ppros_Ai {
             // Always store regardless of SMTP outcome.
             unset( $result );
         }
-        $this->store_ai_message( $conversation_id, $text, $sender_name );
+        $this->store_system_message( $conversation_id, $text, $sender_name, $meta );
     }
 
-    private function store_ai_message( int $conversation_id, string $text, string $sender_name ): void {
+    private function store_system_message( int $conversation_id, string $text, string $sender_name, array $meta ): void {
         global $wpdb;
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $wpdb->insert(
@@ -419,7 +516,7 @@ class Kinetix_Messaging_By_Ppros_Ai {
                 'sender_id'       => null,
                 'sender_name'     => $sender_name,
                 'body'            => wp_kses_post( $text ),
-                'meta'            => wp_json_encode( array( 'ai' => true, 'direction' => 'outbound' ) ),
+                'meta'            => wp_json_encode( array_merge( array( 'direction' => 'outbound' ), $meta ) ),
                 'sent_at'         => current_time( 'mysql' ),
             ),
             array( '%d', '%s', '%s', null, '%s', '%s', '%s', '%s' )

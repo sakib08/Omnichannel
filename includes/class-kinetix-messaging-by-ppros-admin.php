@@ -391,6 +391,7 @@ class Kinetix_Messaging_By_Ppros_Admin {
                 'restUrl'   => esc_url_raw( rest_url( 'kmbp/v1/' ) ),
                 'nonce'     => wp_create_nonce( 'wp_rest' ),
                 'gmtOffset' => (float) get_option( 'gmt_offset' ),
+                'timezone'  => wp_timezone_string(),
                 'user'    => array(
                     'id'    => (int) $user->ID,
                     'name'  => $user->display_name,
