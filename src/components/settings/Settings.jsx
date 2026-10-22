@@ -11,6 +11,7 @@ import WhatsAppSettings from "./whatsapp.jsx";
 import LivechatSettings from "./livechat.jsx";
 import AiSettings from "./Ai.jsx";
 import AvailabilitySettings, { AVAILABILITY_DEFAULTS } from "./Availability.jsx";
+import NotificationSettings, { NOTIFICATION_DEFAULTS } from "./Notifications.jsx";
 import { ChannelCard, SettingsThemeContext } from "./shared.jsx";
 import TeamSettings from "./Team.jsx";
 import { TOKEN } from "./tokens.js";
@@ -142,6 +143,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
     ...Object.fromEntries(CHANNEL_ORDER.map((id) => [id, { ...CHANNEL_DEFAULTS[id] }])),
     ai: { ...AI_DEFAULTS },
     availability: { ...AVAILABILITY_DEFAULTS },
+    notifications: { ...NOTIFICATION_DEFAULTS },
   }));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -162,6 +164,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
           }
           next.ai = { ...AI_DEFAULTS, ...(remote?.ai || {}) };
           next.availability = { ...AVAILABILITY_DEFAULTS, ...(remote?.availability || {}) };
+          next.notifications = { ...NOTIFICATION_DEFAULTS, ...(remote?.notifications || {}) };
           return next;
         });
       })
@@ -193,6 +196,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
       );
       payload.ai = stripMaskedSecrets(configs.ai || {});
       payload.availability = { ...(configs.availability || {}) };
+      payload.notifications = { ...(configs.notifications || {}) };
       const remote = await api.saveSettings(payload);
       setConfigs((previous) => {
         const next = { ...previous };
@@ -201,6 +205,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
         }
         next.ai = { ...AI_DEFAULTS, ...(remote?.ai || {}) };
         next.availability = { ...AVAILABILITY_DEFAULTS, ...(remote?.availability || {}) };
+        next.notifications = { ...NOTIFICATION_DEFAULTS, ...(remote?.notifications || {}) };
         return next;
       });
       setSaved(true);
@@ -244,6 +249,8 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
               ? "AI Support"
               : active === "availability"
               ? "Availability"
+              : active === "notifications"
+              ? "Notifications"
               : "Channel Connections"}
           </span>
         </div>
@@ -321,6 +328,20 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
               <p className="text-xs text-slate-500">{configs.availability?.hoursEnabled ? "Business hours on" : "Always open"}</p>
             </div>
           </button>
+          <button
+            onClick={() => setActive("notifications")}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-150 ${active === "notifications" ? "bg-slate-800 shadow-md border border-slate-700/60" : "hover:bg-slate-800/50 border border-transparent"}`}
+          >
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white bg-gradient-to-br from-amber-500 to-orange-600 shrink-0">
+              <i className="ti ti-bell" />
+            </div>
+            <div className="flex-1 text-left min-w-0">
+              <p className={`text-sm font-semibold truncate ${active === "notifications" ? "text-gray-500" : "text-slate-300"}`}>Notifications</p>
+              <p className="text-xs text-slate-500">
+                {configs.notifications?.emailAssigned || configs.notifications?.emailWaiting ? "Email alerts on" : "Email alerts off"}
+              </p>
+            </div>
+          </button>
 
           <div className="flex-1" />
 
@@ -346,6 +367,8 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
               <AiSettings cfg={configs.ai || AI_DEFAULTS} setCfg={setChannel("ai")} />
             ) : active === "availability" ? (
               <AvailabilitySettings cfg={configs.availability || AVAILABILITY_DEFAULTS} setCfg={setChannel("availability")} />
+            ) : active === "notifications" ? (
+              <NotificationSettings cfg={configs.notifications || NOTIFICATION_DEFAULTS} setCfg={setChannel("notifications")} />
             ) : (
               <>
                 {active === "messenger" && (

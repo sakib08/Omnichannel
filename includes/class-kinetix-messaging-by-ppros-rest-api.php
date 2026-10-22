@@ -45,7 +45,7 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
 
     /** Channels supported by the React app — every key matches a wp_option sub-array. */
     public static function supported_channels() {
-        return array( 'messenger', 'email', 'whatsapp', 'telegram', 'sms', 'line', 'viber', 'wechat', 'instagram', 'livechat', 'ai', Kinetix_Messaging_By_Ppros_Availability::SETTINGS_KEY );
+        return array( 'messenger', 'email', 'whatsapp', 'telegram', 'sms', 'line', 'viber', 'wechat', 'instagram', 'livechat', 'ai', Kinetix_Messaging_By_Ppros_Availability::SETTINGS_KEY, Kinetix_Messaging_By_Ppros_Notifications::SETTINGS_KEY );
     }
 
     public function register_routes() {
@@ -645,12 +645,58 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
             ARRAY_A
         );
 
-        return rest_ensure_response( array(
+        $out = array(
             'ts'        => $row['ts'] ?? '',
             'convTs'    => $row['conv_ts'] ?? '',
             'unread'    => (int) ( $row['unread'] ?? 0 ),
             'convCount' => (int) ( $row['conv_count'] ?? 0 ),
-        ) );
+        );
+
+        // Customer messages newer than ?after=<message id>, for browser notifications.
+        // Without "after" only the current high-water mark is returned.
+        $after = (int) $request->get_param( 'after' );
+        if ( $after <= 0 ) {
+            $out['lastMessageId'] = (int) $wpdb->get_var( "SELECT MAX(id) FROM {$wpdb->prefix}kmbp_messages" );
+            $out['inbound']       = array();
+            return rest_ensure_response( $out );
+        }
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT m.id, m.conversation_id, m.sender_type, m.sender_name, m.body,
+                        c.channel, c.contact_name, c.contact_handle, c.assignee_id, c.ai_status
+                 FROM {$wpdb->prefix}kmbp_messages m
+                 JOIN {$wpdb->prefix}kmbp_conversations c ON c.id = m.conversation_id
+                 WHERE m.id > %d
+                 ORDER BY m.id ASC
+                 LIMIT 50",
+                $after
+            ),
+            ARRAY_A
+        );
+
+        $last    = $after;
+        $inbound = array();
+        foreach ( (array) $rows as $msg ) {
+            $last = max( $last, (int) $msg['id'] );
+            if ( ! in_array( $msg['sender_type'], array( 'contact', 'customer' ), true ) ) {
+                continue;
+            }
+            $name      = $msg['contact_name'] ? $msg['contact_name'] : ( $msg['sender_name'] ? $msg['sender_name'] : $msg['contact_handle'] );
+            $inbound[] = array(
+                'messageId'      => (int) $msg['id'],
+                'conversationId' => (int) $msg['conversation_id'],
+                'channel'        => (string) $msg['channel'],
+                'contactName'    => (string) $name,
+                'preview'        => wp_trim_words( wp_strip_all_tags( (string) $msg['body'] ), 20, '…' ),
+                'assigneeId'     => $msg['assignee_id'] ? (int) $msg['assignee_id'] : null,
+                'aiStatus'       => $msg['ai_status'] ? (string) $msg['ai_status'] : null,
+            );
+        }
+
+        $out['lastMessageId'] = $last;
+        $out['inbound']       = $inbound;
+        return rest_ensure_response( $out );
     }
 
     public function list_conversations( WP_REST_Request $request ) {
@@ -919,6 +965,18 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
                     $id
                 )
             );
+        }
+
+        $new_assignee = isset( $data['assignee_id'] ) ? (int) $data['assignee_id'] : 0;
+        if ( $new_assignee > 0 && $new_assignee !== (int) $existing['assignee_id'] ) {
+            /**
+             * Fires after a conversation is assigned to a different agent.
+             *
+             * @param int $conversation_id
+             * @param int $assignee_id
+             * @param int $by_user_id User who made the change; 0 for automatic routing.
+             */
+            do_action( 'kmbp_conversation_assigned', $id, $new_assignee, get_current_user_id() );
         }
 
         $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}kmbp_conversations WHERE id = %d", $id ), ARRAY_A );

@@ -601,6 +601,10 @@ class Kinetix_Messaging_By_Ppros_Ai {
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- KMBP custom table; no WordPress core API exists.
         $wpdb->update( $wpdb->prefix . 'kmbp_conversations', $data, array( 'id' => $conversation_id ), $format, array( '%d' ) );
+
+        if ( isset( $data['assignee_id'] ) && is_int( $data['assignee_id'] ) && $data['assignee_id'] > 0 ) {
+            do_action( 'kmbp_conversation_assigned', $conversation_id, $data['assignee_id'], 0 );
+        }
     }
 
     private function is_first_contact_message( int $conversation_id ): bool {

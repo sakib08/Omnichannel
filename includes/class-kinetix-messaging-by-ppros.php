@@ -75,6 +75,9 @@ class Kinetix_Messaging_By_Ppros {
     private function define_availability_hooks() {
         $availability = new Kinetix_Messaging_By_Ppros_Availability();
         $availability->register_hooks( $this->loader );
+
+        $notifications = new Kinetix_Messaging_By_Ppros_Notifications();
+        $notifications->register_hooks( $this->loader );
     }
 
     private function define_ai_hooks() {

@@ -4,6 +4,13 @@ import ConversationView from "./components/ConversationView.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import IntegrationSettings from "./components/settings/Setttings.js";
 import { api, currentUser, gmtOffsetHours } from "./api/client.js";
+import {
+  getNotifyPrefs,
+  saveNotifyPrefs,
+  playChime,
+  relevantForMe,
+  showMessageNotification,
+} from "./notifications.js";
 
 const PRESENCE_INTERVAL = 60_000; // must stay well under the server's 180 s online window
 
@@ -120,6 +127,14 @@ export default function OmnichannelApp() {
   const lastPollTs     = useRef("");  // MAX(updated_at) seen in last /poll
   const lastPollConvTs = useRef("");  // MAX(created_at) seen in last /poll
   const lastMsgIdRef   = useRef({});  // { [convId]: maxMessageId }
+  const lastInboundIdRef = useRef(0); // highest message id already seen, for notifications
+  const notifyRef      = useRef(() => {});
+  const [unreadTotal, setUnreadTotal] = useState(0);
+  const [notifyPrefs, setNotifyPrefsState] = useState(getNotifyPrefs);
+  const setNotifyPrefs = useCallback((next) => {
+    setNotifyPrefsState(next);
+    saveNotifyPrefs(next);
+  }, []);
 
   // ── Load agents once (for assignee selector) ────────────────────────────────
   useEffect(() => {
@@ -155,6 +170,50 @@ export default function OmnichannelApp() {
     [applyPresence]
   );
 
+  // ── Open a conversation from a notification or an email link ──────────────
+  const conversationsRef = useRef(conversations);
+  conversationsRef.current = conversations;
+
+  const openConversation = useCallback((id) => {
+    if (!id) return;
+    if (conversationsRef.current.some((c) => c.id === id)) {
+      setActiveChannel((current) => (current === "settings" ? "all" : current));
+    } else {
+      // Not in the current channel filter: switch to "All" so it can load.
+      setActiveChannel("all");
+    }
+    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, unread: 0 } : c)));
+    setSelected(id);
+    setSendError("");
+  }, []);
+
+  useEffect(() => {
+    const id = Number(new URLSearchParams(window.location.search).get("conversation"));
+    if (id > 0) openConversation(id);
+  }, [openConversation]);
+
+  // ── New-message alerts (sound + desktop pop-up) ─────────────────────────────
+  notifyRef.current = (items) => {
+    const mine = relevantForMe(items, currentUser.id, presence?.me?.status);
+    const watching = !document.hidden && document.hasFocus();
+    const fresh = mine.filter((item) => !(watching && item.conversationId === selectedRef.current));
+    if (!fresh.length) return;
+
+    if (notifyPrefs.sound) playChime();
+    if (notifyPrefs.desktop && !watching) {
+      // One pop-up per conversation (the newest message), at most three per batch.
+      const latest = new Map(fresh.map((item) => [item.conversationId, item]));
+      [...latest.values()].slice(-3).forEach((item) => showMessageNotification(item, openConversation));
+    }
+  };
+
+  // ── Unread count in the browser tab title ──────────────────────────────────
+  const baseTitleRef = useRef(typeof document !== "undefined" ? document.title : "");
+  useEffect(() => {
+    document.title = unreadTotal > 0 ? `(${unreadTotal}) ${baseTitleRef.current}` : baseTitleRef.current;
+  }, [unreadTotal]);
+  useEffect(() => () => { document.title = baseTitleRef.current; }, []);
+
   // ── Load conversations ──────────────────────────────────────────────────────
   const loadConversations = useCallback(async () => {
     try {
@@ -176,12 +235,14 @@ export default function OmnichannelApp() {
 
   // ── Smart visibility-aware poller ──────────────────────────────────────────
   //
-  //  1. Calls GET /poll every POLL_INTERVAL ms — one DB query, ~80 bytes.
+  //  1. Calls GET /poll every POLL_INTERVAL ms — a couple of indexed queries.
   //  2. Compares ts/convTs to cached values; only fetches full data on change.
   //  3. Fetches only *new* messages (after_id) for the open conversation.
-  //  4. Pauses automatically when the browser tab is hidden to save resources.
+  //  4. Slows to HIDDEN_POLL_INTERVAL in a background tab, so notifications
+  //     and the tab-title count keep working without polling at full rate.
   //
   const POLL_INTERVAL = 8_000; // ms between polls when tab is visible
+  const HIDDEN_POLL_INTERVAL = 30_000;
 
   // selectedRef lets the async poll closure see the latest selected conv id
   // without stale closure state — avoids re-creating the interval on every click.
@@ -189,19 +250,27 @@ export default function OmnichannelApp() {
   useEffect(() => { selectedRef.current = selected; }, [selected]);
 
   useEffect(() => {
-    let paused = document.hidden;
+    let lastTickAt = 0;
 
     const onVisibilityChange = () => {
-      paused = document.hidden;
       // Immediately poll when the tab comes back into view.
-      if (!paused) tick();
+      if (!document.hidden) tick();
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
 
     const tick = async () => {
-      if (paused) return;
+      if (document.hidden && Date.now() - lastTickAt < HIDDEN_POLL_INTERVAL - 1000) return;
+      lastTickAt = Date.now();
       try {
-        const snap = await api.poll();
+        const snap = await api.poll(lastInboundIdRef.current);
+        setUnreadTotal(snap.unread || 0);
+        if (snap.lastMessageId) {
+          // The first poll only sets the baseline; older messages never alert.
+          if (lastInboundIdRef.current > 0 && snap.inbound?.length) {
+            notifyRef.current(snap.inbound);
+          }
+          lastInboundIdRef.current = snap.lastMessageId;
+        }
         const convChanged =
           snap.ts     !== lastPollTs.current ||
           snap.convTs !== lastPollConvTs.current;
@@ -493,6 +562,8 @@ export default function OmnichannelApp() {
         toggleTheme={toggleTheme}
         presence={presence}
         onChangeStatus={changeMyStatus}
+        notifyPrefs={notifyPrefs}
+        setNotifyPrefs={setNotifyPrefs}
       />
 
       {activeChannel === "settings" ? (

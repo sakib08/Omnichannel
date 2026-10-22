@@ -113,8 +113,8 @@ export const api = {
     navigator.sendBeacon(url);
   },
 
-  /** Lightweight heartbeat — single DB query, ~80 bytes. */
-  poll: () => request("poll"),
+  /** Lightweight heartbeat. Pass the last seen message id to get new customer messages back. */
+  poll: (after = 0) => request(after > 0 ? `poll?after=${after}` : "poll"),
 
   listConversations: (params = {}) => {
     const qs = new URLSearchParams(params).toString();

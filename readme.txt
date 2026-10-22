@@ -4,49 +4,157 @@ Tags: live chat, whatsapp, chat, omnichannel, shared inbox
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Unified inbox for email, Telegram, WhatsApp, Messenger, SMS, and other messaging channels.
+Answer WhatsApp, Messenger, Instagram, Telegram, SMS, email, and live chat from one WordPress inbox, with AI replies and team routing.
 
 == Description ==
 
-Kinetix Messaging by Ppros brings omnichannel conversations into a single WordPress admin inbox. Agents can read, reply, assign, and manage conversations across multiple messaging platforms.
+**Every customer conversation in one inbox, inside WordPress.** Kinetix Messaging connects your messaging channels to a shared team inbox in your WordPress admin. Your agents reply from one screen, an optional AI assistant answers from your own content, and conversations go to the right person automatically.
 
-This plugin is free software released under the GPLv2 (or later). All bundled libraries and assets included in the distributed plugin are licensed under the GPL or another GPL-compatible license (MIT, BSD, etc.).
+= Features =
 
-== Source code ==
+**Channels in one inbox**
 
-The human-readable source for the compiled admin UI lives in the `src/` directory inside this plugin (React/JSX, CSS). The minified files in `build/` are generated from that source.
+* **Live Chat** website widget, with a welcome message and starter buttons.
+* **WhatsApp Business**, **Facebook Messenger**, and **Instagram DM** through the Meta Graph API.
+* **Telegram**, **LINE**, **Viber**, and **WeChat**.
+* **SMS** through Twilio, Vonage, Sinch, Plivo, Telnyx, or MessageBird.
+* **Email** over SMTP and IMAP, or inbound webhooks from Mailgun, SendGrid, Postmark, or SparkPost.
 
-**Public source repository:** https://github.com/sakib08/Omnichannel
+**Team inbox**
 
-= Build tools =
+* Assign conversations to agents and organise agents into departments.
+* A **Messaging Agent** role that gives team members the inbox and nothing else in wp-admin.
+* Online and Away status for each agent. New chats are only auto-assigned to agents who are online.
+* Quick replies, status (open, pending, resolved), and priority.
+* Search and filter by channel or status. New messages appear without refreshing the page.
+* Browser notifications with sound and an unread count in the tab title, so agents notice new chats in a background tab.
+* Email alerts when a conversation is assigned to an agent, or when a customer has waited too long for a reply.
+* Light and dark themes.
 
-The admin inbox is built with [@wordpress/scripts](https://www.npmjs.com/package/@wordpress/scripts) (webpack), React 19, and Tailwind CSS 4.
+**AI Support (optional)**
 
-= Regenerating build/ assets =
+* An AI assistant greets new conversations and answers from a knowledge base you control: articles you write, plus your published posts and pages if you choose.
+* Detects which department a question belongs to and assigns an online agent from that team.
+* Hands over to a human whenever the customer asks, with a wait message you write.
+* Works with OpenAI, Claude (Anthropic), Gemini (Google), Grok (xAI), or any OpenAI-compatible endpoint, using your own API key.
 
-From the plugin root directory:
+**Availability and automation**
 
-1. Install Node.js 18+ and npm.
-2. Run `npm install`
-3. Run `npm run build`
+* Weekly business hours in your site's timezone, including overnight shifts.
+* An offline notice that tells customers when you're back.
+* Auto-replies for each channel.
+* Share links and a `[kmbp_channel_button]` shortcode for any channel. It works in Gutenberg and Elementor.
 
-This compiles `src/` into `build/index.js`, `build/index.css`, and related files, and copies Tabler icon fonts into `assets/tabler-icons/` (via a local build script; shell scripts are not shipped in the WordPress.org ZIP).
+= Why Kinetix =
 
-To create a distributable ZIP locally: `npm run bundle`
+* **It lives in WordPress.** No separate dashboard and no extra logins: your agents are WordPress users and the inbox sits in wp-admin.
+* **Your conversations stay in your database.** Messages are stored in your own WordPress database, not on a third-party helpdesk.
+* **All your channels in one place.** WhatsApp, Instagram, Telegram, SMS, email, and live chat share one inbox instead of six apps.
+* **AI on your terms.** Use the AI provider you prefer with your own key, and pay that provider directly. AI is off until you turn it on, and customers can always reach a human.
+* **Free and open source.** GPLv2 licensed, with the full source code public on GitHub.
 
-== Third-party licenses ==
+= Quick start =
 
-The following components are bundled in the distributed plugin (compiled into `build/` or copied to `assets/`).
+1. Install and activate the plugin.
+2. Open **Kinetix Messaging → Inbox** and click the gear icon to open Settings. Choose a channel, paste its credentials, and switch it on.
+3. Add teammates as WordPress users with the **Messaging Agent** role, and assign them to departments under **Agents & Departments**.
+4. Optional: set business hours under **Availability** and switch on **AI Support**.
 
-* **React** and **React DOM** — MIT License (GPL-compatible). Copyright Meta Platforms, Inc. https://github.com/facebook/react
-* **Tabler Icons** (webfont in `assets/tabler-icons/`) — MIT License (GPL-compatible). Copyright Paweł Kuna. https://github.com/tabler/tabler-icons — See `assets/tabler-icons/LICENSE`.
-* **@wordpress/scripts** build output — GPLv2 or later (WordPress ecosystem). https://github.com/WordPress/gutenberg/tree/trunk/packages/scripts
+== Frequently Asked Questions ==
 
-Development-only tools (npm packages used at build time, not included in the plugin ZIP) are not distributed with this plugin.
+= Is the plugin free? =
+
+Yes. The plugin is free and GPL licensed. Some channels charge for their own APIs (for example WhatsApp Business or SMS providers), and AI providers bill you directly for your API key. Kinetix adds no fees on top.
+
+= Where are my conversations stored? =
+
+In your own WordPress database. Messages pass through the channel you connect (for example Meta or Telegram), and through your AI provider only if you turn AI Support on. See **External services** for exactly what is sent where.
+
+= Do I have to use AI? =
+
+No. AI Support is off by default. Without it, the inbox works as a normal shared team inbox, with optional auto-replies and an offline notice.
+
+= Can I debug my messaging channel on a local machine? =
+
+No — messaging platforms (Telegram, Meta, LINE, Viber, WeChat) deliver inbound messages via webhooks, which require a **publicly reachable HTTPS URL**. A local machine (`localhost`, `127.0.0.1`, `.test`, `.local`) is not reachable from the public internet, so inbound webhook deliveries will fail silently.
+
+To test locally, use a tunnel tool to expose your machine temporarily:
+
+* **ngrok** — `ngrok http 80` gives you a public HTTPS URL.
+* **Cloudflare Tunnel** — `cloudflared tunnel --url http://localhost:80`.
+* **Expose** — `expose share http://localhost`.
+
+After starting the tunnel, update **WordPress → Settings → General → Site URL** to the tunnel HTTPS address, flush permalinks, and re-register the webhook for your channel.
+
+= Can I debug my messaging channel on a subdomain? =
+
+Yes — a public subdomain works well for staging or development, as long as:
+
+1. The subdomain resolves over **HTTPS** with a valid SSL certificate. Self-signed certificates are rejected by all platforms.
+2. Port 443 is open and reachable from the public internet (not behind a VPN or corporate firewall).
+3. No WAF, CDN rule, or security plugin is blocking unauthenticated POST requests to `/wp-json/kmbp/v1/webhooks/*`.
+
+If your staging subdomain shares a server with production, ensure `WP_HOME` and `WP_SITEURL` in `wp-config.php` (or Settings → General) point to the correct subdomain so that the REST URL used for webhooks is accurate.
+
+= What should I check if I can't get Messenger and WhatsApp working? =
+
+Both channels run on the Meta Graph API. Work through this checklist:
+
+1. **Verify Token mismatch** — the token in Settings → WhatsApp/Messenger must exactly match the one entered in the Meta App → Webhooks configuration. Copy-paste it; do not retype.
+2. **Webhook fields not subscribed** — in Meta App → Products → WhatsApp (or Messenger) → Configuration → Webhooks, make sure `messages` and `messaging_postbacks` are subscribed.
+3. **App in Development mode** — while in Development mode only admins and testers of the Meta App can send messages. Submit for App Review to go live with real users.
+4. **Short-lived access token** — user tokens expire after ~60 days. Generate a **System User permanent token** in Meta Business Settings → System Users.
+5. **Wrong App Secret** — the App Secret validates the `X-Hub-Signature-256` header on every inbound webhook. A mismatched secret causes the plugin to silently reject all incoming messages. Double-check it in Settings → WhatsApp → API Setup.
+6. **Phone Number ID vs. WABAID** (WhatsApp only) — the Phone Number ID and WABA ID are different values. Check both in Meta Business Manager → WhatsApp → API Setup.
+
+= How do I add a messaging button to my WordPress pages? =
+
+Use the built-in shortcode **`[kmbp_channel_button channel="whatsapp"]`**. Open **Kinetix Messaging → Settings → (any channel) → Share & Embed** to get the exact shortcode for that channel, with one-click copy. The panel also shows ready-to-paste snippets for:
+
+* **Gutenberg** — add a Shortcode block and paste.
+* **Elementor** — drag the Shortcode widget and paste.
+
+Optional attributes: `label="Chat with us"`, `style="link"` (plain anchor instead of pill button), `class="my-class"`.
+
+= Can multiple agents use the inbox at the same time? =
+
+Yes. Assign the built-in **Messaging Agent** role (or the `kmbp_access_messaging` capability) to as many team members as needed. Each agent logs into WordPress independently and opens the Kinetix Messaging inbox. Conversations can be assigned to specific agents via the right-hand panel in the conversation view. The inbox polls for new messages every 8 seconds so all agents see updates in near-real time without refreshing.
+
+= How do I send automated welcome or auto-reply messages? =
+
+Most channels have a dedicated auto-reply option in their settings panel:
+
+* **All channels** — enable the **Auto-reply** toggle and write your message in the text field that appears. The message is sent automatically when a new conversation starts.
+* **Telegram** — enable **Auto-reply on /start** in Settings → Telegram → Features. The welcome message fires when a user first sends `/start` to your bot.
+* **Messenger / Instagram** — set a greeting in the **Automation** tab.
+* **Email** — configure the auto-reply subject and body in Settings → Email → Templates.
+* **Live Chat** — enable auto-reply in Settings → Live Chat → Messaging.
+
+= How do I add Live Chat to my website? =
+
+Open **Kinetix Messaging → Settings → Live Chat**, paste an API key from [livechat.pluginpros.co](https://livechat.pluginpros.co/), enable the channel, and save. The chat widget appears on every public page automatically. Visitor messages show up in the inbox; agent replies are sent back through the same live chat room.
+
+Live Chat does not need a public webhook URL, so it can be tested on `localhost` as long as the site can reach livechat.pluginpros.co.
+
+== Screenshots ==
+
+1. Unified inbox — all conversations in one WordPress admin screen.
+2. Channel settings — connect WhatsApp, Telegram, email, SMS, and more.
+3. Conversation view — read and reply without leaving WordPress.
+4. Availability — set weekly business hours; agents choose Online or Away, and new chats go only to online agents.
+5. Agents & Departments — organise agents into departments and see who is online.
+6. AI Support — choose OpenAI, Grok, Claude, Gemini, or an OpenAI-compatible provider to greet, route, and answer customers.
+7. Live Chat conversation — reply, add internal notes, use quick replies, and manage assignee, status, and priority.
+
+== Installation ==
+
+1. Upload the plugin files to `/wp-content/plugins/kinetix-messaging-by-ppros`, or install through the WordPress plugins screen.
+2. Activate the plugin through the Plugins screen in WordPress.
+3. Open **Kinetix Messaging → Inbox** and configure your channel settings.
 
 == External services ==
 
@@ -165,83 +273,50 @@ Optional. When an administrator deactivates the plugin from the Plugins screen, 
 
 Primary endpoint: `https://pluginpros.co/wp-json/kmbp/v1/deactivate-feedback` — **Service provided by Plugin Pros:** [pluginpros.co](https://pluginpros.co/). Contact: support@pluginpros.co.
 
-== Installation ==
+== Source code ==
 
-1. Upload the plugin files to `/wp-content/plugins/kinetix-messaging-by-ppros`, or install through the WordPress plugins screen.
-2. Activate the plugin through the Plugins screen in WordPress.
-3. Open **Kinetix Messaging → Inbox** and configure your channel settings.
+The human-readable source for the compiled admin UI lives in the `src/` directory inside this plugin (React/JSX, CSS). The minified files in `build/` are generated from that source.
 
-== Screenshots ==
+**Public source repository:** https://github.com/sakib08/Omnichannel
 
-1. Unified inbox — all conversations in one WordPress admin screen.
-2. Channel settings — connect WhatsApp, Telegram, email, SMS, and more.
-3. Conversation view — read and reply without leaving WordPress.
+= Build tools =
 
-== Frequently Asked Questions ==
+The admin inbox is built with [@wordpress/scripts](https://www.npmjs.com/package/@wordpress/scripts) (webpack), React 19, and Tailwind CSS 4.
 
-= Can I debug my messaging channel on a local machine? =
+= Regenerating build/ assets =
 
-No — messaging platforms (Telegram, Meta, LINE, Viber, WeChat) deliver inbound messages via webhooks, which require a **publicly reachable HTTPS URL**. A local machine (`localhost`, `127.0.0.1`, `.test`, `.local`) is not reachable from the public internet, so inbound webhook deliveries will fail silently.
+From the plugin root directory:
 
-To test locally, use a tunnel tool to expose your machine temporarily:
+1. Install Node.js 18+ and npm.
+2. Run `npm install`
+3. Run `npm run build`
 
-* **ngrok** — `ngrok http 80` gives you a public HTTPS URL.
-* **Cloudflare Tunnel** — `cloudflared tunnel --url http://localhost:80`.
-* **Expose** — `expose share http://localhost`.
+This compiles `src/` into `build/index.js`, `build/index.css`, and related files, and copies Tabler icon fonts into `assets/tabler-icons/` (via a local build script; shell scripts are not shipped in the WordPress.org ZIP).
 
-After starting the tunnel, update **WordPress → Settings → General → Site URL** to the tunnel HTTPS address, flush permalinks, and re-register the webhook for your channel.
+To create a distributable ZIP locally: `npm run bundle`
 
-= Can I debug my messaging channel on a subdomain? =
+== Third-party licenses ==
 
-Yes — a public subdomain works well for staging or development, as long as:
+This plugin is free software released under the GPLv2 (or later). All bundled libraries and assets included in the distributed plugin are licensed under the GPL or another GPL-compatible license (MIT, BSD, etc.).
 
-1. The subdomain resolves over **HTTPS** with a valid SSL certificate. Self-signed certificates are rejected by all platforms.
-2. Port 443 is open and reachable from the public internet (not behind a VPN or corporate firewall).
-3. No WAF, CDN rule, or security plugin is blocking unauthenticated POST requests to `/wp-json/kmbp/v1/webhooks/*`.
+The following components are bundled in the distributed plugin (compiled into `build/` or copied to `assets/`).
 
-If your staging subdomain shares a server with production, ensure `WP_HOME` and `WP_SITEURL` in `wp-config.php` (or Settings → General) point to the correct subdomain so that the REST URL used for webhooks is accurate.
+* **React** and **React DOM** — MIT License (GPL-compatible). Copyright Meta Platforms, Inc. https://github.com/facebook/react
+* **Tabler Icons** (webfont in `assets/tabler-icons/`) — MIT License (GPL-compatible). Copyright Paweł Kuna. https://github.com/tabler/tabler-icons — See `assets/tabler-icons/LICENSE`.
+* **@wordpress/scripts** build output — GPLv2 or later (WordPress ecosystem). https://github.com/WordPress/gutenberg/tree/trunk/packages/scripts
 
-= What should I check if I can't get Messenger and WhatsApp working? =
-
-Both channels run on the Meta Graph API. Work through this checklist:
-
-1. **Verify Token mismatch** — the token in Settings → WhatsApp/Messenger must exactly match the one entered in the Meta App → Webhooks configuration. Copy-paste it; do not retype.
-2. **Webhook fields not subscribed** — in Meta App → Products → WhatsApp (or Messenger) → Configuration → Webhooks, make sure `messages` and `messaging_postbacks` are subscribed.
-3. **App in Development mode** — while in Development mode only admins and testers of the Meta App can send messages. Submit for App Review to go live with real users.
-4. **Short-lived access token** — user tokens expire after ~60 days. Generate a **System User permanent token** in Meta Business Settings → System Users.
-5. **Wrong App Secret** — the App Secret validates the `X-Hub-Signature-256` header on every inbound webhook. A mismatched secret causes the plugin to silently reject all incoming messages. Double-check it in Settings → WhatsApp → API Setup.
-6. **Phone Number ID vs. WABAID** (WhatsApp only) — the Phone Number ID and WABA ID are different values. Check both in Meta Business Manager → WhatsApp → API Setup.
-
-= How do I add a messaging button to my WordPress pages? =
-
-Use the built-in shortcode **`[kmbp_channel_button channel="whatsapp"]`**. Open **Kinetix Messaging → Settings → (any channel) → Share & Embed** to get the exact shortcode for that channel, with one-click copy. The panel also shows ready-to-paste snippets for:
-
-* **Gutenberg** — add a Shortcode block and paste.
-* **Elementor** — drag the Shortcode widget and paste.
-
-Optional attributes: `label="Chat with us"`, `style="link"` (plain anchor instead of pill button), `class="my-class"`.
-
-= Can multiple agents use the inbox at the same time? =
-
-Yes. Assign the built-in **Messaging Agent** role (or the `kmbp_access_messaging` capability) to as many team members as needed. Each agent logs into WordPress independently and opens the Kinetix Messaging inbox. Conversations can be assigned to specific agents via the right-hand panel in the conversation view. The inbox polls for new messages every 8 seconds so all agents see updates in near-real time without refreshing.
-
-= How do I send automated welcome or auto-reply messages? =
-
-Most channels have a dedicated auto-reply option in their settings panel:
-
-* **All channels** — enable the **Auto-reply** toggle and write your message in the text field that appears. The message is sent automatically when a new conversation starts.
-* **Telegram** — enable **Auto-reply on /start** in Settings → Telegram → Features. The welcome message fires when a user first sends `/start` to your bot.
-* **Messenger / Instagram** — set a greeting in the **Automation** tab.
-* **Email** — configure the auto-reply subject and body in Settings → Email → Templates.
-* **Live Chat** — enable auto-reply in Settings → Live Chat → Messaging.
-
-= How do I add Live Chat to my website? =
-
-Open **Kinetix Messaging → Settings → Live Chat**, paste an API key from [livechat.pluginpros.co](https://livechat.pluginpros.co/), enable the channel, and save. The chat widget appears on every public page automatically. Visitor messages show up in the inbox; agent replies are sent back through the same live chat room.
-
-Live Chat does not need a public webhook URL, so it can be tested on `localhost` as long as the site can reach livechat.pluginpros.co.
+Development-only tools (npm packages used at build time, not included in the plugin ZIP) are not distributed with this plugin.
 
 == Changelog ==
+
+= 1.4.0 =
+* Add browser notifications: a bell in the inbox sidebar turns on desktop pop-ups and a sound for new customer messages, set per agent and per browser. Clicking a pop-up opens the conversation.
+* Show the number of unread conversations in the browser tab title.
+* Keep checking for new messages about every 30 seconds while the inbox is in a background tab.
+* Notify agents about conversations assigned to them, and about unassigned conversations the AI isn't handling unless they are set to Away.
+* Add Settings → Notifications with email alerts when a conversation is assigned to an agent. By default, the email is only sent when the agent is offline or away.
+* Optionally email a reminder when a customer has waited 5, 10, 15, 30, or 60 minutes without a reply. It goes to the assigned agent, otherwise the department's agents, otherwise all agents, and is sent once per unanswered message.
+* Email links and `?conversation=` links open that conversation directly in the inbox.
 
 = 1.3.0 =
 * Add agent presence: agents set themselves Online or Away from their avatar in the inbox sidebar. Online agents stay available while the inbox or any admin page is open, including in a background tab, and go offline after about 3 minutes without activity or when the inbox tab closes.

@@ -63,6 +63,7 @@ class Kinetix_Messaging_By_Ppros_Activator {
         self::migrate_settings_keys();
         self::migrate_resanitize_email_html();
         Kinetix_Messaging_By_Ppros_Email_Pipe::schedule_cron();
+        Kinetix_Messaging_By_Ppros_Notifications::schedule_cron();
     }
 
     /**
@@ -251,6 +252,7 @@ class Kinetix_Messaging_By_Ppros_Activator {
     public static function deactivate() {
         // Unschedule the IMAP poll cron on deactivation.
         Kinetix_Messaging_By_Ppros_Email_Pipe::unschedule_cron();
+        Kinetix_Messaging_By_Ppros_Notifications::unschedule_cron();
         // Roles/caps and data are intentionally left in place on deactivation
         // so the admin doesn't lose history.  Removed only on uninstall.
     }

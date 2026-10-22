@@ -4,6 +4,102 @@ import ThemeToggle from "./ThemeToggle.jsx";
 import { ChannelIcon } from "./ChannelBadge.jsx";
 import { currentUser } from "../api/client.js";
 import { PRESENCE_STYLES } from "./PresenceDot.jsx";
+import {
+  notificationPermission,
+  requestNotificationPermission,
+  playChime,
+} from "../notifications.js";
+
+function Switch({ checked, onChange, disabled }) {
+  return (
+    <button
+      type="button"
+      onClick={() => !disabled && onChange(!checked)}
+      disabled={disabled}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${checked && !disabled ? "bg-indigo-500" : "bg-gray-300"} disabled:opacity-50`}
+    >
+      <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-4" : "translate-x-1"}`} />
+    </button>
+  );
+}
+
+function NotificationMenu({ prefs, setPrefs }) {
+  const [open, setOpen] = useState(false);
+  const [permission, setPermission] = useState(notificationPermission);
+  const needsSetup = prefs.desktop && permission === "default";
+  const desktopOn = prefs.desktop && permission === "granted";
+
+  const toggleDesktop = async (on) => {
+    if (on && permission === "default") {
+      const result = await requestNotificationPermission();
+      setPermission(result);
+      setPrefs({ ...prefs, desktop: result === "granted" });
+      return;
+    }
+    setPrefs({ ...prefs, desktop: on });
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title="Notifications"
+        className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:opacity-80"
+      >
+        <i
+          className={`ti ${desktopOn || prefs.sound ? "ti-bell" : "ti-bell-off"}`}
+          style={{ fontSize: 18, color: "#9ca3af" }}
+        />
+        {needsSetup && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-amber-400 rounded-full" />}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-12 bottom-0 z-50 w-64 rounded-xl border border-gray-100 bg-white shadow-lg p-3 text-sm space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Notifications on this browser</p>
+
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-gray-800">Desktop pop-ups</p>
+                <p className="text-xs text-gray-400">When the inbox isn't in front</p>
+              </div>
+              <Switch
+                checked={desktopOn}
+                onChange={toggleDesktop}
+                disabled={permission === "denied" || permission === "unsupported"}
+              />
+            </div>
+            {permission === "denied" && (
+              <p className="text-xs text-amber-600 leading-relaxed">
+                Blocked by your browser. Allow notifications for this site in the browser&apos;s site settings, then reload.
+              </p>
+            )}
+            {permission === "unsupported" && (
+              <p className="text-xs text-amber-600 leading-relaxed">
+                Not available here. Browser notifications need the site to use HTTPS.
+              </p>
+            )}
+
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-gray-800">Sound</p>
+                <button type="button" onClick={playChime} className="text-xs text-indigo-500 hover:underline">
+                  Play test sound
+                </button>
+              </div>
+              <Switch checked={!!prefs.sound} onChange={(on) => setPrefs({ ...prefs, sound: on })} />
+            </div>
+
+            <p className="pt-2 border-t border-gray-100 text-xs text-gray-400 leading-relaxed">
+              You&apos;re alerted about chats assigned to you, and unassigned chats the AI isn&apos;t handling unless you&apos;re set to Away. Keep this inbox open in a tab to receive them.
+            </p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function initials(name = "") {
   return (
@@ -71,7 +167,17 @@ function StatusMenu({ presence, onChangeStatus }) {
   );
 }
 
-export default function Sidebar({ activeChannel, setActiveChannel, conversations, theme, toggleTheme, presence, onChangeStatus }) {
+export default function Sidebar({
+  activeChannel,
+  setActiveChannel,
+  conversations,
+  theme,
+  toggleTheme,
+  presence,
+  onChangeStatus,
+  notifyPrefs,
+  setNotifyPrefs,
+}) {
   return (
     <aside className="w-16 bg-white border-r border-gray-100 flex flex-col items-center py-4 gap-1 z-10 shadow-sm">
       <div className="mb-4">
@@ -107,6 +213,7 @@ export default function Sidebar({ activeChannel, setActiveChannel, conversations
       })}
 
       <div className="flex-1" />
+      {notifyPrefs && <NotificationMenu prefs={notifyPrefs} setPrefs={setNotifyPrefs} />}
       <ThemeToggle theme={theme} onToggle={toggleTheme} compact />
       <button
         onClick={() => setActiveChannel("settings")}
