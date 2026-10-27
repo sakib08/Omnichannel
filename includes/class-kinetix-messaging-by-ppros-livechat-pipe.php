@@ -6,8 +6,13 @@
  *            The public site widget POSTs visitor messages so they appear
  *            in the WordPress inbox. Authenticated with a widget token.
  *
+ * Upload   — POST /wp-json/kmbp/v1/livechat/upload
+ *            Multipart field "file" (JPEG, PNG, GIF, WebP, PDF). Saved with
+ *            wp_handle_upload into the WordPress uploads directory and
+ *            registered in the media library. Widget token or an agent session.
+ *
  * Outbound — POST /wp-json/kmbp/v1/livechat/send
- *            Agents POST { conversationId, recipientId (room_id), text }.
+ *            Agents POST { conversationId, recipientId (room_id), text, attachmentId }.
  *            Delivered over a short-lived WebSocket connection to the same room.
  *
  * Public widget config is localised from PHP (not this REST surface).
@@ -55,6 +60,16 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
 
         register_rest_route(
             $ns,
+            '/livechat/upload',
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array( $this, 'handle_upload' ),
+                'permission_callback' => array( $this, 'check_upload_permission' ),
+            )
+        );
+
+        register_rest_route(
+            $ns,
             '/livechat/send',
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
@@ -63,7 +78,8 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
                 'args'                => array(
                     'conversationId' => array( 'required' => true, 'type' => 'integer' ),
                     'recipientId'    => array( 'required' => true, 'type' => 'string' ),
-                    'text'           => array( 'required' => true, 'type' => 'string' ),
+                    'text'           => array( 'required' => false, 'type' => 'string' ),
+                    'attachmentId'   => array( 'required' => false, 'type' => 'integer' ),
                 ),
             )
         );
@@ -96,6 +112,19 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
         return hash_equals( $stored, $provided );
     }
 
+    /**
+     * Visitors use the public widget token. Agents use their WordPress session.
+     */
+    public function check_upload_permission( WP_REST_Request $request ): bool {
+        if ( ! $this->is_channel_enabled() ) {
+            return false;
+        }
+        if ( $this->check_access() ) {
+            return true;
+        }
+        return $this->check_inbound_permission( $request );
+    }
+
     // ── Inbound visitor message ───────────────────────────────────────────
 
     public function handle_inbound( WP_REST_Request $request ) {
@@ -107,11 +136,21 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
             );
         }
 
-        $cfg     = $this->get_settings();
-        $text    = sanitize_textarea_field( (string) $request->get_param( 'text' ) );
-        $name    = sanitize_text_field( (string) $request->get_param( 'senderName' ) );
-        $email   = sanitize_email( (string) $request->get_param( 'email' ) );
-        $msg_uid = sanitize_text_field( (string) $request->get_param( 'messageId' ) );
+        $cfg           = $this->get_settings();
+        $text          = sanitize_textarea_field( (string) $request->get_param( 'text' ) );
+        $name          = sanitize_text_field( (string) $request->get_param( 'senderName' ) );
+        $email         = sanitize_email( (string) $request->get_param( 'email' ) );
+        $msg_uid       = sanitize_text_field( (string) $request->get_param( 'messageId' ) );
+        $attachment_id = absint( $request->get_param( 'attachmentId' ) );
+        $attachment    = $this->livechat_attachment_payload( $attachment_id );
+
+        if ( $attachment_id > 0 && ! $attachment ) {
+            return new WP_Error(
+                'kmbp_livechat_bad_file',
+                __( 'That file is no longer available.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
 
         $identity = $this->resolve_visitor_identity( $name, $email );
         $name     = $identity['name'];
@@ -125,7 +164,7 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
         if ( '' === $room_id || ! is_email( $email ) ) {
             return new WP_Error( 'kmbp_livechat_email_required', __( 'A valid email address is required to chat.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
-        if ( '' === trim( $text ) ) {
+        if ( '' === trim( $text ) && ! $attachment ) {
             return new WP_Error( 'kmbp_empty_body', __( 'Message text is required.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
         if ( strlen( $text ) > 4000 ) {
@@ -136,7 +175,8 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
         }
         $name = mb_substr( $name, 0, 80 );
 
-        $subject         = mb_substr( $text, 0, 80 ) ?: __( 'Live chat', 'kinetix-messaging-by-ppros' );
+        $body            = $attachment ? $this->attachment_message_body( $text, $attachment ) : $text;
+        $subject         = mb_substr( $body, 0, 80 ) ?: __( 'Live chat', 'kinetix-messaging-by-ppros' );
         $conversation_id = $this->find_or_create_conversation( $room_id, $name, $email, $subject );
         if ( is_wp_error( $conversation_id ) ) {
             return $conversation_id;
@@ -146,17 +186,22 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
 
         $is_first = $this->conversation_message_count( $conversation_id ) === 0;
 
-        $external_id = '' !== $msg_uid ? 'lc_' . $msg_uid : 'lc_' . md5( $room_id . '|' . $text . '|' . $name );
-        $message_id  = $this->store_message(
+        $external_id = '' !== $msg_uid ? 'lc_' . $msg_uid : 'lc_' . md5( $room_id . '|' . $body . '|' . $name . '|' . (string) $attachment_id );
+        $meta        = array(
+            'channel' => 'livechat',
+            'roomId'  => $room_id,
+            'email'   => $email,
+        );
+        if ( $attachment ) {
+            $meta['attachment'] = $attachment;
+            $meta['caption']    = $text;
+        }
+        $message_id = $this->store_message(
             $conversation_id,
-            esc_html( $text ),
+            $attachment ? $body : esc_html( $text ),
             'contact',
             $name,
-            array(
-                'channel' => 'livechat',
-                'roomId'  => $room_id,
-                'email'   => $email,
-            ),
+            $meta,
             $external_id
         );
 
@@ -170,7 +215,7 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
             'livechat',
             array(
                 'from' => $room_id,
-                'text' => $text,
+                'text' => $body,
             )
         );
 
@@ -212,6 +257,126 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
         );
     }
 
+    /**
+     * Save a live chat image, GIF, or PDF with the WordPress uploads API.
+     */
+    public function handle_upload( WP_REST_Request $request ) {
+        if ( ! $this->rate_limit_upload() ) {
+            return new WP_Error(
+                'kmbp_livechat_rate_limited',
+                __( 'Too many uploads. Please wait a moment and try again.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 429 )
+            );
+        }
+
+        $files = $request->get_file_params();
+        $file  = isset( $files['file'] ) && is_array( $files['file'] ) ? $files['file'] : array();
+        if ( empty( $file['tmp_name'] ) ) {
+            $code = isset( $file['error'] ) ? (int) $file['error'] : UPLOAD_ERR_NO_FILE;
+            return new WP_Error(
+                'kmbp_livechat_no_file',
+                $this->upload_error_message( $code ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $error = isset( $file['error'] ) ? (int) $file['error'] : UPLOAD_ERR_OK;
+        if ( UPLOAD_ERR_OK !== $error ) {
+            return new WP_Error(
+                'kmbp_livechat_upload',
+                $this->upload_error_message( $error ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $size = isset( $file['size'] ) ? (int) $file['size'] : 0;
+        if ( $size <= 0 || $size > self::max_upload_bytes() ) {
+            return new WP_Error(
+                'kmbp_livechat_file_size',
+                __( 'That file is too large.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $mimes   = $this->upload_mimes();
+        $checked = wp_check_filetype( (string) ( $file['name'] ?? '' ), $mimes );
+        if ( empty( $checked['type'] ) ) {
+            return new WP_Error(
+                'kmbp_livechat_file_type',
+                __( 'Only images, GIFs, and PDFs can be uploaded.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/media.php';
+        require_once ABSPATH . 'wp-admin/includes/image.php';
+
+        if ( empty( $_FILES['file'] ) ) {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- upload payload, checked by wp_handle_upload.
+            $_FILES['file'] = $file;
+        }
+
+        add_filter( 'upload_dir', array( $this, 'livechat_upload_dir' ) );
+        $attach_id = media_handle_upload(
+            'file',
+            0,
+            array(),
+            array(
+                'test_form' => false,
+                'mimes'     => $mimes,
+            )
+        );
+        remove_filter( 'upload_dir', array( $this, 'livechat_upload_dir' ) );
+
+        if ( is_wp_error( $attach_id ) ) {
+            return new WP_Error(
+                'kmbp_livechat_upload',
+                $attach_id->get_error_message(),
+                array( 'status' => 400 )
+            );
+        }
+
+        $attach_id = (int) $attach_id;
+        $mime      = (string) get_post_mime_type( $attach_id );
+        $path      = (string) get_attached_file( $attach_id );
+        if ( ! in_array( $mime, array_values( $mimes ), true ) || ! $this->file_is_livechat_upload( $path ) || ! $this->file_matches_mime( $path, $mime ) ) {
+            wp_delete_attachment( $attach_id, true );
+            return new WP_Error(
+                'kmbp_livechat_file_type',
+                __( 'Only images, GIFs, and PDFs can be uploaded.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $original = sanitize_file_name( wp_basename( (string) ( $file['name'] ?? '' ) ) );
+        update_post_meta( $attach_id, '_kmbp_livechat_upload', '1' );
+        if ( '' !== $original ) {
+            update_post_meta( $attach_id, '_kmbp_livechat_filename', $original );
+        }
+
+        $payload = $this->livechat_attachment_payload( $attach_id );
+        if ( ! $payload ) {
+            wp_delete_attachment( $attach_id, true );
+            return new WP_Error(
+                'kmbp_livechat_upload',
+                __( 'Could not upload that file.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        return rest_ensure_response(
+            array(
+                'ok'   => true,
+                'id'   => $payload['id'],
+                'url'  => $payload['url'],
+                'name' => $payload['name'],
+                'mime' => $payload['mime'],
+                'kind' => $payload['kind'],
+            )
+        );
+    }
+
     // ── Test WebSocket handshake ──────────────────────────────────────────
 
     public function handle_test_connection() {
@@ -242,7 +407,81 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
 
     // ── Outbound send (agent → visitor room) ──────────────────────────────
 
-    protected function send_message( string $recipient_id, string $text, array $cfg = array() ) {
+    /**
+     * Agent reply. Text is optional when a live chat attachment is included.
+     */
+    public function handle_send( WP_REST_Request $request ) {
+        $cfg = $this->get_settings();
+        if ( empty( $cfg['enabled'] ) ) {
+            return new WP_Error(
+                'kmbp_channel_disabled',
+                sprintf(
+                    /* translators: %s: channel slug */
+                    __( '%s channel is not enabled.', 'kinetix-messaging-by-ppros' ),
+                    $this->get_channel_slug()
+                ),
+                array( 'status' => 503 )
+            );
+        }
+
+        $conversation_id = (int) $request->get_param( 'conversationId' );
+        $recipient_id    = sanitize_text_field( (string) $request->get_param( 'recipientId' ) );
+        $text            = sanitize_textarea_field( (string) $request->get_param( 'text' ) );
+        $attachment_id   = absint( $request->get_param( 'attachmentId' ) );
+        $attachment      = $this->livechat_attachment_payload( $attachment_id );
+
+        if ( $attachment_id > 0 && ! $attachment ) {
+            return new WP_Error(
+                'kmbp_livechat_bad_file',
+                __( 'That file is no longer available.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+        if ( '' === trim( $text ) && ! $attachment ) {
+            return new WP_Error( 'kmbp_empty_body', __( 'Message text is required.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+        }
+        if ( strlen( $text ) > 4000 ) {
+            $text = substr( $text, 0, 4000 );
+        }
+
+        $result = $this->send_message( $recipient_id, $text, $cfg, $attachment ? $attachment : array() );
+        if ( is_wp_error( $result ) ) {
+            return $result;
+        }
+
+        $current_user = wp_get_current_user();
+        $meta         = array(
+            'direction'   => 'outbound',
+            'recipientId' => $recipient_id,
+            'apiResult'   => $result,
+        );
+        if ( $attachment ) {
+            $meta['attachment'] = $attachment;
+            $meta['caption']    = $text;
+        }
+
+        $message_id = $this->store_message(
+            $conversation_id,
+            $attachment ? $this->attachment_message_body( $text, $attachment ) : $text,
+            'agent',
+            $current_user->display_name ?: $current_user->user_email,
+            $meta
+        );
+
+        return rest_ensure_response(
+            array(
+                'sent'       => true,
+                'messageId'  => $message_id,
+                'channel'    => $this->get_channel_slug(),
+                'attachment' => $attachment,
+            )
+        );
+    }
+
+    /**
+     * @param array $attachment Live chat attachment payload, or empty.
+     */
+    protected function send_message( string $recipient_id, string $text, array $cfg = array(), array $attachment = array() ) {
         if ( empty( $cfg ) ) {
             $cfg = $this->get_settings();
         }
@@ -268,11 +507,26 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
             $agent_name = $current->display_name ?: __( 'Support', 'kinetix-messaging-by-ppros' );
         }
 
+        $wire = $text;
+        if ( ! empty( $attachment['url'] ) ) {
+            $url  = (string) $attachment['url'];
+            $wire = '' !== trim( $text ) ? $text . "\n" . $url : $url;
+        }
+
         $payload = array(
-            'content'     => $text,
+            'content'     => $wire,
             'sender_name' => $agent_name,
             'sender_type' => 'agent',
         );
+        if ( ! empty( $attachment['url'] ) ) {
+            $payload['attachment'] = array(
+                'id'   => (int) ( $attachment['id'] ?? 0 ),
+                'url'  => (string) $attachment['url'],
+                'name' => (string) ( $attachment['name'] ?? '' ),
+                'mime' => (string) ( $attachment['mime'] ?? '' ),
+                'kind' => (string) ( $attachment['kind'] ?? '' ),
+            );
+        }
 
         $result = $this->websocket_send_json( $this->normalized_host( $cfg ), $room_id, $api_key, $payload );
         if ( is_wp_error( $result ) ) {
@@ -457,6 +711,163 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
             $agent_name,
             array( 'direction' => 'outbound', 'autoReply' => true )
         );
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function upload_mimes(): array {
+        return array(
+            'jpg|jpeg|jpe' => 'image/jpeg',
+            'png'          => 'image/png',
+            'gif'          => 'image/gif',
+            'webp'         => 'image/webp',
+            'pdf'          => 'application/pdf',
+        );
+    }
+
+    public static function max_upload_bytes(): int {
+        $cap = 8 * MB_IN_BYTES;
+        if ( function_exists( 'wp_max_upload_size' ) ) {
+            $cap = (int) min( $cap, wp_max_upload_size() );
+        }
+        return max( 1, $cap );
+    }
+
+    public static function uploads_base_url(): string {
+        $uploads = wp_upload_dir();
+        return trailingslashit( (string) ( $uploads['baseurl'] ?? '' ) ) . 'kmbp-livechat';
+    }
+
+    /**
+     * Keep live chat files under wp-content/uploads/kmbp-livechat.
+     *
+     * @param array $dirs WordPress upload_dir payload.
+     * @return array
+     */
+    public function livechat_upload_dir( array $dirs ): array {
+        $subdir         = '/kmbp-livechat' . (string) ( $dirs['subdir'] ?? '' );
+        $dirs['subdir'] = $subdir;
+        $dirs['path']   = (string) $dirs['basedir'] . $subdir;
+        $dirs['url']    = (string) $dirs['baseurl'] . $subdir;
+        return $dirs;
+    }
+
+    /**
+     * @return array{id:int,url:string,name:string,mime:string,kind:string}|null
+     */
+    private function livechat_attachment_payload( int $attachment_id ): ?array {
+        if ( $attachment_id <= 0 ) {
+            return null;
+        }
+        $post = get_post( $attachment_id );
+        if ( ! $post instanceof WP_Post || 'attachment' !== $post->post_type ) {
+            return null;
+        }
+        if ( '1' !== (string) get_post_meta( $attachment_id, '_kmbp_livechat_upload', true ) ) {
+            return null;
+        }
+
+        $mime    = (string) get_post_mime_type( $attachment_id );
+        $allowed = array_values( $this->upload_mimes() );
+        if ( ! in_array( $mime, $allowed, true ) ) {
+            return null;
+        }
+
+        $path = (string) get_attached_file( $attachment_id );
+        $url  = (string) wp_get_attachment_url( $attachment_id );
+        if ( '' === $url || ! $this->file_is_livechat_upload( $path ) ) {
+            return null;
+        }
+
+        $saved = sanitize_file_name( (string) get_post_meta( $attachment_id, '_kmbp_livechat_filename', true ) );
+        $name  = '' !== $saved ? $saved : wp_basename( $path );
+        if ( 'application/pdf' === $mime ) {
+            $kind = 'pdf';
+        } elseif ( 'image/gif' === $mime ) {
+            $kind = 'gif';
+        } else {
+            $kind = 'image';
+        }
+
+        return array(
+            'id'   => $attachment_id,
+            'url'  => $url,
+            'name' => $name,
+            'mime' => $mime,
+            'kind' => $kind,
+        );
+    }
+
+    /**
+     * Inbox preview text when a message is only a file, or the visitor caption.
+     */
+    private function attachment_message_body( string $text, array $attachment ): string {
+        if ( '' !== trim( $text ) ) {
+            return $text;
+        }
+        $kind = (string) ( $attachment['kind'] ?? '' );
+        if ( 'pdf' === $kind ) {
+            return __( 'Sent a PDF', 'kinetix-messaging-by-ppros' );
+        }
+        if ( 'gif' === $kind ) {
+            return __( 'Sent a GIF', 'kinetix-messaging-by-ppros' );
+        }
+        return __( 'Sent an image', 'kinetix-messaging-by-ppros' );
+    }
+
+    private function file_is_livechat_upload( string $path ): bool {
+        $uploads = wp_upload_dir();
+        $base    = trailingslashit( wp_normalize_path( (string) $uploads['basedir'] . '/kmbp-livechat' ) );
+        $path    = wp_normalize_path( $path );
+        return '' !== $path && 0 === strpos( $path, $base );
+    }
+
+    private function file_matches_mime( string $path, string $mime ): bool {
+        if ( '' === $path || ! is_readable( $path ) ) {
+            return false;
+        }
+        if ( 'application/pdf' === $mime ) {
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- local upload sniff, not a remote request.
+            $handle = fopen( $path, 'rb' );
+            if ( ! $handle ) {
+                return false;
+            }
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread -- local upload sniff, not a remote request.
+            $head = fread( $handle, 5 );
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+            fclose( $handle );
+            return '%PDF-' === $head;
+        }
+        $detected = wp_get_image_mime( $path );
+        return is_string( $detected ) && $detected === $mime;
+    }
+
+    private function upload_error_message( int $code ): string {
+        if ( UPLOAD_ERR_INI_SIZE === $code || UPLOAD_ERR_FORM_SIZE === $code ) {
+            return __( 'That file is too large.', 'kinetix-messaging-by-ppros' );
+        }
+        if ( UPLOAD_ERR_NO_FILE === $code ) {
+            return __( 'Choose a file to upload.', 'kinetix-messaging-by-ppros' );
+        }
+        return __( 'Could not upload that file.', 'kinetix-messaging-by-ppros' );
+    }
+
+    private function rate_limit_upload(): bool {
+        if ( is_user_logged_in() && $this->check_access() ) {
+            $key = 'kmbp_lc_up_u_' . get_current_user_id();
+            $max = 30;
+        } else {
+            $ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
+            $key = 'kmbp_lc_up_' . md5( $ip );
+            $max = 8;
+        }
+        $n = (int) get_transient( $key );
+        if ( $n >= $max ) {
+            return false;
+        }
+        set_transient( $key, $n + 1, 10 * MINUTE_IN_SECONDS );
+        return true;
     }
 
     private function rate_limit_inbound(): bool {

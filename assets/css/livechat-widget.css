@@ -237,7 +237,8 @@
 }
 
 #kmbp-livechat.kmbp-lc-locked .kmbp-lc-ice-btn,
-#kmbp-livechat.kmbp-lc-locked .kmbp-lc-send {
+#kmbp-livechat.kmbp-lc-locked .kmbp-lc-send,
+#kmbp-livechat.kmbp-lc-locked .kmbp-lc-attach {
   opacity: 0.45;
 }
 
@@ -298,6 +299,7 @@
 }
 
 #kmbp-livechat .kmbp-lc-composer {
+  position: relative;
   padding: 12px 16px 16px;
 }
 
@@ -307,7 +309,114 @@
   gap: 8px;
   background: #f3f4f6;
   border-radius: 16px;
-  padding: 6px 6px 6px 14px;
+  padding: 6px;
+}
+
+#kmbp-livechat .kmbp-lc-attach {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+#kmbp-livechat .kmbp-lc-attach:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+#kmbp-livechat .kmbp-lc-attach:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+#kmbp-livechat .kmbp-lc-attach svg {
+  width: 18px;
+  height: 18px;
+}
+
+#kmbp-livechat .kmbp-lc-composer-inner input.kmbp-lc-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+  flex: none;
+}
+
+#kmbp-livechat .kmbp-lc-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  background: #f3f4f6;
+}
+
+#kmbp-livechat .kmbp-lc-file[hidden] {
+  display: none;
+}
+
+#kmbp-livechat .kmbp-lc-file img {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+#kmbp-livechat .kmbp-lc-file-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#kmbp-livechat .kmbp-lc-file-remove {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 18px;
+  line-height: 1;
+}
+
+#kmbp-livechat .kmbp-lc-file-remove:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+#kmbp-livechat .kmbp-lc-bubble img {
+  display: block;
+  max-width: min(220px, 100%);
+  max-height: 220px;
+  border-radius: 10px;
+}
+
+#kmbp-livechat .kmbp-lc-bubble .kmbp-lc-bubble-text + img,
+#kmbp-livechat .kmbp-lc-bubble .kmbp-lc-bubble-text + .kmbp-lc-file-link {
+  margin-top: 6px;
+}
+
+#kmbp-livechat .kmbp-lc-file-link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  word-break: break-all;
 }
 
 #kmbp-livechat .kmbp-lc-composer-inner input {

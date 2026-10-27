@@ -89,16 +89,41 @@ export function normaliseConversation(raw) {
   };
 }
 
+function safeHttpUrl(url) {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") return parsed.href;
+  } catch (_) {
+    return "";
+  }
+  return "";
+}
+
+function attachmentFromMeta(meta) {
+  const att = meta && meta.attachment;
+  if (!att || typeof att !== "object" || !att.url) return null;
+  const url = safeHttpUrl(att.url);
+  if (!url) return null;
+  return {
+    url,
+    name: att.name || "",
+    mime: att.mime || "",
+    kind: att.kind || "",
+  };
+}
+
 export function normaliseMessage(raw) {
   const body = raw.body || "";
+  const attachment = attachmentFromMeta(raw.meta);
   return {
     id: raw.id,
     sender: raw.senderName || "Unknown",
-    text: body,
-    isHtml: /<[a-z][\s\S]*>/i.test(body),
+    text: attachment ? String(raw.meta?.caption || "") : body,
+    isHtml: !attachment && /<[a-z][\s\S]*>/i.test(body),
     time: formatTime(raw.sentAt),
     isAgent: raw.senderType === "agent",
     isAi: !!(raw.isAi || raw.meta?.ai),
+    attachment,
   };
 }
 
@@ -116,6 +141,15 @@ export default function OmnichannelApp() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("reply");
   const [replyText, setReplyText] = useState("");
+  const [replyFile, setReplyFileState] = useState(null);
+  const setReplyFile = (next) => {
+    setReplyFileState((prev) => {
+      if (prev?.previewUrl && prev.previewUrl !== next?.previewUrl) {
+        URL.revokeObjectURL(prev.previewUrl);
+      }
+      return next;
+    });
+  };
   const [noteText, setNoteText] = useState("");
   const [showSaved, setShowSaved] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
@@ -383,6 +417,7 @@ export default function OmnichannelApp() {
   const handleSelectConversation = (id) => {
     setSelected(id);
     setSendError("");
+    setReplyFile(null);
     // Optimistically clear unread badge.
     setConversations((prev) =>
       prev.map((c) => (c.id === id ? { ...c, unread: 0 } : c))
@@ -390,17 +425,28 @@ export default function OmnichannelApp() {
   };
 
   const sendReply = async () => {
-    if (!replyText.trim() || !selected || sendingReply) return;
+    const plainText = replyText.trim();
+    const pending = replyFile;
+    if ((!plainText && !pending?.file) || !selected || sendingReply) return;
     const conv = conversations.find((c) => c.id === selected);
     if (!conv) return;
 
     setSendingReply(true);
     setSendError("");
 
-    const plainText = replyText.trim();
-
     try {
       let newMsg;
+      let uploaded = pending?.uploaded || null;
+
+      if (pending?.file) {
+        if (conv.channel !== "livechat") {
+          throw new Error("Attach images, GIFs, and PDFs from a live chat conversation.");
+        }
+        if (!uploaded) {
+          uploaded = await api.uploadLivechat(pending.file);
+          setReplyFile({ ...pending, uploaded });
+        }
+      }
 
       if (conv.channel === "email") {
         // Email: send via SMTP using the email pipe endpoint.
@@ -422,11 +468,21 @@ export default function OmnichannelApp() {
       } else {
         // All other channels: use the channel-specific send endpoint which
         // both delivers the message via the external API and stores it in DB.
-        const result = await api.sendChannel(conv.channel, {
+        const payload = {
           conversationId: selected,
           recipientId: conv.externalId || conv.contactHandle,
           text: plainText,
-        });
+        };
+        if (uploaded?.id) payload.attachmentId = uploaded.id;
+        const result = await api.sendChannel(conv.channel, payload);
+        const attachment = uploaded?.url
+          ? {
+              url: uploaded.url,
+              name: uploaded.name || pending?.file?.name || "",
+              mime: uploaded.mime || "",
+              kind: uploaded.kind || "",
+            }
+          : null;
         newMsg = {
           id: result.messageId || Date.now(),
           sender: currentUser.name || "You",
@@ -434,8 +490,12 @@ export default function OmnichannelApp() {
           isHtml: false,
           time: "just now",
           isAgent: true,
+          attachment,
         };
       }
+
+      const preview = plainText
+        || (uploaded?.kind === "pdf" ? "Sent a PDF" : uploaded?.kind === "gif" ? "Sent a GIF" : uploaded ? "Sent an image" : "");
 
       setMessagesByConvId((prev) => ({
         ...prev,
@@ -450,11 +510,12 @@ export default function OmnichannelApp() {
       setConversations((prev) =>
         prev.map((c) =>
           c.id === selected
-            ? { ...c, preview: plainText.slice(0, 60), time: "just now" }
+            ? { ...c, preview: preview.slice(0, 60), time: "just now" }
             : c
         )
       );
       setReplyText("");
+      setReplyFile(null);
     } catch (err) {
       console.error("[KMBP] Send failed:", err);
       setSendError(err.message || "Failed to send. Please try again.");
@@ -596,6 +657,8 @@ export default function OmnichannelApp() {
             noteText={noteText}
             onBack={handleBackToList}
             replyText={replyText}
+            replyFile={replyFile}
+            setReplyFile={setReplyFile}
             selectedConv={selectedConv}
             sendError={sendError}
             sendReply={sendReply}

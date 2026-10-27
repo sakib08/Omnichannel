@@ -310,6 +310,7 @@ class Kinetix_Messaging_By_Ppros_Admin {
                     <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>wechat/send</code></td>                    <td>Agent</td>    <td>Send a WeChat message.</td></tr>
                     <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>livechat/send</code></td>                  <td>Agent</td>    <td>Send a live chat reply into the visitor's WebSocket room.</td></tr>
                     <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>livechat/inbound</code></td>               <td>Widget token</td> <td>Public widget mirrors a visitor message into the inbox.</td></tr>
+                    <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>livechat/upload</code></td>                <td>Widget token or agent</td> <td>Upload an image, GIF, or PDF. Saved with the WordPress media library.</td></tr>
                     <tr><td><span class="kmbp-badge kmbp-badge-green">POST</span></td>  <td><code>livechat/test-connection</code></td>       <td>Admin</td>    <td>WebSocket handshake check against livechat.pluginpros.co.</td></tr>
                     <tr><td><span class="kmbp-badge kmbp-badge-amber">ANY</span></td>   <td><code>webhooks/{channel}</code></td>             <td>Channel secret</td>     <td>Inbound webhook delivery; each channel verifies its own signature or secret token.</td></tr>
                 </tbody>

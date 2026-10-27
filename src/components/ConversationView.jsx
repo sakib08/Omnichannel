@@ -1,8 +1,54 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Avatar from "./Avatar.jsx";
 import ChannelBadge from "./ChannelBadge.jsx";
 import RightPanel from "./RightPanel.jsx";
 import { channelMeta, priorityConfig, SAVED_REPLIES, statusConfig } from "../constants/config";
+
+const LIVECHAT_MAX_BYTES = 8 * 1024 * 1024;
+
+function safeHttpUrl(url) {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") return parsed.href;
+  } catch (_) {
+    return "";
+  }
+  return "";
+}
+
+function livechatFileError(file) {
+  if (!file) return "Only images, GIFs, and PDFs can be uploaded.";
+  if (!file.size || file.size > LIVECHAT_MAX_BYTES) return "That file is too large.";
+  const name = String(file.name || "").toLowerCase();
+  const okExt = /\.(jpe?g|png|gif|webp|pdf)$/.test(name);
+  const okMime = /^(image\/(jpeg|png|gif|webp)|application\/pdf)$/.test(file.type || "");
+  if (!okExt || (file.type && !okMime)) return "Only images, GIFs, and PDFs can be uploaded.";
+  return "";
+}
+
+function MessageAttachment({ attachment, inverted }) {
+  const url = safeHttpUrl(attachment?.url);
+  if (!url) return null;
+  const isImage = attachment.kind === "image" || attachment.kind === "gif" || String(attachment.mime || "").startsWith("image/");
+  if (isImage) {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+        <img src={url} alt={attachment.name || ""} className="max-w-full max-h-64 rounded-lg" />
+      </a>
+    );
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex items-center gap-1.5 underline break-all ${inverted ? "text-white" : "text-indigo-600"}`}
+    >
+      <i className="ti ti-file-type-pdf" style={{ fontSize: 16 }} />
+      {attachment.name || "PDF"}
+    </a>
+  );
+}
 
 function MessageBubble({ message, conv, onDelete }) {
   const [hovered, setHovered] = useState(false);
@@ -55,7 +101,14 @@ function MessageBubble({ message, conv, onDelete }) {
                 : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm"
             }`}
           >
-            {message.isHtml ? (
+            {message.attachment ? (
+              <div className="flex flex-col gap-2">
+                {message.text ? (
+                  <span className="break-words" style={{ whiteSpace: "pre-wrap" }}>{message.text}</span>
+                ) : null}
+                <MessageAttachment attachment={message.attachment} inverted={!!(message.isAgent || message.isAi)} />
+              </div>
+            ) : message.isHtml ? (
               <div
                 className="kmbp-email-body"
                 /* Email HTML has already passed our sanitizer + wp_kses_post on the server */
@@ -107,6 +160,7 @@ export default function ConversationView({
   loadingMessages,
   messagesEndRef,
   noteText,
+  replyFile,
   replyText,
   selectedConv,
   sendError,
@@ -114,6 +168,7 @@ export default function ConversationView({
   sendingReply,
   setActiveTab,
   setNoteText,
+  setReplyFile,
   setReplyText,
   setShowSaved,
   showSaved,
@@ -121,6 +176,27 @@ export default function ConversationView({
   updateStatus,
   onBack,
 }) {
+  const fileRef = useRef(null);
+  const [fileNotice, setFileNotice] = useState("");
+
+  useEffect(() => {
+    setFileNotice("");
+  }, [selectedConv?.id]);
+
+  const onPickFile = (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    const error = livechatFileError(file);
+    if (error) {
+      setFileNotice(error);
+      return;
+    }
+    setFileNotice("");
+    const previewUrl = /^image\//.test(file.type || "") ? URL.createObjectURL(file) : "";
+    setReplyFile({ file, previewUrl, uploaded: null });
+  };
+
   if (!selectedConv) {
     return (
       <div className="flex max-md:hidden flex-1 flex-col items-center justify-center bg-gray-50 gap-4 text-gray-400">
@@ -136,6 +212,7 @@ export default function ConversationView({
   }
 
   const isEmail = selectedConv.channel === "email";
+  const isLivechat = selectedConv.channel === "livechat";
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -259,38 +336,80 @@ export default function ConversationView({
                   className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 resize-none outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-gray-50 disabled:opacity-60"
                 />
 
-                {sendError && (
+                {isLivechat && replyFile?.file && (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5">
+                    {replyFile.previewUrl ? (
+                      <img src={replyFile.previewUrl} alt="" className="h-10 w-10 rounded object-cover" />
+                    ) : (
+                      <i className="ti ti-file-type-pdf text-gray-500" style={{ fontSize: 18 }} />
+                    )}
+                    <span className="text-xs text-gray-700 truncate flex-1">{replyFile.file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setReplyFile(null)}
+                      className="text-gray-400 hover:text-gray-700"
+                      aria-label="Remove file"
+                      disabled={sendingReply}
+                    >
+                      <i className="ti ti-x" style={{ fontSize: 14 }} />
+                    </button>
+                  </div>
+                )}
+
+                {(sendError || fileNotice) && (
                   <div className="mt-1 text-xs text-red-600 flex items-center gap-1">
                     <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />
-                    {sendError}
+                    {sendError || fileNotice}
                   </div>
                 )}
 
                 <div className="flex items-center justify-between mt-2">
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowSaved((v) => !v)}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
-                    >
-                      <i className="ti ti-bookmark" style={{ fontSize: 13 }} />
-                      Saved Replies
-                    </button>
-                    {showSaved && (
-                      <div className="absolute bottom-8 left-0 bg-white border border-gray-200 rounded-xl shadow-lg w-72 z-20 overflow-hidden">
-                        <div className="px-3 py-2 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                          Saved Replies
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowSaved((v) => !v)}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+                      >
+                        <i className="ti ti-bookmark" style={{ fontSize: 13 }} />
+                        Saved Replies
+                      </button>
+                      {showSaved && (
+                        <div className="absolute bottom-8 left-0 bg-white border border-gray-200 rounded-xl shadow-lg w-72 z-20 overflow-hidden">
+                          <div className="px-3 py-2 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            Saved Replies
+                          </div>
+                          {SAVED_REPLIES.map((reply) => (
+                            <button
+                              key={reply.id}
+                              onClick={() => { setReplyText(reply.body); setShowSaved(false); }}
+                              className="w-full text-left px-3 py-2 hover:bg-indigo-50 transition-colors"
+                            >
+                              <div className="text-sm font-medium text-gray-800">{reply.title}</div>
+                              <div className="text-xs text-gray-500 truncate">{reply.body}</div>
+                            </button>
+                          ))}
                         </div>
-                        {SAVED_REPLIES.map((reply) => (
-                          <button
-                            key={reply.id}
-                            onClick={() => { setReplyText(reply.body); setShowSaved(false); }}
-                            className="w-full text-left px-3 py-2 hover:bg-indigo-50 transition-colors"
-                          >
-                            <div className="text-sm font-medium text-gray-800">{reply.title}</div>
-                            <div className="text-xs text-gray-500 truncate">{reply.body}</div>
-                          </button>
-                        ))}
-                      </div>
+                      )}
+                    </div>
+                    {isLivechat && (
+                      <>
+                        <input
+                          ref={fileRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,.jpg,.jpeg,.png,.gif,.webp,.pdf"
+                          className="hidden"
+                          onChange={onPickFile}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileRef.current?.click()}
+                          disabled={sendingReply}
+                          className="text-xs text-gray-500 hover:text-indigo-600 font-medium flex items-center gap-1 disabled:opacity-40"
+                        >
+                          <i className="ti ti-paperclip" style={{ fontSize: 13 }} />
+                          Attach
+                        </button>
+                      </>
                     )}
                   </div>
 
@@ -298,7 +417,7 @@ export default function ConversationView({
                     <span className="text-xs text-gray-400 inline max-sm:hidden">Ctrl+Enter to send</span>
                     <button
                       onClick={sendReply}
-                      disabled={!replyText.trim() || sendingReply}
+                      disabled={(!replyText.trim() && !replyFile?.file) || sendingReply}
                       className="px-4 py-1.5 bg-indigo-600 text-white text-sm rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1"
                     >
                       {sendingReply ? (

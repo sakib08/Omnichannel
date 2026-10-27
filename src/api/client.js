@@ -143,6 +143,29 @@ export const api = {
   sendInstagram:  (payload) => request("instagram/send",  { method: "POST", body: payload }),
   sendViber:      (payload) => request("viber/send",      { method: "POST", body: payload }),
   sendLivechat:   (payload) => request("livechat/send",   { method: "POST", body: payload }),
+  uploadLivechat: async (file) => {
+    const body = new FormData();
+    body.append("file", file, file.name);
+    const headers = { Accept: "application/json" };
+    if (restNonce) headers["X-WP-Nonce"] = restNonce;
+    const response = await fetch(restUrl + "livechat/upload", {
+      method: "POST",
+      credentials: "same-origin",
+      headers,
+      body,
+    });
+    const text = await response.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch (_) { data = text; }
+    if (!response.ok) {
+      const message = (data && data.message) || `Request failed: ${response.status}`;
+      const error = new Error(message);
+      error.status = response.status;
+      error.data = data;
+      throw error;
+    }
+    return data;
+  },
   testLivechat:   () =>        request("livechat/test-connection", { method: "POST" }),
 
   /** Generic channel send — picks the right endpoint from the channel slug. */
