@@ -83,6 +83,11 @@ export function normaliseConversation(raw) {
     departmentId: raw.departmentId || null,
     aiStatus: raw.aiStatus || null,
     priority: VALID_PRIORITIES.has(raw.priority) ? raw.priority : "medium",
+    contactId: raw.contactId || 0,
+    contactPhone: raw.contactPhone || "",
+    contactEmail: raw.contactEmail || "",
+    threadIds: Array.isArray(raw.threadIds) && raw.threadIds.length ? raw.threadIds : [raw.id],
+    channels: Array.isArray(raw.channels) && raw.channels.length ? raw.channels : [raw.channel || "email"],
     slaDeadline: 0,
     slaUnit: "hr",
     notes: [],
@@ -124,6 +129,7 @@ export function normaliseMessage(raw) {
     isAgent: raw.senderType === "agent",
     isAi: !!(raw.isAi || raw.meta?.ai),
     attachment,
+    channel: raw.channel || "",
   };
 }
 

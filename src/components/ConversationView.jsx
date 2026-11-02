@@ -89,6 +89,9 @@ function MessageBubble({ message, conv, onDelete }) {
               AI
             </span>
           )}
+          {message.channel && (conv.channels || []).length > 1 && (
+            <ChannelBadge channelId={message.channel} small />
+          )}
           <span className="text-xs text-gray-400">{message.time}</span>
         </div>
         <div className="relative min-w-0 w-full">
@@ -237,7 +240,9 @@ export default function ConversationView({
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-gray-900 truncate">{selectedConv.name}</span>
-              <ChannelBadge channelId={selectedConv.channel} />
+              {(selectedConv.channels || [selectedConv.channel]).map((channelId) => (
+                <ChannelBadge key={channelId} channelId={channelId} />
+              ))}
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusConfig[selectedConv.status]?.cls || ""}`}>
                 {statusConfig[selectedConv.status]?.label || selectedConv.status}
               </span>

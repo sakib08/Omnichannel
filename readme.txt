@@ -4,7 +4,7 @@ Tags: live chat, whatsapp, chat, omnichannel, shared inbox
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.4.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -18,7 +18,7 @@ Answer WhatsApp, Messenger, Instagram, Telegram, SMS, email, and live chat from 
 
 **Channels in one inbox**
 
-* **Live Chat** website widget, with a welcome message and starter buttons.
+* **Live Chat** website widget, with a welcome message, a country-code phone field, and image, GIF, and PDF uploads.
 * **WhatsApp Business**, **Facebook Messenger**, and **Instagram DM** through the Meta Graph API.
 * **Telegram**, **LINE**, **Viber**, and **WeChat**.
 * **SMS** through Twilio, Vonage, Sinch, Plivo, Telnyx, or MessageBird.
@@ -308,6 +308,17 @@ The following components are bundled in the distributed plugin (compiled into `b
 Development-only tools (npm packages used at build time, not included in the plugin ZIP) are not distributed with this plugin.
 
 == Changelog ==
+
+= 1.4.2 =
+* Require a phone number before a Live Chat visitor can send a message. The country menu is sorted A–Z and shows the letter code first, such as BD +880 or US +1. The saved number is that dialing code plus the digits they type.
+* Add a Phone country code setting under Settings → Live Chat → Widget. That code is the default selection in the chat window.
+* Remove the starter prompt and starter buttons from the Live Chat window. The welcome heading stays.
+* Merge the same person across channels when a trusted email, a WhatsApp, SMS, or Live Chat phone number, or a logged-in WordPress user matches. The All view groups those conversations under one contact, and a reply still goes out on the latest thread's channel.
+* Show the visitor's email and then their phone in the conversation details.
+
+= 1.4.1 =
+* Let Live Chat visitors and agents send images, GIFs, and PDFs. Files are saved in the WordPress media library and show in the chat widget and the inbox.
+* Accept JPEG, PNG, GIF, WebP, and PDF uploads up to 8 MB, and reject other file types.
 
 = 1.4.0 =
 * Add browser notifications: a bell in the inbox sidebar turns on desktop pop-ups and a sound for new customer messages, set per agent and per browser. Clicking a pop-up opens the conversation.

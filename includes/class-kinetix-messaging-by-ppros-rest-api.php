@@ -716,8 +716,9 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
         // Empty channel/status match every row; otherwise the value is compared exactly.
         $rows = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT c.*, lm.last_message_at
+                "SELECT c.*, ct.display_name AS person_name, ct.phone AS person_phone, ct.email AS person_email, lm.last_message_at
                 FROM {$wpdb->prefix}kmbp_conversations c
+                LEFT JOIN {$wpdb->prefix}kmbp_contacts ct ON ct.id = c.contact_id
                 LEFT JOIN (
                     SELECT conversation_id, MAX(sent_at) AS last_message_at
                     FROM {$wpdb->prefix}kmbp_messages
@@ -736,7 +737,9 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
             ARRAY_A
         );
 
-        return rest_ensure_response( array_map( array( $this, 'format_conversation_row' ), (array) $rows ) );
+        $rows = $this->group_conversations_by_contact( (array) $rows, '' === $channel );
+
+        return rest_ensure_response( array_map( array( $this, 'format_conversation_row' ), $rows ) );
     }
 
     public function list_messages( WP_REST_Request $request ) {
@@ -744,27 +747,89 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
         $cid      = (int) $request->get_param( 'id' );
         $after_id = (int) $request->get_param( 'after_id' ); // 0 = fetch all
 
+        $ids = $this->conversation_ids_for_contact( $cid );
+        $in  = implode( ',', array_map( 'absint', $ids ) );
+
         if ( $after_id > 0 ) {
-            // Incremental fetch: only messages newer than the given ID.
+            // Incremental fetch: only messages newer than the given ID, across
+            // every thread that belongs to this person.
             $rows = $wpdb->get_results(
                 $wpdb->prepare(
-                    "SELECT * FROM {$wpdb->prefix}kmbp_messages WHERE conversation_id = %d AND id > %d ORDER BY sent_at ASC",
-                    $cid,
+                    "SELECT m.*, c.channel AS message_channel
+                    FROM {$wpdb->prefix}kmbp_messages m
+                    INNER JOIN {$wpdb->prefix}kmbp_conversations c ON c.id = m.conversation_id
+                    WHERE m.conversation_id IN ({$in}) AND m.id > %d
+                    ORDER BY m.sent_at ASC, m.id ASC",
                     $after_id
                 ),
                 ARRAY_A
             );
         } else {
             $rows = $wpdb->get_results(
-                $wpdb->prepare(
-                    "SELECT * FROM {$wpdb->prefix}kmbp_messages WHERE conversation_id = %d ORDER BY sent_at ASC",
-                    $cid
-                ),
+                "SELECT m.*, c.channel AS message_channel
+                FROM {$wpdb->prefix}kmbp_messages m
+                INNER JOIN {$wpdb->prefix}kmbp_conversations c ON c.id = m.conversation_id
+                WHERE m.conversation_id IN ({$in})
+                ORDER BY m.sent_at ASC, m.id ASC",
                 ARRAY_A
             );
         }
 
         return rest_ensure_response( array_map( array( $this, 'format_message_row' ), (array) $rows ) );
+    }
+
+    /**
+     * Conversation ids that belong to the same person as $cid.
+     *
+     * @return int[]
+     */
+    private function conversation_ids_for_contact( int $cid ): array {
+        global $wpdb;
+        if ( $cid <= 0 ) {
+            return array( 0 );
+        }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $contact_id = (int) $wpdb->get_var(
+            $wpdb->prepare( "SELECT contact_id FROM {$wpdb->prefix}kmbp_conversations WHERE id = %d", $cid )
+        );
+        if ( $contact_id <= 0 ) {
+            return array( $cid );
+        }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $ids = $wpdb->get_col(
+            $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}kmbp_conversations WHERE contact_id = %d", $contact_id )
+        );
+        $ids = array_values( array_filter( array_map( 'absint', (array) $ids ) ) );
+        return $ids ? $ids : array( $cid );
+    }
+
+    /**
+     * One inbox row per person when the agent is looking at every channel.
+     * A channel filter keeps each thread separate so that channel can be worked on its own.
+     *
+     * @param array[] $rows
+     * @return array[]
+     */
+    private function group_conversations_by_contact( array $rows, bool $group ): array {
+        $out = array();
+        foreach ( $rows as $row ) {
+            $row['thread_ids'] = array( (int) $row['id'] );
+            $row['channels']   = array( (string) $row['channel'] );
+            $key               = ( $group && ! empty( $row['contact_id'] ) ) ? 'c' . (int) $row['contact_id'] : 'r' . (int) $row['id'];
+            if ( ! isset( $out[ $key ] ) ) {
+                if ( $group && ! empty( $row['person_name'] ) ) {
+                    $row['contact_name'] = (string) $row['person_name'];
+                }
+                $out[ $key ] = $row;
+                continue;
+            }
+            $out[ $key ]['thread_ids'][] = (int) $row['id'];
+            if ( ! in_array( (string) $row['channel'], $out[ $key ]['channels'], true ) ) {
+                $out[ $key ]['channels'][] = (string) $row['channel'];
+            }
+            $out[ $key ]['unread_count'] = (int) $out[ $key ]['unread_count'] + (int) $row['unread_count'];
+        }
+        return array_values( $out );
     }
 
     public function create_conversation( WP_REST_Request $request ) {
@@ -955,6 +1020,14 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
             if ( ! empty( $data ) ) {
                 $wpdb->update( $wpdb->prefix . 'kmbp_conversations', $data, array( 'id' => $id ), $format, array( '%d' ) );
             }
+            if ( isset( $data['unread_count'] ) && 0 === (int) $data['unread_count'] && ! empty( $existing['contact_id'] ) ) {
+                $wpdb->query(
+                    $wpdb->prepare(
+                        "UPDATE {$wpdb->prefix}kmbp_conversations SET unread_count = 0 WHERE contact_id = %d",
+                        (int) $existing['contact_id']
+                    )
+                );
+            }
         }
 
         if ( ! empty( $clear_ai ) ) {
@@ -992,8 +1065,13 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
             'id'             => (int) $row['id'],
             'channel'        => (string) $row['channel'],
             'externalId'     => (string) $row['external_id'],
+            'contactId'      => ! empty( $row['contact_id'] ) ? (int) $row['contact_id'] : 0,
             'contactName'    => (string) $row['contact_name'],
             'contactHandle'  => (string) $row['contact_handle'],
+            'contactPhone'   => (string) ( $row['person_phone'] ?? '' ),
+            'contactEmail'   => (string) ( $row['person_email'] ?? '' ),
+            'threadIds'      => array_map( 'intval', (array) ( $row['thread_ids'] ?? array( (int) $row['id'] ) ) ),
+            'channels'       => array_values( (array) ( $row['channels'] ?? array( (string) $row['channel'] ) ) ),
             'subject'        => (string) $row['subject'],
             'preview'        => (string) $row['preview'],
             'status'         => (string) $row['status'],
@@ -1027,6 +1105,7 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
             'meta'           => $meta,
             'sentAt'         => (string) $row['sent_at'],
             'isAi'           => ! empty( $meta['ai'] ),
+            'channel'        => (string) ( $row['message_channel'] ?? '' ),
         );
     }
 

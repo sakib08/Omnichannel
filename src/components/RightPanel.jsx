@@ -15,6 +15,13 @@ export default function RightPanel({ agents, selectedConv, setActiveTab, setRepl
 
   const currentValue = selectedConv.assigneeId ? String(selectedConv.assigneeId) : "";
   const currentAgent = (agents || []).find((a) => String(a.id) === currentValue);
+  const handle = String(selectedConv.contactHandle || "").trim();
+  const emailFromContact = String(selectedConv.contactEmail || "").trim();
+  const contactEmail = emailFromContact || (handle.includes("@") ? handle : "");
+  const phoneDigits = String(selectedConv.contactPhone || "").replace(/\D/g, "");
+  const handleDigits = handle.replace(/\D/g, "");
+  const contactPhone = phoneDigits ? `+${phoneDigits}` : "";
+  const otherHandle = handle && handle !== contactEmail && handleDigits !== phoneDigits ? handle : "";
 
   return (
     <div className="flex max-md:hidden w-72 shrink-0 bg-white border-l border-gray-100 flex-col overflow-y-auto">
@@ -112,10 +119,22 @@ export default function RightPanel({ agents, selectedConv, setActiveTab, setRepl
             <span className="text-gray-500">Messages</span>
             <span className="font-medium text-gray-700">{selectedConv.messages.length}</span>
           </div>
-          {selectedConv.contactHandle && (
+          {contactEmail && (
+            <div className="flex justify-between items-center gap-2">
+              <span className="text-gray-500 shrink-0">Email</span>
+              <span className="text-xs text-gray-700 truncate">{contactEmail}</span>
+            </div>
+          )}
+          {contactPhone && (
+            <div className="flex justify-between items-center gap-2">
+              <span className="text-gray-500 shrink-0">Phone</span>
+              <span className="text-xs text-gray-700 truncate">{contactPhone}</span>
+            </div>
+          )}
+          {otherHandle && (
             <div className="flex justify-between items-center gap-2">
               <span className="text-gray-500 shrink-0">Contact</span>
-              <span className="text-xs text-gray-700 truncate">{selectedConv.contactHandle}</span>
+              <span className="text-xs text-gray-700 truncate">{otherHandle}</span>
             </div>
           )}
         </div>

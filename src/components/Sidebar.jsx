@@ -190,7 +190,7 @@ export default function Sidebar({
         const isActive  = activeChannel === channel.id;
         const color     = channel.color || "#4F46E5";
         const hasUnread = channel.id !== "all" &&
-          conversations.some((c) => c.channel === channel.id && c.unread > 0);
+          conversations.some((c) => (c.channels || [c.channel]).includes(channel.id) && c.unread > 0);
 
         return (
           <button

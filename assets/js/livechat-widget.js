@@ -11,6 +11,7 @@
   var storageKeyRoomEmail = "kmbp_livechat_room_email";
   var storageKeyName = "kmbp_livechat_name";
   var storageKeyEmail = "kmbp_livechat_email";
+  var storageKeyPhone = "kmbp_livechat_phone";
   var storageKeyOpen = "kmbp_livechat_open";
   var identityLocked = !!(boot.identityLocked && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(boot.visitorEmail || "").trim()));
 
@@ -122,6 +123,134 @@
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
   }
 
+  function normalizePhone(value) {
+    return String(value || "").replace(/\D+/g, "");
+  }
+
+  function countryCode() {
+    var code = String(boot.phoneCountryCode || "").trim();
+    return /^\+\d{1,4}$/.test(code) ? code : "";
+  }
+
+  function countryChoices() {
+    var list = [
+      "+1 US", "+1 CA", "+1 AG", "+1 AI", "+1 AS", "+1 BB", "+1 BM", "+1 BS", "+1 DM", "+1 DO", "+1 GD", "+1 GU", "+1 JM", "+1 KN", "+1 KY", "+1 LC", "+1 MP", "+1 MS", "+1 PR", "+1 SX", "+1 TC", "+1 TT", "+1 VC", "+1 VG", "+1 VI",
+      "+7 RU", "+7 KZ",
+      "+20 EG", "+27 ZA", "+30 GR", "+31 NL", "+32 BE", "+33 FR", "+34 ES", "+36 HU", "+39 IT", "+39 VA", "+40 RO", "+41 CH", "+43 AT",
+      "+44 GB", "+44 GG", "+44 IM", "+44 JE", "+45 DK", "+46 SE", "+47 NO", "+48 PL", "+49 DE",
+      "+51 PE", "+52 MX", "+53 CU", "+54 AR", "+55 BR", "+56 CL", "+57 CO", "+58 VE",
+      "+60 MY", "+61 AU", "+61 CC", "+61 CX", "+62 ID", "+63 PH", "+64 NZ", "+65 SG", "+66 TH",
+      "+81 JP", "+82 KR", "+84 VN", "+86 CN", "+90 TR", "+91 IN", "+92 PK", "+93 AF", "+94 LK", "+95 MM", "+98 IR",
+      "+211 SS", "+212 MA", "+213 DZ", "+216 TN", "+218 LY", "+220 GM", "+221 SN", "+222 MR", "+223 ML", "+224 GN", "+225 CI", "+226 BF", "+227 NE", "+228 TG", "+229 BJ", "+230 MU", "+231 LR", "+232 SL", "+233 GH", "+234 NG", "+235 TD", "+236 CF", "+237 CM", "+238 CV", "+239 ST", "+240 GQ", "+241 GA", "+242 CG", "+243 CD", "+244 AO", "+245 GW", "+246 IO", "+248 SC", "+249 SD", "+250 RW", "+251 ET", "+252 SO", "+253 DJ", "+254 KE", "+255 TZ", "+256 UG", "+257 BI", "+258 MZ", "+260 ZM", "+261 MG", "+262 RE", "+262 YT", "+263 ZW", "+264 NA", "+265 MW", "+266 LS", "+267 BW", "+268 SZ", "+269 KM", "+290 SH", "+291 ER", "+297 AW", "+298 FO", "+299 GL",
+      "+350 GI", "+351 PT", "+352 LU", "+353 IE", "+354 IS", "+355 AL", "+356 MT", "+357 CY", "+358 FI", "+359 BG",
+      "+370 LT", "+371 LV", "+372 EE", "+373 MD", "+374 AM", "+375 BY", "+376 AD", "+377 MC", "+378 SM", "+380 UA", "+381 RS", "+382 ME", "+383 XK", "+385 HR", "+386 SI", "+387 BA", "+389 MK",
+      "+420 CZ", "+421 SK", "+423 LI",
+      "+500 FK", "+501 BZ", "+502 GT", "+503 SV", "+504 HN", "+505 NI", "+506 CR", "+507 PA", "+508 PM", "+509 HT",
+      "+590 BL", "+590 GP", "+590 MF", "+591 BO", "+592 GY", "+593 EC", "+594 GF", "+595 PY", "+596 MQ", "+597 SR", "+598 UY", "+599 BQ", "+599 CW",
+      "+670 TL", "+672 NF", "+673 BN", "+674 NR", "+675 PG", "+676 TO", "+677 SB", "+678 VU", "+679 FJ", "+680 PW", "+681 WF", "+682 CK", "+683 NU", "+685 WS", "+686 KI", "+687 NC", "+688 TV", "+689 PF", "+690 TK", "+691 FM", "+692 MH",
+      "+850 KP", "+852 HK", "+853 MO", "+855 KH", "+856 LA", "+880 BD", "+886 TW",
+      "+960 MV", "+961 LB", "+962 JO", "+963 SY", "+964 IQ", "+965 KW", "+966 SA", "+967 YE", "+968 OM", "+970 PS", "+971 AE", "+972 IL", "+973 BH", "+974 QA", "+975 BT", "+976 MN", "+977 NP",
+      "+992 TJ", "+993 TM", "+994 AZ", "+995 GE", "+996 KG", "+998 UZ"
+    ];
+    return list.map(function (entry) {
+      var parts = entry.split(" ");
+      return { dial: parts[0], letter: parts[1], label: parts[1] + " " + parts[0] };
+    }).sort(function (a, b) {
+      return a.letter < b.letter ? -1 : a.letter > b.letter ? 1 : 0;
+    });
+  }
+
+  function preferredLetter(dial) {
+    var prefs = {
+      "+1": "US",
+      "+7": "RU",
+      "+39": "IT",
+      "+44": "GB",
+      "+61": "AU",
+      "+212": "MA",
+      "+262": "RE",
+      "+590": "GP",
+      "+599": "CW"
+    };
+    return prefs[dial] || "";
+  }
+
+  function defaultCountryCode() {
+    var stored = normalizePhone(getVisitorPhone());
+    var choices = countryChoices().slice().sort(function (a, b) {
+      return normalizePhone(b.dial).length - normalizePhone(a.dial).length;
+    });
+    var i;
+    for (i = 0; i < choices.length; i++) {
+      var digits = normalizePhone(choices[i].dial);
+      if (stored && stored.indexOf(digits) === 0 && stored.length > digits.length) {
+        return choices[i].dial;
+      }
+    }
+    var preset = countryCode();
+    for (i = 0; i < countryChoices().length; i++) {
+      if (countryChoices()[i].dial === preset) {
+        return preset;
+      }
+    }
+    return "+1";
+  }
+
+  function countryCodeOptions() {
+    var selected = defaultCountryCode();
+    var prefer = preferredLetter(selected);
+    var items = countryChoices();
+    var matchIndex = -1;
+    var i;
+    for (i = 0; i < items.length; i++) {
+      if (items[i].dial !== selected) {
+        continue;
+      }
+      if (prefer && items[i].letter === prefer) {
+        matchIndex = i;
+        break;
+      }
+      if (matchIndex < 0) {
+        matchIndex = i;
+      }
+    }
+    return items.map(function (item, index) {
+      return '<option value="' + escapeHtml(item.dial + "|" + item.letter) + '"' + (index === matchIndex ? " selected" : "") + ">" + escapeHtml(item.label) + "</option>";
+    }).join("");
+  }
+
+  function activeCountryCode() {
+    var select = root.querySelector(".kmbp-lc-phone-code");
+    if (select && select.value) {
+      var dial = String(select.value).split("|")[0];
+      if (/^\+\d{1,4}$/.test(dial)) {
+        return dial;
+      }
+    }
+    return defaultCountryCode();
+  }
+
+  function isValidPhone(value) {
+    var digits = normalizePhone(value);
+    return digits.length >= 8 && digits.length <= 15;
+  }
+
+  function getVisitorPhone() {
+    try {
+      return localStorage.getItem(storageKeyPhone) || "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function setVisitorPhone(phone) {
+    try {
+      localStorage.setItem(storageKeyPhone, String(phone || "").trim());
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
   function getVisitorEmail() {
     if (boot.visitorEmail && isValidEmail(boot.visitorEmail)) {
       return String(boot.visitorEmail).trim();
@@ -201,8 +330,30 @@
   var brand = boot.brandName || "Support";
   var tagline = typeof boot.tagline === "string" ? boot.tagline : (i18n.defaultTagline || "");
   var welcomeTpl = boot.welcomeMessage || i18n.defaultWelcome || "Hi {{name}}, welcome! 👋";
-  var starterPrompt = String(boot.starterPrompt || "").trim() || i18n.chooseStarter || "Please choose a starting sentence.";
-  var ice = Array.isArray(boot.iceBreakers) ? boot.iceBreakers.filter(Boolean) : [];
+  var channels = Array.isArray(boot.channels) ? boot.channels : [];
+
+  function isSafeChannelUrl(url) {
+    return /^(https:\/\/|mailto:|sms:\+|viber:\/\/)/i.test(String(url || ""));
+  }
+
+  function channelColor(value) {
+    return /^#[0-9a-fA-F]{6}$/.test(String(value || "")) ? value : "#111827";
+  }
+
+  function channelIcon(id) {
+    var paths = {
+      whatsapp: '<path fill="currentColor" d="M12 2.2A9.8 9.8 0 0 0 3.7 16.9L2.4 21.6l4.9-1.3A9.8 9.8 0 1 0 12 2.2zm5.5 13.8c-.2.7-1.2 1.2-1.7 1.3-.4.1-1 .1-1.6-.1-.4-.1-.8-.3-1.4-.5-2.5-1.1-4.1-3.6-4.2-3.8-.1-.2-1-1.3-1-2.5s.6-1.8.9-2c.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.5.2.5.8 1.9.8 2s.1.3 0 .5l-.3.4c-.1.2-.3.3-.4.5-.1.1-.3.3-.1.5.2.3.7 1.2 1.5 1.9 1.1 1 1.9 1.3 2.2 1.4.3.1.4.1.6-.1.2-.2.7-.8.9-1.1.2-.3.4-.2.6-.1.3.1 1.6.8 1.9.9.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/>',
+      messenger: '<path fill="currentColor" d="M12 2C6.5 2 2 6.1 2 11.2c0 2.9 1.4 5.5 3.7 7.2V22l3.4-1.9c.9.2 1.8.4 2.9.4 5.5 0 10-4.1 10-9.2S17.5 2 12 2zm1 12.4-2.5-2.7-4.9 2.7 5.4-5.7 2.6 2.7 4.8-2.7-5.4 5.7z"/>',
+      instagram: '<path fill="none" stroke="currentColor" stroke-width="1.8" d="M8 3.5h8A4.5 4.5 0 0 1 20.5 8v8A4.5 4.5 0 0 1 16 20.5H8A4.5 4.5 0 0 1 3.5 16V8A4.5 4.5 0 0 1 8 3.5z"/><circle cx="12" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor"/>',
+      telegram: '<path fill="currentColor" d="M20.7 4.3 2.9 11.2c-1.2.5-1.2 1.1-.2 1.4l4.6 1.4 10.6-6.7c.5-.3 1-.1.6.2l-8.6 7.8-.3 4.6c.5 0 .7-.2 1-.5l2.3-2.2 4.8 3.5c.9.5 1.5.2 1.7-.8l3.1-14.6c.3-1.3-.5-1.9-1.4-1.5z"/>',
+      line: '<path fill="currentColor" d="M12 3C6.5 3 2 6.6 2 11.1c0 4.1 3.6 7.5 8.5 8l.3 2.4c.1.4.5.2.7-.1l2.6-2.5c3.5-.6 6.9-3.4 6.9-7.8C21 6.6 17.5 3 12 3z"/>',
+      viber: '<path fill="currentColor" d="M7 3.5h6.2C16.4 3.5 19 6 19 9.2v5.6c0 3.2-2.6 5.7-5.8 5.7H9.4L5 22.5v-3.4C3.8 17.8 3 16.1 3 14.2V9.2C3 6 5.6 3.5 8.8 3.5H7z"/>',
+      sms: '<path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M5 6.5h14v9H8.5L5 18.5v-12z"/>',
+      email: '<path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 7h16v10H4z"/><path fill="none" stroke="currentColor" stroke-width="1.8" d="m4 7 8 6 8-6"/>',
+    };
+    var body = paths[id] || '<circle cx="12" cy="12" r="4" fill="currentColor"/>';
+    return '<svg viewBox="0 0 24 24" aria-hidden="true">' + body + "</svg>";
+  }
 
   root.innerHTML =
     '<div class="kmbp-lc-window" role="dialog" aria-label="' +
@@ -222,19 +373,28 @@
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>' +
     "</button>" +
     "</div>" +
+    '<div class="kmbp-lc-channels"' +
+    (channels.length ? "" : " hidden") +
+    ">" +
+    '<p class="kmbp-lc-channels-label"></p>' +
+    '<div class="kmbp-lc-channels-row"></div>' +
+    "</div>" +
     '<div class="kmbp-lc-status" hidden></div>' +
     '<div class="kmbp-lc-body">' +
     '<div class="kmbp-lc-landing">' +
     '<div class="kmbp-lc-day"></div>' +
     '<p class="kmbp-lc-welcome"></p>' +
-    '<p class="kmbp-lc-prompt"></p>' +
     '<div class="kmbp-lc-fields">' +
     (boot.askName || boot.visitorName
-      ? '<div class="kmbp-lc-field"><input type="text" class="kmbp-lc-name-input" maxlength="80" autocomplete="name" /></div>'
+      ?     '<div class="kmbp-lc-field kmbp-lc-name-field"><input type="text" class="kmbp-lc-name-input" maxlength="80" autocomplete="name" /></div>'
       : "") +
-    '<div class="kmbp-lc-field"><input type="email" class="kmbp-lc-email-input" maxlength="190" autocomplete="email" required /></div>' +
+    '<div class="kmbp-lc-field kmbp-lc-email-field"><input type="email" class="kmbp-lc-email-input" maxlength="190" autocomplete="email" required /></div>' +
+    '<div class="kmbp-lc-field kmbp-lc-phone-field">' +
+    '<select class="kmbp-lc-phone-code" aria-label="' + escapeHtml(i18n.countryCode || "Country code") + '">' +
+    countryCodeOptions() +
+    "</select>" +
+    '<input type="tel" class="kmbp-lc-phone-input" maxlength="20" autocomplete="tel-national" required /></div>' +
     "</div>" +
-    '<div class="kmbp-lc-ice"></div>' +
     "</div>" +
     '<div class="kmbp-lc-msgs" hidden></div>' +
     "</div>" +
@@ -276,26 +436,32 @@
   root.querySelector(".kmbp-lc-name").textContent = brand;
   root.querySelector(".kmbp-lc-tagline").textContent = tagline;
   root.querySelector(".kmbp-lc-tagline").hidden = !String(tagline).trim();
-  root.querySelector(".kmbp-lc-day").textContent = i18n.today || "Today";
-  root.querySelector(".kmbp-lc-prompt").textContent = starterPrompt;
-  root.querySelector(".kmbp-lc-text").placeholder = i18n.sendPlaceholder || "Send a message…";
-
-  var iceEl = root.querySelector(".kmbp-lc-ice");
-  ice.forEach(function (label) {
-    var btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "kmbp-lc-ice-btn";
-    btn.innerHTML =
-      "<span></span><svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='m9 6 6 6-6 6'/></svg>";
-    btn.querySelector("span").textContent = label;
-    btn.addEventListener("click", function () {
-      sendText(label);
-    });
-    iceEl.appendChild(btn);
-  });
-  if (!ice.length) {
-    root.querySelector(".kmbp-lc-prompt").hidden = true;
+  var channelLabel = root.querySelector(".kmbp-lc-channels-label");
+  var channelRow = root.querySelector(".kmbp-lc-channels-row");
+  var channelWrap = root.querySelector(".kmbp-lc-channels");
+  if (channelLabel) {
+    channelLabel.textContent = i18n.alsoOn || "Also on";
   }
+  channels.forEach(function (channel) {
+    if (!channel || !isSafeChannelUrl(channel.url) || !channelRow) {
+      return;
+    }
+    var link = document.createElement("a");
+    link.className = "kmbp-lc-channel";
+    link.href = channel.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.style.background = channelColor(channel.color);
+    link.title = channel.label || channel.id || "";
+    link.setAttribute("aria-label", channel.label || channel.id || "Open channel");
+    link.innerHTML = channelIcon(channel.id);
+    channelRow.appendChild(link);
+  });
+  if (channelWrap && (!channelRow || !channelRow.childElementCount)) {
+    channelWrap.hidden = true;
+  }
+  root.querySelector(".kmbp-lc-day").textContent = i18n.today || "Today";
+  root.querySelector(".kmbp-lc-text").placeholder = i18n.sendPlaceholder || "Send a message…";
 
   var nameInput = root.querySelector(".kmbp-lc-name-input");
   if (nameInput) {
@@ -335,6 +501,37 @@
     });
   }
 
+  var phoneInput = root.querySelector(".kmbp-lc-phone-input");
+  var phoneCode = root.querySelector(".kmbp-lc-phone-code");
+  phoneInput.placeholder = i18n.phoneNumber || "Phone number";
+  phoneInput.value = localPhoneValue();
+  phoneCode.addEventListener("change", function () {
+    phoneInput.classList.remove("kmbp-lc-invalid");
+    if (hasValidPhone()) {
+      setVisitorPhone(currentPhone());
+      showStatus("");
+    }
+    syncChatLock();
+  });
+  phoneInput.addEventListener("input", function () {
+    phoneInput.classList.remove("kmbp-lc-invalid");
+    if (hasValidPhone()) {
+      setVisitorPhone(currentPhone());
+      showStatus("");
+      if (hasValidEmail()) {
+        ensureIdentity(function (ok) {
+          if (ok && state.open) {
+            connect();
+          }
+        });
+      }
+    }
+    syncChatLock();
+    if (state.messages.length) {
+      showChatView();
+    }
+  });
+
   var landing = root.querySelector(".kmbp-lc-landing");
   var msgsEl = root.querySelector(".kmbp-lc-msgs");
   var statusEl = root.querySelector(".kmbp-lc-status");
@@ -361,8 +558,30 @@
     return isValidEmail(currentEmail());
   }
 
+  function localPhoneValue() {
+    var stored = normalizePhone(getVisitorPhone());
+    var code = normalizePhone(defaultCountryCode());
+    if (code && stored.indexOf(code) === 0) {
+      return stored.slice(code.length);
+    }
+    return stored;
+  }
+
+  function currentPhone() {
+    var digits = normalizePhone(phoneInput ? phoneInput.value : "").replace(/^0+/, "");
+    var codeDigits = normalizePhone(activeCountryCode());
+    if (!digits || !codeDigits) {
+      return "";
+    }
+    return "+" + codeDigits + digits;
+  }
+
+  function hasValidPhone() {
+    return isValidPhone(currentPhone());
+  }
+
   function syncChatLock() {
-    var locked = !hasValidEmail();
+    var locked = !hasValidEmail() || !hasValidPhone();
     var busy = state.uploading;
     root.classList.toggle("kmbp-lc-locked", locked);
     composeInput.disabled = locked || busy;
@@ -371,16 +590,24 @@
   }
 
   function requireEmail() {
-    if (hasValidEmail()) {
-      setVisitorEmail(currentEmail());
-      emailInput.classList.remove("kmbp-lc-invalid");
-      showStatus("");
-      return true;
+    if (!hasValidEmail()) {
+      showStatus(i18n.emailRequired || "Enter your email to start chatting.");
+      emailInput.classList.add("kmbp-lc-invalid");
+      emailInput.focus();
+      return false;
     }
-    showStatus(i18n.emailRequired || "Enter your email to start chatting.");
-    emailInput.classList.add("kmbp-lc-invalid");
-    emailInput.focus();
-    return false;
+    setVisitorEmail(currentEmail());
+    emailInput.classList.remove("kmbp-lc-invalid");
+    if (!hasValidPhone()) {
+      showStatus(i18n.phoneRequired || "Enter your phone number with country code.");
+      phoneInput.classList.add("kmbp-lc-invalid");
+      phoneInput.focus();
+      return false;
+    }
+    setVisitorPhone(currentPhone());
+    phoneInput.classList.remove("kmbp-lc-invalid");
+    showStatus("");
+    return true;
   }
 
   function setOpen(open) {
@@ -392,15 +619,17 @@
       /* ignore */
     }
     if (open) {
-      if (hasValidEmail()) {
+      if (hasValidEmail() && hasValidPhone()) {
         ensureIdentity(function (ok) {
           if (ok) {
             connect();
           }
         });
         composeInput.focus();
-      } else if (emailInput && !emailInput.readOnly) {
+      } else if (!hasValidEmail() && emailInput && !emailInput.readOnly) {
         emailInput.focus();
+      } else if (!hasValidPhone() && phoneInput) {
+        phoneInput.focus();
       } else {
         composeInput.focus();
       }
@@ -418,6 +647,11 @@
   }
 
   function showChatView() {
+    if (!hasValidEmail() || !hasValidPhone()) {
+      landing.hidden = false;
+      msgsEl.hidden = true;
+      return;
+    }
     landing.hidden = true;
     msgsEl.hidden = false;
   }
@@ -649,6 +883,7 @@
       body: JSON.stringify({
         email: email,
         senderName: getVisitorName() || displayName(),
+        phone: currentPhone(),
       }),
     })
       .then(function (res) {
@@ -680,6 +915,7 @@
       text: text,
       senderName: getVisitorName() || currentEmail() || "Website Visitor",
       email: currentEmail(),
+      phone: currentPhone(),
       messageId: messageId,
     };
     if (attachmentId) {

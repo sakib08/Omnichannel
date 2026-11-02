@@ -183,9 +183,16 @@ export default function LivechatSettings({ cfg, setCfg }) {
               ]}
             />
           </div>
-          <Row label="Ask for visitor name" desc="Show a name field on the welcome screen. Email is always required before a visitor can chat.">
+          <Row label="Ask for visitor name" desc="Show a name field on the welcome screen. Email and phone are always required before a visitor can chat.">
             <Toggle checked={cfg.askName} onChange={(v) => S("askName", v)} color={color} />
           </Row>
+          <Input
+            label="Phone country code"
+            value={cfg.phoneCountryCode || ""}
+            onChange={(v) => S("phoneCountryCode", v)}
+            placeholder="+1"
+            helper="Visitors pick a country such as BD +880. The saved number is that dialing code plus the digits they type."
+          />
           <SectionDivider label="Starter buttons" />
           <p className="text-xs text-slate-500">Purple shortcut buttons on the welcome screen. Clicking one sends that text as the first message. You can edit, remove, or add up to 6.</p>
           {ice.map((item, i) => (

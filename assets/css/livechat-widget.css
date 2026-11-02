@@ -60,12 +60,12 @@
 
 #kmbp-livechat .kmbp-lc-window {
   display: none;
-  width: 360px;
-  height: 580px;
+  width: 372px;
+  height: 620px;
   max-height: calc(100vh - 48px);
   background: #fff;
-  border-radius: var(--kmbp-lc-radius);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  border-radius: 24px;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(15, 23, 42, 0.05);
   overflow: hidden;
   flex-direction: column;
   margin-bottom: 14px;
@@ -81,11 +81,13 @@
 
 #kmbp-livechat .kmbp-lc-header {
   position: relative;
-  padding: 18px 44px 8px 20px;
+  padding: 18px 16px 16px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  background: var(--kmbp-lc-accent);
+  color: #fff;
 }
 
 #kmbp-livechat .kmbp-lc-brand {
@@ -102,42 +104,102 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--kmbp-lc-accent);
+  background: #34d399;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.18);
   flex-shrink: 0;
 }
 
 #kmbp-livechat .kmbp-lc-name {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #111827;
+  color: #fff;
 }
 
 #kmbp-livechat .kmbp-lc-tagline {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   font-size: 12px;
-  color: var(--kmbp-lc-muted);
-  max-width: 260px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.82);
+  max-width: 250px;
 }
 
 #kmbp-livechat .kmbp-lc-close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: 0;
-  background: transparent;
-  color: #9ca3af;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 #kmbp-livechat .kmbp-lc-close:hover {
-  background: #f3f4f6;
-  color: #111827;
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
+#kmbp-livechat .kmbp-lc-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+#kmbp-livechat .kmbp-lc-channels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fff;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+#kmbp-livechat .kmbp-lc-channels[hidden] {
+  display: none;
+}
+
+#kmbp-livechat .kmbp-lc-channels-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+#kmbp-livechat .kmbp-lc-channels-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+#kmbp-livechat .kmbp-lc-channel {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+  text-decoration: none;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
+}
+
+#kmbp-livechat .kmbp-lc-channel:hover {
+  transform: translateY(-1px);
+}
+
+#kmbp-livechat .kmbp-lc-channel svg {
+  width: 16px;
+  height: 16px;
 }
 
 #kmbp-livechat .kmbp-lc-body {
@@ -211,8 +273,39 @@
   margin-bottom: 14px;
 }
 
-#kmbp-livechat.kmbp-lc-known-identity .kmbp-lc-fields {
+#kmbp-livechat.kmbp-lc-known-identity .kmbp-lc-name-field,
+#kmbp-livechat.kmbp-lc-known-identity .kmbp-lc-email-field {
   display: none;
+}
+
+#kmbp-livechat .kmbp-lc-phone-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#kmbp-livechat .kmbp-lc-phone-code {
+  flex: 0 0 auto;
+  width: 112px;
+  padding: 11px 22px 11px 8px;
+  border: 1px solid #e5e7eb;
+  background-color: #f3f4f6;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23111827' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1;
+  appearance: none;
+  cursor: pointer;
+}
+
+#kmbp-livechat .kmbp-lc-phone-field input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
 }
 
 #kmbp-livechat .kmbp-lc-field input {

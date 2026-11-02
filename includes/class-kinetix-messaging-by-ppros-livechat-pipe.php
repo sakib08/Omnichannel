@@ -140,6 +140,10 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
         $text          = sanitize_textarea_field( (string) $request->get_param( 'text' ) );
         $name          = sanitize_text_field( (string) $request->get_param( 'senderName' ) );
         $email         = sanitize_email( (string) $request->get_param( 'email' ) );
+        $phone         = Kinetix_Messaging_By_Ppros_Contacts::with_country_code(
+            (string) $request->get_param( 'phone' ),
+            (string) ( $cfg['phoneCountryCode'] ?? '' )
+        );
         $msg_uid       = sanitize_text_field( (string) $request->get_param( 'messageId' ) );
         $attachment_id = absint( $request->get_param( 'attachmentId' ) );
         $attachment    = $this->livechat_attachment_payload( $attachment_id );
@@ -164,6 +168,9 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
         if ( '' === $room_id || ! is_email( $email ) ) {
             return new WP_Error( 'kmbp_livechat_email_required', __( 'A valid email address is required to chat.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
+        if ( '' === $phone ) {
+            return new WP_Error( 'kmbp_livechat_phone_required', __( 'A phone number with country code is required to chat.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+        }
         if ( '' === trim( $text ) && ! $attachment ) {
             return new WP_Error( 'kmbp_empty_body', __( 'Message text is required.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
         }
@@ -177,7 +184,19 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
 
         $body            = $attachment ? $this->attachment_message_body( $text, $attachment ) : $text;
         $subject         = mb_substr( $body, 0, 80 ) ?: __( 'Live chat', 'kinetix-messaging-by-ppros' );
-        $conversation_id = $this->find_or_create_conversation( $room_id, $name, $email, $subject );
+        $conversation_id = $this->find_or_create_conversation(
+            $room_id,
+            $name,
+            $email,
+            $subject,
+            array(
+                'email'         => $email,
+                'phone'         => $phone,
+                'phone_trusted' => true,
+                'email_trusted' => ! empty( $identity['locked'] ),
+                'wp_user_id'    => (int) ( $identity['userId'] ?? 0 ),
+            )
+        );
         if ( is_wp_error( $conversation_id ) ) {
             return $conversation_id;
         }
@@ -191,6 +210,7 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
             'channel' => 'livechat',
             'roomId'  => $room_id,
             'email'   => $email,
+            'phone'   => $phone,
         );
         if ( $attachment ) {
             $meta['attachment'] = $attachment;
@@ -619,6 +639,7 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
             'email'  => $email,
             'roomId' => $this->identity_room_id( $email ),
             'locked' => $locked,
+            'userId' => $locked ? (int) $user->ID : 0,
         );
     }
 

@@ -58,6 +58,7 @@ class Kinetix_Messaging_By_Ppros_Activator {
         }
 
         self::maybe_upgrade_ai_schema();
+        Kinetix_Messaging_By_Ppros_Contacts::maybe_upgrade();
         self::seed_ai_settings();
         self::register_roles_and_caps();
         self::migrate_settings_keys();

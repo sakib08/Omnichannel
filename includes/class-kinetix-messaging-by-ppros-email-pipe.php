@@ -1317,6 +1317,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
                 )
             );
             if ( $cid > 0 ) {
+                $this->link_email_contact( $cid, $from_email, $from_name );
                 return $cid;
             }
         }
@@ -1337,6 +1338,7 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
             )
         );
         if ( $cid > 0 ) {
+            $this->link_email_contact( $cid, $from_email, $from_name );
             return $cid;
         }
 
@@ -1364,8 +1366,31 @@ class Kinetix_Messaging_By_Ppros_Email_Pipe {
             return new \WP_Error( 'kmbp_db_error', __( 'Could not create conversation.', 'kinetix-messaging-by-ppros' ) );
         }
 
+        $new_id = (int) $wpdb->insert_id;
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-        return (int) $wpdb->insert_id;
+        $this->link_email_contact( $new_id, $from_email, $from_name );
+        return $new_id;
+    }
+
+    /**
+     * Email From addresses are trusted. Every thread from the same address
+     * belongs to the same person.
+     */
+    private function link_email_contact( int $conversation_id, string $from_email, string $from_name ): void {
+        if ( ! is_email( $from_email ) ) {
+            return;
+        }
+        Kinetix_Messaging_By_Ppros_Contacts::link(
+            $conversation_id,
+            'email',
+            strtolower( $from_email ),
+            $from_name,
+            $from_email,
+            array(
+                'email'         => $from_email,
+                'email_trusted' => true,
+            )
+        );
     }
 
     /**

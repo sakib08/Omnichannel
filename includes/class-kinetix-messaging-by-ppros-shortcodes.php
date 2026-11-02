@@ -79,7 +79,7 @@ class Kinetix_Messaging_By_Ppros_Shortcodes {
         $settings = (array) get_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, array() );
         $cfg      = isset( $settings[ $channel ] ) ? (array) $settings[ $channel ] : array();
 
-        $url = self::build_url( $channel, $cfg );
+        $url = self::sanitize_channel_url( self::build_url( $channel, $cfg ) );
         if ( ! $url ) {
             return '';
         }
@@ -113,13 +113,63 @@ class Kinetix_Messaging_By_Ppros_Shortcodes {
     }
 
     /**
+     * Enabled channels that have a public contact link.
+     *
+     * @param array $settings Full plugin settings keyed by channel slug.
+     * @return array<int,array{id:string,label:string,color:string,url:string}>
+     */
+    public static function active_public_channels( array $settings ): array {
+        $order = array( 'whatsapp', 'messenger', 'instagram', 'telegram', 'line', 'viber', 'sms', 'email' );
+        $out   = array();
+
+        foreach ( $order as $slug ) {
+            $cfg = isset( $settings[ $slug ] ) && is_array( $settings[ $slug ] ) ? $settings[ $slug ] : array();
+            if ( empty( $cfg['enabled'] ) ) {
+                continue;
+            }
+            $url = self::sanitize_channel_url( self::build_url( $slug, $cfg ) );
+            if ( '' === $url ) {
+                continue;
+            }
+            $out[] = array(
+                'id'    => $slug,
+                'label' => self::$default_labels[ $slug ] ?? ucfirst( $slug ),
+                'color' => self::$colors[ $slug ] ?? '#111827',
+                'url'   => $url,
+            );
+        }
+
+        return $out;
+    }
+
+    /**
+     * Allow only the schemes a channel contact link actually uses.
+     */
+    public static function sanitize_channel_url( string $url ): string {
+        $url = trim( $url );
+        if ( preg_match( '#^https://#i', $url ) ) {
+            return (string) esc_url_raw( $url );
+        }
+        if ( preg_match( '#^mailto:[^\s<>"]+$#i', $url ) ) {
+            return (string) esc_url_raw( $url );
+        }
+        if ( preg_match( '#^sms:\+[0-9]{6,15}$#', $url ) ) {
+            return $url;
+        }
+        if ( preg_match( '#^viber://pa\?chatURI=[A-Za-z0-9._%-]{1,80}$#', $url ) ) {
+            return $url;
+        }
+        return '';
+    }
+
+    /**
      * Build the channel-specific contact URL from stored settings.
      *
      * @param string $channel Channel slug.
      * @param array  $cfg     Channel settings array.
      * @return string         URL, or empty string when the required credential is missing.
      */
-    private static function build_url( string $channel, array $cfg ): string {
+    public static function build_url( string $channel, array $cfg ): string {
         switch ( $channel ) {
             case 'telegram':
                 $username = ltrim( (string) ( $cfg['botUsername'] ?? '' ), '@' );

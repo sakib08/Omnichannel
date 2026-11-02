@@ -51,7 +51,9 @@ function ConversationRow({ conversation, selected, setSelected, onDelete }) {
               )}
             </div>
             <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-              <ChannelBadge channelId={conversation.channel} small />
+              {(conversation.channels || [conversation.channel]).map((channelId) => (
+                <ChannelBadge key={channelId} channelId={channelId} small />
+              ))}
               <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${statusConfig[conversation.status].cls}`}>
                 {statusConfig[conversation.status].label}
               </span>

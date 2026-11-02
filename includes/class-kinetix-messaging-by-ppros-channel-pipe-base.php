@@ -176,7 +176,8 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
         string $external_id,
         string $contact_name,
         string $contact_handle,
-        string $subject = ''
+        string $subject = '',
+        array $signals = array()
     ) {
         global $wpdb;
         $channel = $this->get_channel_slug();
@@ -195,6 +196,7 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
         );
 
         if ( $cid > 0 ) {
+            $this->link_contact( $cid, $external_id, $contact_name, $contact_handle, $signals );
             return $cid;
         }
 
@@ -222,8 +224,45 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
             return new \WP_Error( 'kmbp_db_error', __( 'Could not create conversation.', 'kinetix-messaging-by-ppros' ) );
         }
 
+        $new_id = (int) $wpdb->insert_id;
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-        return (int) $wpdb->insert_id;
+        $this->link_contact( $new_id, $external_id, $contact_name, $contact_handle, $signals );
+        return $new_id;
+    }
+
+    /**
+     * Record who this conversation belongs to. Phone and email are trusted
+     * only for the channels that actually verify them.
+     *
+     * @param array $signals Optional email, phone, email_trusted, phone_trusted, wp_user_id.
+     */
+    protected function link_contact( int $conversation_id, string $external_id, string $contact_name, string $contact_handle, array $signals = array() ): void {
+        $channel     = $this->get_channel_slug();
+        $platform_id = $external_id;
+
+        if ( in_array( $channel, array( 'whatsapp', 'sms' ), true ) ) {
+            $phone = Kinetix_Messaging_By_Ppros_Contacts::normalize_phone( (string) ( $signals['phone'] ?? $external_id ) );
+            if ( '' !== $phone ) {
+                $signals['phone']         = $phone;
+                $signals['phone_trusted'] = true;
+                $platform_id              = $phone;
+            }
+        }
+
+        if ( 'email' === $channel && is_email( $contact_handle ) ) {
+            $signals['email']         = $contact_handle;
+            $signals['email_trusted'] = true;
+            $platform_id              = strtolower( $contact_handle );
+        }
+
+        Kinetix_Messaging_By_Ppros_Contacts::link(
+            $conversation_id,
+            $channel,
+            $platform_id,
+            $contact_name,
+            $contact_handle,
+            $signals
+        );
     }
 
     /**
