@@ -21,7 +21,7 @@ defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
 class Kinetix_Messaging_By_Ppros_Messenger_Pipe extends Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
 
-    const GRAPH_API = 'https://graph.facebook.com/v19.0/';
+    const GRAPH_API = 'https://graph.facebook.com/v23.0/';
 
     public function get_channel_slug(): string {
         return 'messenger';
@@ -49,6 +49,16 @@ class Kinetix_Messaging_By_Ppros_Messenger_Pipe extends Kinetix_Messaging_By_Ppr
 
         register_rest_route(
             $ns,
+            '/messenger/test-connection',
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array( $this, 'handle_test_connection' ),
+                'permission_callback' => array( $this, 'check_manage_settings' ),
+            )
+        );
+
+        register_rest_route(
+            $ns,
             '/messenger/send',
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
@@ -66,8 +76,149 @@ class Kinetix_Messaging_By_Ppros_Messenger_Pipe extends Kinetix_Messaging_By_Ppr
     // ── Hub verification (GET) ─────────────────────────────────────────────
 
     public function handle_webhook_verify( WP_REST_Request $request ) {
-        $challenge = (string) ( $request->get_param( 'hub_challenge' ) ?? '' );
-        return new WP_REST_Response( $challenge, 200, array( 'Content-Type' => 'text/plain' ) );
+        $challenge = $this->meta_hub_param( $request, 'challenge' );
+        return new WP_REST_Response( $challenge, 200, array( 'Content-Type' => 'text/plain; charset=utf-8' ) );
+    }
+
+    /**
+     * Confirm the saved Page access token with the Graph API.
+     */
+    public function handle_test_connection() {
+        $cfg   = $this->get_settings();
+        $token = trim( (string) ( $cfg['pageToken'] ?? '' ) );
+        if ( '' === $token ) {
+            return new WP_Error(
+                'kmbp_messenger_not_configured',
+                __( 'Enter a Page Access Token first.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $page = $this->http(
+            self::GRAPH_API . 'me?fields=id,name&access_token=' . rawurlencode( $token )
+        );
+        if ( is_wp_error( $page ) ) {
+            return new WP_Error(
+                'kmbp_messenger_verify_failed',
+                $page->get_error_message(),
+                array( 'status' => 400 )
+            );
+        }
+
+        $page_id   = preg_replace( '/\D+/', '', (string) ( $page['id'] ?? '' ) );
+        $page_name = sanitize_text_field( (string) ( $page['name'] ?? '' ) );
+        if ( ! is_string( $page_id ) || '' === $page_id ) {
+            return new WP_Error(
+                'kmbp_messenger_verify_failed',
+                __( 'Facebook did not return a Page for this token.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $expected = preg_replace( '/\D+/', '', (string) ( $cfg['pageId'] ?? '' ) );
+        if ( is_string( $expected ) && '' !== $expected && $expected !== $page_id ) {
+            return new WP_Error(
+                'kmbp_messenger_page_mismatch',
+                sprintf(
+                    /* translators: 1: page name, 2: token page id, 3: typed page id */
+                    __( 'This token belongs to %1$s (%2$s), not Page ID %3$s.', 'kinetix-messaging-by-ppros' ),
+                    '' !== $page_name ? $page_name : __( 'another Page', 'kinetix-messaging-by-ppros' ),
+                    $page_id,
+                    $expected
+                ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $app_id     = trim( (string) ( $cfg['appId'] ?? '' ) );
+        $app_secret = trim( (string) ( $cfg['appSecret'] ?? '' ) );
+        if ( '' !== $app_id && '' !== $app_secret ) {
+            $scope_error = $this->check_page_token_scopes( $token, $app_id, $app_secret );
+            if ( is_wp_error( $scope_error ) ) {
+                return $scope_error;
+            }
+        }
+
+        $this->remember_verified_page( $page_id, $page_name, ! is_string( $expected ) || '' === $expected );
+
+        return rest_ensure_response(
+            array(
+                'ok'       => true,
+                'pageId'   => $page_id,
+                'pageName' => $page_name,
+                'message'  => sprintf(
+                    /* translators: %s: Facebook Page name or id */
+                    __( 'Connected to %s.', 'kinetix-messaging-by-ppros' ),
+                    '' !== $page_name ? $page_name : $page_id
+                ),
+            )
+        );
+    }
+
+    /**
+     * Require a Page token that can send and receive Messenger messages.
+     *
+     * @return true|\WP_Error
+     */
+    private function check_page_token_scopes( string $token, string $app_id, string $app_secret ) {
+        $app_token = $app_id . '|' . $app_secret;
+        $debug     = $this->http(
+            self::GRAPH_API . 'debug_token?input_token=' . rawurlencode( $token ) . '&access_token=' . rawurlencode( $app_token )
+        );
+        if ( is_wp_error( $debug ) ) {
+            return new WP_Error(
+                'kmbp_messenger_verify_failed',
+                $debug->get_error_message(),
+                array( 'status' => 400 )
+            );
+        }
+
+        $data = isset( $debug['data'] ) && is_array( $debug['data'] ) ? $debug['data'] : array();
+        if ( empty( $data['is_valid'] ) ) {
+            return new WP_Error(
+                'kmbp_messenger_verify_failed',
+                __( 'Facebook says this Page access token is not valid.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+        if ( isset( $data['type'] ) && 'PAGE' !== strtoupper( (string) $data['type'] ) ) {
+            return new WP_Error(
+                'kmbp_messenger_verify_failed',
+                __( 'Use a Page access token. A user token cannot send Messenger replies.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $scopes = isset( $data['scopes'] ) && is_array( $data['scopes'] ) ? $data['scopes'] : array();
+        if ( ! in_array( 'pages_messaging', $scopes, true ) ) {
+            return new WP_Error(
+                'kmbp_messenger_verify_failed',
+                __( 'This token is missing the pages_messaging permission.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        return true;
+    }
+
+    /**
+     * Fill an empty Page ID, and replace the placeholder Page name, after a successful check.
+     */
+    private function remember_verified_page( string $page_id, string $page_name, bool $fill_id ): void {
+        $all = get_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, array() );
+        if ( ! is_array( $all ) ) {
+            return;
+        }
+        $cfg = isset( $all['messenger'] ) && is_array( $all['messenger'] ) ? $all['messenger'] : array();
+        if ( $fill_id ) {
+            $cfg['pageId'] = $page_id;
+        }
+        $current_name = trim( (string) ( $cfg['pageName'] ?? '' ) );
+        if ( '' !== $page_name && ( '' === $current_name || 'Acme Support' === $current_name ) ) {
+            $cfg['pageName'] = $page_name;
+        }
+        $all['messenger'] = $cfg;
+        update_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, $all, false );
     }
 
     // ── Inbound webhook (POST) ─────────────────────────────────────────────

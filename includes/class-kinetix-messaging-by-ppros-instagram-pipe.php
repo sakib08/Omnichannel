@@ -26,7 +26,7 @@ defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
 class Kinetix_Messaging_By_Ppros_Instagram_Pipe extends Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
 
-    const GRAPH_API = 'https://graph.facebook.com/v19.0/';
+    const GRAPH_API = 'https://graph.facebook.com/v23.0/';
 
     public function get_channel_slug(): string {
         return 'instagram';
@@ -55,6 +55,16 @@ class Kinetix_Messaging_By_Ppros_Instagram_Pipe extends Kinetix_Messaging_By_Ppr
 
         register_rest_route(
             $ns,
+            '/instagram/test-connection',
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array( $this, 'handle_test_connection' ),
+                'permission_callback' => array( $this, 'check_manage_settings' ),
+            )
+        );
+
+        register_rest_route(
+            $ns,
             '/instagram/send',
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
@@ -72,7 +82,7 @@ class Kinetix_Messaging_By_Ppros_Instagram_Pipe extends Kinetix_Messaging_By_Ppr
     // ── Hub verification (GET) ─────────────────────────────────────────────
 
     public function handle_webhook_verify( WP_REST_Request $request ) {
-        $challenge = (string) ( $request->get_param( 'hub_challenge' ) ?? '' );
+        $challenge = $this->meta_hub_param( $request, 'challenge' );
         return new WP_REST_Response( $challenge, 200, array( 'Content-Type' => 'text/plain' ) );
     }
 
@@ -287,5 +297,109 @@ class Kinetix_Messaging_By_Ppros_Instagram_Pipe extends Kinetix_Messaging_By_Ppr
 
         set_transient( $cache_key, $name, 6 * HOUR_IN_SECONDS );
         return $name;
+    }
+
+    /**
+     * Confirm the Page token is linked to an Instagram professional account.
+     */
+    public function handle_test_connection() {
+        $cfg   = $this->get_settings();
+        $token = trim( (string) ( $cfg['pageToken'] ?? '' ) );
+        if ( '' === $token ) {
+            return new WP_Error(
+                'kmbp_instagram_not_configured',
+                __( 'Enter a Page Access Token first.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $me = $this->http(
+            self::GRAPH_API . 'me?fields=id,name,instagram_business_account{id,username,name}&access_token=' . rawurlencode( $token )
+        );
+        if ( is_wp_error( $me ) ) {
+            return new WP_Error( 'kmbp_instagram_verify_failed', $me->get_error_message(), array( 'status' => 400 ) );
+        }
+
+        $page_id = preg_replace( '/\D+/', '', (string) ( $me['id'] ?? '' ) );
+        $ig      = isset( $me['instagram_business_account'] ) && is_array( $me['instagram_business_account'] ) ? $me['instagram_business_account'] : array();
+        $ig_id   = preg_replace( '/\D+/', '', (string) ( $ig['id'] ?? '' ) );
+        if ( ! is_string( $ig_id ) || '' === $ig_id ) {
+            return new WP_Error(
+                'kmbp_instagram_verify_failed',
+                __( 'This token is not linked to an Instagram professional account.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $expected_page = preg_replace( '/\D+/', '', (string) ( $cfg['pageId'] ?? '' ) );
+        if ( is_string( $expected_page ) && '' !== $expected_page && is_string( $page_id ) && $expected_page !== $page_id ) {
+            return new WP_Error(
+                'kmbp_instagram_page_mismatch',
+                sprintf(
+                    /* translators: 1: token page id, 2: typed page id */
+                    __( 'This token belongs to Facebook Page %1$s, not %2$s.', 'kinetix-messaging-by-ppros' ),
+                    $page_id,
+                    $expected_page
+                ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $expected_ig = preg_replace( '/\D+/', '', (string) ( $cfg['igAccountId'] ?? '' ) );
+        if ( is_string( $expected_ig ) && '' !== $expected_ig && $expected_ig !== $ig_id ) {
+            return new WP_Error(
+                'kmbp_instagram_account_mismatch',
+                sprintf(
+                    /* translators: 1: token Instagram account id, 2: typed Instagram account id */
+                    __( 'This token is linked to Instagram account %1$s, not %2$s.', 'kinetix-messaging-by-ppros' ),
+                    $ig_id,
+                    $expected_ig
+                ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $username = sanitize_text_field( (string) ( $ig['username'] ?? '' ) );
+        $this->remember_instagram_ids( is_string( $page_id ) ? $page_id : '', $ig_id );
+
+        $label = '' !== $username ? '@' . ltrim( $username, '@' ) : $ig_id;
+        return rest_ensure_response(
+            array(
+                'ok'          => true,
+                'pageId'      => is_string( $page_id ) ? $page_id : '',
+                'igAccountId' => $ig_id,
+                'username'    => $username,
+                'message'     => sprintf(
+                    /* translators: %s: Instagram username or account id */
+                    __( 'Connected to %s.', 'kinetix-messaging-by-ppros' ),
+                    $label
+                ),
+            )
+        );
+    }
+
+    /**
+     * Fill empty Instagram and Page IDs after a successful check.
+     */
+    private function remember_instagram_ids( string $page_id, string $ig_id ): void {
+        $all = get_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, array() );
+        if ( ! is_array( $all ) ) {
+            return;
+        }
+        $cfg     = isset( $all['instagram'] ) && is_array( $all['instagram'] ) ? $all['instagram'] : array();
+        $changed = false;
+        if ( '' !== $page_id && '' === trim( (string) ( $cfg['pageId'] ?? '' ) ) ) {
+            $cfg['pageId'] = $page_id;
+            $changed       = true;
+        }
+        if ( '' !== $ig_id && '' === trim( (string) ( $cfg['igAccountId'] ?? '' ) ) ) {
+            $cfg['igAccountId'] = $ig_id;
+            $changed            = true;
+        }
+        if ( ! $changed ) {
+            return;
+        }
+        $all['instagram'] = $cfg;
+        update_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, $all, false );
     }
 }

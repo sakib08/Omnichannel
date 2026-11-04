@@ -52,6 +52,16 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
 
         register_rest_route(
             $ns,
+            '/sms/test-connection',
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array( $this, 'handle_test_connection' ),
+                'permission_callback' => array( $this, 'check_manage_settings' ),
+            )
+        );
+
+        register_rest_route(
+            $ns,
             '/sms/send',
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
@@ -360,5 +370,154 @@ class Kinetix_Messaging_By_Ppros_Sms_Pipe extends Kinetix_Messaging_By_Ppros_Cha
         $computed = base64_encode( hash_hmac( 'sha1', $data, $auth_token, true ) );
 
         return hash_equals( $computed, $signature );
+    }
+
+    /**
+     * Check the selected provider's credentials without sending a message.
+     */
+    public function handle_test_connection() {
+        $cfg      = $this->get_settings();
+        $provider = strtolower( (string) ( $cfg['provider'] ?? 'twilio' ) );
+
+        switch ( $provider ) {
+            case 'twilio':
+                return $this->test_twilio( $cfg );
+            case 'vonage':
+                return $this->test_vonage( $cfg );
+            case 'sinch':
+                return $this->test_sinch( $cfg );
+            case 'plivo':
+                return $this->test_plivo( $cfg );
+            case 'telnyx':
+                return $this->test_telnyx( $cfg );
+            case 'messagebird':
+                return $this->test_messagebird( $cfg );
+            default:
+                return new WP_Error(
+                    'kmbp_sms_unknown_provider',
+                    __( 'Choose an SMS provider first.', 'kinetix-messaging-by-ppros' ),
+                    array( 'status' => 400 )
+                );
+        }
+    }
+
+    /**
+     * @param array|\WP_Error $result
+     * @return array|\WP_Error
+     */
+    private function sms_verify_result( $result, string $label ) {
+        if ( is_wp_error( $result ) ) {
+            return new WP_Error( 'kmbp_sms_verify_failed', $result->get_error_message(), array( 'status' => 400 ) );
+        }
+        return rest_ensure_response(
+            array(
+                'ok'       => true,
+                'provider' => $label,
+                'message'  => sprintf(
+                    /* translators: %s: SMS provider name */
+                    __( 'Connected to %s.', 'kinetix-messaging-by-ppros' ),
+                    $label
+                ),
+            )
+        );
+    }
+
+    private function test_twilio( array $cfg ) {
+        $sid  = trim( (string) ( $cfg['accountSid'] ?? '' ) );
+        $auth = trim( (string) ( $cfg['authToken'] ?? '' ) );
+        if ( '' === $sid || '' === $auth ) {
+            return new WP_Error( 'kmbp_twilio_not_configured', __( 'Enter your Twilio Account SID and Auth Token first.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+        }
+        $result = $this->http(
+            self::TWILIO_API . rawurlencode( $sid ) . '.json',
+            array(
+                'headers' => array(
+                    'Authorization' => 'Basic ' . base64_encode( $sid . ':' . $auth ),
+                ),
+            )
+        );
+        return $this->sms_verify_result( $result, 'Twilio' );
+    }
+
+    private function test_vonage( array $cfg ) {
+        $key    = trim( (string) ( $cfg['vonageKey'] ?? '' ) );
+        $secret = trim( (string) ( $cfg['vonageSecret'] ?? '' ) );
+        if ( '' === $key || '' === $secret ) {
+            return new WP_Error( 'kmbp_vonage_not_configured', __( 'Enter your Vonage API key and secret first.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+        }
+        $result = $this->http(
+            'https://rest.nexmo.com/account/get-balance?api_key=' . rawurlencode( $key ) . '&api_secret=' . rawurlencode( $secret )
+        );
+        if ( is_array( $result ) && isset( $result['error-code'] ) && '200' !== (string) $result['error-code'] ) {
+            $message = sanitize_text_field( (string) ( $result['error-code-label'] ?? __( 'Vonage rejected these credentials.', 'kinetix-messaging-by-ppros' ) ) );
+            return new WP_Error( 'kmbp_sms_verify_failed', $message, array( 'status' => 400 ) );
+        }
+        return $this->sms_verify_result( $result, 'Vonage' );
+    }
+
+    private function test_sinch( array $cfg ) {
+        $plan   = trim( (string) ( $cfg['genericKey'] ?? '' ) );
+        $secret = trim( (string) ( $cfg['genericSecret'] ?? '' ) );
+        if ( '' === $plan || '' === $secret ) {
+            return new WP_Error( 'kmbp_sinch_not_configured', __( 'Enter your Sinch service plan ID and API token first.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+        }
+        $result = $this->http(
+            self::SINCH_API . rawurlencode( $plan ) . '/batches?page_size=1',
+            array(
+                'headers' => array(
+                    'Authorization' => 'Bearer ' . $secret,
+                ),
+            )
+        );
+        return $this->sms_verify_result( $result, 'Sinch' );
+    }
+
+    private function test_plivo( array $cfg ) {
+        $auth_id = trim( (string) ( $cfg['genericKey'] ?? '' ) );
+        $token   = trim( (string) ( $cfg['genericSecret'] ?? '' ) );
+        if ( '' === $auth_id || '' === $token ) {
+            return new WP_Error( 'kmbp_plivo_not_configured', __( 'Enter your Plivo Auth ID and Auth Token first.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+        }
+        $result = $this->http(
+            self::PLIVO_API . rawurlencode( $auth_id ) . '/',
+            array(
+                'headers' => array(
+                    'Authorization' => 'Basic ' . base64_encode( $auth_id . ':' . $token ),
+                ),
+            )
+        );
+        return $this->sms_verify_result( $result, 'Plivo' );
+    }
+
+    private function test_telnyx( array $cfg ) {
+        $key = trim( (string) ( $cfg['genericKey'] ?? '' ) );
+        if ( '' === $key ) {
+            return new WP_Error( 'kmbp_telnyx_not_configured', __( 'Enter your Telnyx API key first.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+        }
+        $result = $this->http(
+            'https://api.telnyx.com/v2/balance',
+            array(
+                'headers' => array(
+                    'Authorization' => 'Bearer ' . $key,
+                ),
+            )
+        );
+        return $this->sms_verify_result( $result, 'Telnyx' );
+    }
+
+    private function test_messagebird( array $cfg ) {
+        $key = trim( (string) ( $cfg['genericKey'] ?? '' ) );
+        if ( '' === $key ) {
+            return new WP_Error( 'kmbp_messagebird_not_configured', __( 'Enter your MessageBird API key first.', 'kinetix-messaging-by-ppros' ), array( 'status' => 400 ) );
+        }
+        $result = $this->http(
+            'https://rest.messagebird.com/balance',
+            array(
+                'headers' => array(
+                    'Authorization' => 'AccessKey ' . $key,
+                ),
+            )
+        );
+        return $this->sms_verify_result( $result, 'MessageBird' );
     }
 }

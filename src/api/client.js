@@ -102,6 +102,29 @@ export const api = {
   saveKb:     (payload) => request("ai/kb", { method: "POST", body: payload }),
   deleteKb:   (id) => request(`ai/kb/${id}`, { method: "DELETE" }),
   reindexKb:  () => request("ai/kb/reindex", { method: "POST" }),
+  uploadKb: async (files) => {
+    const body = new FormData();
+    for (const file of files) body.append("files[]", file, file.name);
+    const headers = { Accept: "application/json" };
+    if (restNonce) headers["X-WP-Nonce"] = restNonce;
+    const response = await fetch(restUrl + "ai/kb/upload", {
+      method: "POST",
+      credentials: "same-origin",
+      headers,
+      body,
+    });
+    const text = await response.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch (_) { data = text; }
+    if (!response.ok) {
+      const message = (data && data.message) || `Request failed: ${response.status}`;
+      const error = new Error(message);
+      error.status = response.status;
+      error.data = data;
+      throw error;
+    }
+    return data;
+  },
 
   getPresence: () => request("presence"),
   /** Heartbeat that keeps me online; pass "online" or "away" to change status. */
@@ -136,12 +159,19 @@ export const api = {
   // Channel-specific outbound send (all share the same { conversationId, recipientId, text } shape).
   sendTelegram:   (payload) => request("telegram/send",   { method: "POST", body: payload }),
   sendWhatsApp:   (payload) => request("whatsapp/send",   { method: "POST", body: payload }),
+  testWhatsApp:   () =>        request("whatsapp/test-connection", { method: "POST" }),
   sendMessenger:  (payload) => request("messenger/send",  { method: "POST", body: payload }),
+  testMessenger:  () =>        request("messenger/test-connection", { method: "POST" }),
   sendWeChat:     (payload) => request("wechat/send",     { method: "POST", body: payload }),
+  testWeChat:     () =>        request("wechat/test-connection", { method: "POST" }),
   sendSms:        (payload) => request("sms/send",        { method: "POST", body: payload }),
+  testSms:        () =>        request("sms/test-connection", { method: "POST" }),
   sendLine:       (payload) => request("line/send",       { method: "POST", body: payload }),
+  testLine:       () =>        request("line/test-connection", { method: "POST" }),
   sendInstagram:  (payload) => request("instagram/send",  { method: "POST", body: payload }),
+  testInstagram:  () =>        request("instagram/test-connection", { method: "POST" }),
   sendViber:      (payload) => request("viber/send",      { method: "POST", body: payload }),
+  testViber:      () =>        request("viber/test-connection", { method: "POST" }),
   sendLivechat:   (payload) => request("livechat/send",   { method: "POST", body: payload }),
   uploadLivechat: async (file) => {
     const body = new FormData();

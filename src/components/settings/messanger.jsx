@@ -1,12 +1,52 @@
 import { useState } from "react";
 import { ChannelSharePanel, CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
-import { webhookUrl } from "../../api/client.js";
+import api, { webhookUrl } from "../../api/client.js";
+
+function stripMasked(values) {
+  const out = { ...values };
+  for (const key of Object.keys(out)) {
+    if (typeof out[key] === "string" && /^•+$/.test(out[key])) {
+      delete out[key];
+    }
+    if (key.endsWith("_set")) delete out[key];
+  }
+  return out;
+}
 
 export default function MessengerSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("api");
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState(null);
   const S = (k, v) => setCfg({ ...cfg, [k]: v });
   const color = TOKEN.messenger.color;
+
+  const handleVerify = async () => {
+    if (verifying) return;
+    const token = String(cfg.pageToken || "").trim();
+    const storedToken = Boolean(cfg.pageToken_set) && /^•+$/.test(token);
+    if (!token || (/^•+$/.test(token) && !storedToken)) {
+      setVerifyResult({ ok: false, message: "Enter a Page Access Token first." });
+      return;
+    }
+    setVerifying(true);
+    setVerifyResult(null);
+    try {
+      await api.saveChannel("messenger", stripMasked(cfg));
+      const data = await api.testMessenger();
+      const next = { ...cfg };
+      if (data.pageId && !String(cfg.pageId || "").trim()) next.pageId = data.pageId;
+      if (data.pageName && (!String(cfg.pageName || "").trim() || cfg.pageName === "Acme Support")) {
+        next.pageName = data.pageName;
+      }
+      setCfg(next);
+      setVerifyResult({ ok: true, message: data.message || "Connected." });
+    } catch (err) {
+      setVerifyResult({ ok: false, message: err.message || "Connection failed." });
+    } finally {
+      setVerifying(false);
+    }
+  };
  
   return (
     <div className="space-y-5">
@@ -47,10 +87,21 @@ export default function MessengerSettings({ cfg, setCfg }) {
             <Input label="Meta App ID" value={cfg.appId} onChange={v => S("appId", v)} placeholder="1234567890" mono />
             <Input label="App Secret" value={cfg.appSecret} onChange={v => S("appSecret", v)} placeholder="••••••••••••••••••••••" type="password" helper="Used to verify webhook signatures." />
           </div>
-          <div className="flex gap-3 pt-2">
-            <button style={{ background: color }} className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity">
-              Verify Connection
+          <div className="flex items-center gap-3 pt-2 flex-wrap">
+            <button
+              type="button"
+              onClick={handleVerify}
+              disabled={verifying}
+              style={{ background: color }}
+              className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {verifying ? "Verifying…" : "Verify Connection"}
             </button>
+            {verifyResult && (
+              <span className={`text-xs font-medium ${verifyResult.ok ? "text-green-400" : "text-red-400"}`}>
+                {verifyResult.message}
+              </span>
+            )}
             <button className="px-5 py-2 rounded-xl text-sm font-semibold text-slate-300 border border-slate-700 hover:bg-slate-800 transition-colors">
               Clear credentials
             </button>

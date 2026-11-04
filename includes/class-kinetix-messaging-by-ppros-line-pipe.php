@@ -42,6 +42,16 @@ class Kinetix_Messaging_By_Ppros_Line_Pipe extends Kinetix_Messaging_By_Ppros_Ch
 
         register_rest_route(
             $ns,
+            '/line/test-connection',
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array( $this, 'handle_test_connection' ),
+                'permission_callback' => array( $this, 'check_manage_settings' ),
+            )
+        );
+
+        register_rest_route(
+            $ns,
             '/line/send',
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
@@ -199,7 +209,7 @@ class Kinetix_Messaging_By_Ppros_Line_Pipe extends Kinetix_Messaging_By_Ppros_Ch
         if ( empty( $cfg ) ) {
             $cfg = $this->get_settings();
         }
-        $token = (string) ( $cfg['channelAccessToken'] ?? '' );
+        $token = $this->line_access_token( $cfg );
         if ( '' === $token ) {
             return new \WP_Error(
                 'kmbp_line_not_configured',
@@ -236,7 +246,7 @@ class Kinetix_Messaging_By_Ppros_Line_Pipe extends Kinetix_Messaging_By_Ppros_Ch
     // ── Helpers ───────────────────────────────────────────────────────────
 
     private function send_typing_indicator( string $user_id, array $cfg ): void {
-        $token = (string) ( $cfg['channelAccessToken'] ?? '' );
+        $token = $this->line_access_token( $cfg );
         if ( '' === $token ) {
             return;
         }
@@ -254,7 +264,7 @@ class Kinetix_Messaging_By_Ppros_Line_Pipe extends Kinetix_Messaging_By_Ppros_Ch
             return (string) $cached;
         }
 
-        $token = (string) ( $cfg['channelAccessToken'] ?? '' );
+        $token = $this->line_access_token( $cfg );
         if ( '' === $token ) {
             return 'LINE User';
         }
@@ -272,5 +282,100 @@ class Kinetix_Messaging_By_Ppros_Line_Pipe extends Kinetix_Messaging_By_Ppros_Ch
         set_transient( $cache_key, $name, 6 * HOUR_IN_SECONDS );
 
         return $name;
+    }
+
+    /**
+     * The settings screen stores the token as accessToken.
+     */
+    private function line_access_token( array $cfg ): string {
+        $token = trim( (string) ( $cfg['channelAccessToken'] ?? '' ) );
+        if ( '' === $token ) {
+            $token = trim( (string) ( $cfg['accessToken'] ?? '' ) );
+        }
+        return $token;
+    }
+
+    /**
+     * Confirm the channel access token with LINE's bot info endpoint.
+     */
+    public function handle_test_connection() {
+        $cfg   = $this->get_settings();
+        $token = $this->line_access_token( $cfg );
+        if ( '' === $token ) {
+            return new WP_Error(
+                'kmbp_line_not_configured',
+                __( 'Enter a Channel Access Token first.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $info = $this->http(
+            self::MESSAGING_API . 'info',
+            array(
+                'headers' => array(
+                    'Authorization' => 'Bearer ' . $token,
+                ),
+            )
+        );
+        if ( is_wp_error( $info ) ) {
+            return new WP_Error(
+                'kmbp_line_verify_failed',
+                $info->get_error_message(),
+                array( 'status' => 400 )
+            );
+        }
+
+        $name     = sanitize_text_field( (string) ( $info['displayName'] ?? '' ) );
+        $basic_id = sanitize_text_field( (string) ( $info['basicId'] ?? '' ) );
+        $this->remember_line_profile( $name, $basic_id );
+
+        if ( '' !== $name && '' !== $basic_id ) {
+            $message = sprintf(
+                /* translators: 1: LINE official account name, 2: LINE basic ID */
+                __( 'Connected to %1$s (%2$s).', 'kinetix-messaging-by-ppros' ),
+                $name,
+                $basic_id
+            );
+        } else {
+            $message = sprintf(
+                /* translators: %s: LINE account name or basic ID */
+                __( 'Connected to %s.', 'kinetix-messaging-by-ppros' ),
+                '' !== $name ? $name : ( '' !== $basic_id ? $basic_id : __( 'LINE', 'kinetix-messaging-by-ppros' ) )
+            );
+        }
+
+        return rest_ensure_response(
+            array(
+                'ok'          => true,
+                'displayName' => $name,
+                'basicId'     => $basic_id,
+                'message'     => $message,
+            )
+        );
+    }
+
+    /**
+     * Fill an empty LINE name or Basic ID after a successful check.
+     */
+    private function remember_line_profile( string $name, string $basic_id ): void {
+        $all = get_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, array() );
+        if ( ! is_array( $all ) ) {
+            return;
+        }
+        $cfg = isset( $all['line'] ) && is_array( $all['line'] ) ? $all['line'] : array();
+        $changed = false;
+        if ( '' !== $name && '' === trim( (string) ( $cfg['accountName'] ?? '' ) ) ) {
+            $cfg['accountName'] = $name;
+            $changed            = true;
+        }
+        if ( '' !== $basic_id && '' === trim( (string) ( $cfg['basicId'] ?? '' ) ) ) {
+            $cfg['basicId'] = $basic_id;
+            $changed        = true;
+        }
+        if ( ! $changed ) {
+            return;
+        }
+        $all['line'] = $cfg;
+        update_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, $all, false );
     }
 }

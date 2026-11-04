@@ -283,6 +283,16 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
                 'permission_callback' => array( $this, 'check_manage_settings' ),
             )
         );
+
+        register_rest_route(
+            self::NAMESPACE_V1,
+            '/ai/kb/upload',
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array( $this, 'upload_kb_documents' ),
+                'permission_callback' => array( $this, 'check_manage_settings' ),
+            )
+        );
     }
 
     // ─── Permission helpers ──────────────────────────────────────────────────
@@ -398,7 +408,7 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
      * the DB and overwritten on save only when the client sends a new value.
      */
     private function scrub_secrets_for_output( array $values ) {
-        $secret_keys = array( 'accessToken', 'authToken', 'channelSecret', 'appSecret', 'smtpPass', 'imapPass', 'serverToken', 'encodingAesKey', 'pageToken', 'botToken', 'webhookToken', 'webhookSecret', 'verifyToken', 'apiKey' );
+        $secret_keys = array( 'accessToken', 'authToken', 'channelSecret', 'channelAccessToken', 'appSecret', 'smtpPass', 'imapPass', 'serverToken', 'encodingAesKey', 'pageToken', 'botToken', 'webhookToken', 'webhookSecret', 'verifyToken', 'apiKey', 'vonageSecret', 'genericSecret' );
         foreach ( $values as $key => $value ) {
             if ( in_array( $key, $secret_keys, true ) && is_string( $value ) && '' !== $value ) {
                 $values[ $key ] = str_repeat( '•', 8 );
@@ -1179,6 +1189,82 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
                 'manual' => array( 'indexed' => $manual, 'errors' => $errors ),
                 'wp'     => $wp,
             )
+        );
+    }
+
+    /**
+     * Index several uploaded documents. Each file becomes its own article.
+     */
+    public function upload_kb_documents( WP_REST_Request $request ) {
+        $files = $this->kb_uploaded_files( $request );
+        if ( empty( $files ) ) {
+            return new WP_Error(
+                'kmbp_kb_upload',
+                __( 'Choose at least one file to upload.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $rag    = new Kinetix_Messaging_By_Ppros_Ai_Rag();
+        $result = $rag->import_uploaded_files( $files );
+        if ( empty( $result['added'] ) ) {
+            $message = __( 'None of the files could be indexed.', 'kinetix-messaging-by-ppros' );
+            if ( ! empty( $result['errors'][0]['message'] ) ) {
+                $message = (string) $result['errors'][0]['message'];
+                if ( count( $result['errors'] ) > 1 ) {
+                    $message .= ' ' . sprintf(
+                        /* translators: %d: number of additional files that failed. */
+                        __( '(%d more files failed.)', 'kinetix-messaging-by-ppros' ),
+                        count( $result['errors'] ) - 1
+                    );
+                }
+            }
+            return new WP_Error(
+                'kmbp_kb_upload',
+                $message,
+                array(
+                    'status' => 400,
+                    'errors' => $result['errors'],
+                )
+            );
+        }
+
+        return rest_ensure_response( $result );
+    }
+
+    /**
+     * Normalize a single file or a files[] upload into a list.
+     *
+     * @return array<int,array{name:string,type:string,tmp_name:string,error:int,size:int}>
+     */
+    private function kb_uploaded_files( WP_REST_Request $request ): array {
+        $params = $request->get_file_params();
+        if ( empty( $params['files'] ) || ! is_array( $params['files'] ) ) {
+            return array();
+        }
+        $bag = $params['files'];
+        $files = array();
+        if ( isset( $bag['name'] ) && is_array( $bag['name'] ) ) {
+            foreach ( $bag['name'] as $index => $name ) {
+                $files[] = array(
+                    'name'     => (string) $name,
+                    'type'     => (string) ( $bag['type'][ $index ] ?? '' ),
+                    'tmp_name' => (string) ( $bag['tmp_name'][ $index ] ?? '' ),
+                    'error'    => (int) ( $bag['error'][ $index ] ?? UPLOAD_ERR_NO_FILE ),
+                    'size'     => (int) ( $bag['size'][ $index ] ?? 0 ),
+                );
+            }
+            return $files;
+        }
+
+        return array(
+            array(
+                'name'     => (string) ( $bag['name'] ?? '' ),
+                'type'     => (string) ( $bag['type'] ?? '' ),
+                'tmp_name' => (string) ( $bag['tmp_name'] ?? '' ),
+                'error'    => (int) ( $bag['error'] ?? UPLOAD_ERR_NO_FILE ),
+                'size'     => (int) ( $bag['size'] ?? 0 ),
+            ),
         );
     }
 }

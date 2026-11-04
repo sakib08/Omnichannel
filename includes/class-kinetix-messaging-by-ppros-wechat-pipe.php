@@ -33,6 +33,15 @@ class Kinetix_Messaging_By_Ppros_Wechat_Pipe extends Kinetix_Messaging_By_Ppros_
 
     public function register_routes(): void {
         $ns = Kinetix_Messaging_By_Ppros_Rest_Api::NAMESPACE_V1;
+        register_rest_route(
+            $ns,
+            '/wechat/test-connection',
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array( $this, 'handle_test_connection' ),
+                'permission_callback' => array( $this, 'check_manage_settings' ),
+            )
+        );
 
         register_rest_route(
             $ns,
@@ -302,5 +311,28 @@ class Kinetix_Messaging_By_Ppros_Wechat_Pipe extends Kinetix_Messaging_By_Ppros_
         set_transient( $cache_key, $name, 6 * HOUR_IN_SECONDS );
 
         return $name;
+    }
+
+    /**
+     * Ask WeChat for a fresh access token so a bad App Secret is not hidden by the cache.
+     */
+    public function handle_test_connection() {
+        delete_transient( self::TOKEN_TRANSIENT );
+        $token = $this->get_access_token( $this->get_settings() );
+        if ( is_wp_error( $token ) ) {
+            $status = 400;
+            $data   = $token->get_error_data();
+            if ( is_array( $data ) && isset( $data['status'] ) ) {
+                $status = (int) $data['status'];
+            }
+            return new WP_Error( 'kmbp_wechat_verify_failed', $token->get_error_message(), array( 'status' => $status > 0 ? $status : 400 ) );
+        }
+
+        return rest_ensure_response(
+            array(
+                'ok'      => true,
+                'message' => __( 'Connected. WeChat accepted this App ID and App Secret.', 'kinetix-messaging-by-ppros' ),
+            )
+        );
     }
 }

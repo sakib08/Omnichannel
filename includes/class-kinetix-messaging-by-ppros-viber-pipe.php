@@ -46,6 +46,16 @@ class Kinetix_Messaging_By_Ppros_Viber_Pipe extends Kinetix_Messaging_By_Ppros_C
 
         register_rest_route(
             $ns,
+            '/viber/test-connection',
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array( $this, 'handle_test_connection' ),
+                'permission_callback' => array( $this, 'check_manage_settings' ),
+            )
+        );
+
+        register_rest_route(
+            $ns,
             '/viber/send',
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
@@ -274,5 +284,77 @@ class Kinetix_Messaging_By_Ppros_Viber_Pipe extends Kinetix_Messaging_By_Ppros_C
             'webhookUrl' => $webhook_url,
             'viber'      => $result,
         ) );
+    }
+
+    /**
+     * Confirm the auth token with Viber's account info call.
+     */
+    public function handle_test_connection() {
+        $token = trim( (string) ( $this->get_settings()['authToken'] ?? '' ) );
+        if ( '' === $token ) {
+            return new WP_Error(
+                'kmbp_viber_not_configured',
+                __( 'Enter a Viber authentication token first.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $info = $this->http(
+            self::API_BASE . 'get_account_info',
+            array(
+                'method'  => 'POST',
+                'headers' => array(
+                    'X-Viber-Auth-Token' => $token,
+                    'Content-Type'       => 'application/json',
+                ),
+                'body'    => '{}',
+            )
+        );
+        if ( is_wp_error( $info ) ) {
+            return new WP_Error( 'kmbp_viber_verify_failed', $info->get_error_message(), array( 'status' => 400 ) );
+        }
+        if ( ! isset( $info['status'] ) || 0 !== (int) $info['status'] ) {
+            $message = sanitize_text_field( (string) ( $info['status_message'] ?? '' ) );
+            return new WP_Error(
+                'kmbp_viber_verify_failed',
+                '' !== $message ? $message : __( 'Viber rejected this authentication token.', 'kinetix-messaging-by-ppros' ),
+                array( 'status' => 400 )
+            );
+        }
+
+        $name = sanitize_text_field( (string) ( $info['name'] ?? '' ) );
+        $this->remember_viber_name( $name );
+
+        return rest_ensure_response(
+            array(
+                'ok'      => true,
+                'name'    => $name,
+                'message' => sprintf(
+                    /* translators: %s: Viber bot name */
+                    __( 'Connected to %s.', 'kinetix-messaging-by-ppros' ),
+                    '' !== $name ? $name : __( 'Viber', 'kinetix-messaging-by-ppros' )
+                ),
+            )
+        );
+    }
+
+    /**
+     * Fill an empty bot name after a successful check.
+     */
+    private function remember_viber_name( string $name ): void {
+        if ( '' === $name ) {
+            return;
+        }
+        $all = get_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, array() );
+        if ( ! is_array( $all ) ) {
+            return;
+        }
+        $cfg = isset( $all['viber'] ) && is_array( $all['viber'] ) ? $all['viber'] : array();
+        if ( '' !== trim( (string) ( $cfg['botName'] ?? '' ) ) ) {
+            return;
+        }
+        $cfg['botName'] = $name;
+        $all['viber']   = $cfg;
+        update_option( Kinetix_Messaging_By_Ppros_Activator::SETTINGS_OPTION, $all, false );
     }
 }

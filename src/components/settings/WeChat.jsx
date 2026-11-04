@@ -1,12 +1,49 @@
 import { useState } from "react";
 import { ChannelSharePanel, CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
-import { webhookUrl } from "../../api/client.js";
+import api, { webhookUrl } from "../../api/client.js";
+
+function stripMasked(values) {
+  const out = { ...values };
+  for (const key of Object.keys(out)) {
+    if (typeof out[key] === "string" && /^•+$/.test(out[key])) delete out[key];
+    if (key.endsWith("_set")) delete out[key];
+  }
+  return out;
+}
 
 export default function WeChatSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("account");
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
   const S = (k, v) => setCfg({ ...cfg, [k]: v });
   const color = TOKEN.wechat.color;
+
+  const handleTest = async () => {
+    if (testing) return;
+    const appId = String(cfg.appId || "").trim();
+    const secret = String(cfg.appSecret || "").trim();
+    const storedSecret = Boolean(cfg.appSecret_set) && /^•+$/.test(secret);
+    if (!appId) {
+      setTestResult({ ok: false, message: "Enter an App ID first." });
+      return;
+    }
+    if (!secret || (/^•+$/.test(secret) && !storedSecret)) {
+      setTestResult({ ok: false, message: "Enter an App Secret first." });
+      return;
+    }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      await api.saveChannel("wechat", stripMasked(cfg));
+      const data = await api.testWeChat();
+      setTestResult({ ok: true, message: data.message || "Connected." });
+    } catch (err) {
+      setTestResult({ ok: false, message: err.message || "Connection failed." });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -53,8 +90,11 @@ export default function WeChatSettings({ cfg, setCfg }) {
               <Input label="App Secret" value={cfg.appSecret} onChange={v => S("appSecret", v)} placeholder="••••••••••••••••••••••••••••••••" type="password" helper="Keep this secret. Use it only on your backend server." />
             </div>
           </div>
-          <div className="flex gap-3">
-            <button style={{ background: color }} className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity">Test connection</button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button type="button" onClick={handleTest} disabled={testing} style={{ background: color }} className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50">
+              {testing ? "Testing…" : "Test connection"}
+            </button>
+            {testResult && <span className={`text-xs font-medium ${testResult.ok ? "text-green-400" : "text-red-400"}`}>{testResult.message}</span>}
           </div>
         </div>
       )}

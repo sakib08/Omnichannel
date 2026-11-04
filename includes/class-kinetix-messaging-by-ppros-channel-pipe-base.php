@@ -31,6 +31,11 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
      */
     public function register_hooks( Kinetix_Messaging_By_Ppros_Loader $loader ): void {
         $loader->add_action( 'rest_api_init', $this, 'register_routes' );
+        static $hub_challenge_hooked = false;
+        if ( ! $hub_challenge_hooked ) {
+            $hub_challenge_hooked = true;
+            $loader->add_filter( 'rest_pre_serve_request', $this, 'serve_meta_hub_challenge', 10, 4 );
+        }
     }
 
     // ── Shared permission callbacks ───────────────────────────────────────
@@ -83,16 +88,67 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
      * Used by WhatsApp, Messenger, and Instagram.
      */
     public function check_meta_hub_verify_permission( WP_REST_Request $request ): bool {
-        if ( ! $this->is_channel_enabled() ) {
-            return false;
-        }
         $verify_token = (string) ( $this->get_settings()['verifyToken'] ?? '' );
         if ( '' === $verify_token ) {
             return false;
         }
-        $mode  = (string) ( $request->get_param( 'hub_mode' ) ?? '' );
-        $token = (string) ( $request->get_param( 'hub_verify_token' ) ?? '' );
+        $mode  = $this->meta_hub_param( $request, 'mode' );
+        $token = $this->meta_hub_param( $request, 'verify_token' );
         return 'subscribe' === $mode && hash_equals( $verify_token, $token );
+    }
+
+    /**
+     * Meta sends hub.mode, hub.challenge, and hub.verify_token.
+     * PHP turns the dots into underscores before WordPress sees the query.
+     */
+    protected function meta_hub_param( WP_REST_Request $request, string $name ): string {
+        foreach ( array( 'hub_' . $name, 'hub.' . $name ) as $key ) {
+            $value = $request->get_param( $key );
+            if ( is_scalar( $value ) && '' !== (string) $value ) {
+                return (string) $value;
+            }
+        }
+        $params = $request->get_query_params();
+        foreach ( array( 'hub_' . $name, 'hub.' . $name ) as $key ) {
+            if ( isset( $params[ $key ] ) && is_scalar( $params[ $key ] ) && '' !== (string) $params[ $key ] ) {
+                return (string) $params[ $key ];
+            }
+        }
+        return '';
+    }
+
+    /**
+     * Meta's webhook setup accepts the hub.challenge only as raw text.
+     * The REST server would otherwise JSON-encode it and the check would fail.
+     *
+     * @param bool              $served  Whether the request was already served.
+     * @param WP_HTTP_Response  $result  Response about to be sent.
+     * @param WP_REST_Request   $request Current request.
+     * @param WP_REST_Server    $server  REST server.
+     */
+    public function serve_meta_hub_challenge( $served, $result, $request, $server ) {
+        unset( $server );
+        if ( $served || ! $result instanceof WP_REST_Response || ! $request instanceof WP_REST_Request ) {
+            return $served;
+        }
+        if ( 'GET' !== $request->get_method() ) {
+            return $served;
+        }
+        $route = (string) $request->get_route();
+        $plain = array(
+            '/kmbp/v1/webhooks/messenger',
+            '/kmbp/v1/webhooks/whatsapp',
+            '/kmbp/v1/webhooks/instagram',
+        );
+        if ( ! in_array( $route, $plain, true ) || $result->get_status() < 200 || $result->get_status() >= 300 ) {
+            return $served;
+        }
+        $data = $result->get_data();
+        if ( ! is_string( $data ) || ! preg_match( '/^[A-Za-z0-9._~-]{1,256}$/', $data ) ) {
+            return $served;
+        }
+        echo $data; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Exact hub.challenge Meta sent, already constrained above.
+        return true;
     }
 
     /**
@@ -379,7 +435,14 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
         $data = json_decode( $body, true );
 
         if ( $code < 200 || $code >= 300 ) {
-            $msg = ( is_array( $data ) && isset( $data['message'] ) ) ? $data['message'] : "HTTP {$code}";
+            $msg = "HTTP {$code}";
+            if ( is_array( $data ) ) {
+                if ( isset( $data['error']['message'] ) && is_string( $data['error']['message'] ) && '' !== $data['error']['message'] ) {
+                    $msg = $data['error']['message'];
+                } elseif ( isset( $data['message'] ) && is_string( $data['message'] ) && '' !== $data['message'] ) {
+                    $msg = $data['message'];
+                }
+            }
             return new \WP_Error( 'kmbp_http_error', $msg, array( 'status' => $code, 'body' => $data ) );
         }
 

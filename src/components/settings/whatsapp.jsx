@@ -1,12 +1,55 @@
 import { useState } from "react";
 import { ChannelSharePanel, CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
-import { webhookUrl } from "../../api/client.js";
+import api, { webhookUrl } from "../../api/client.js";
+
+function stripMasked(values) {
+  const out = { ...values };
+  for (const key of Object.keys(out)) {
+    if (typeof out[key] === "string" && /^•+$/.test(out[key])) {
+      delete out[key];
+    }
+    if (key.endsWith("_set")) delete out[key];
+  }
+  return out;
+}
 
 export default function WhatsAppSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("api");
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
   const S = (k, v) => setCfg({ ...cfg, [k]: v });
   const color = TOKEN.whatsapp.color;
+
+  const handleTest = async () => {
+    if (testing) return;
+    const token = String(cfg.accessToken || "").trim();
+    const storedToken = Boolean(cfg.accessToken_set) && /^•+$/.test(token);
+    if (!token || (/^•+$/.test(token) && !storedToken)) {
+      setTestResult({ ok: false, message: "Enter a Permanent Access Token first." });
+      return;
+    }
+    if (!String(cfg.phoneNumberId || "").trim()) {
+      setTestResult({ ok: false, message: "Enter a Phone Number ID first." });
+      return;
+    }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      await api.saveChannel("whatsapp", stripMasked(cfg));
+      const data = await api.testWhatsApp();
+      const next = { ...cfg };
+      if (data.displayPhone && !String(cfg.displayPhone || "").trim()) {
+        next.displayPhone = data.displayPhone;
+      }
+      setCfg(next);
+      setTestResult({ ok: true, message: data.message || "Connected." });
+    } catch (err) {
+      setTestResult({ ok: false, message: err.message || "Connection failed." });
+    } finally {
+      setTesting(false);
+    }
+  };
  
   return (
     <div className="space-y-5">
@@ -51,8 +94,21 @@ export default function WhatsAppSettings({ cfg, setCfg }) {
             <Input label="Display phone number" value={cfg.displayPhone} onChange={v => S("displayPhone", v)} placeholder="+1 555 000 0000" />
           </div>
           <Input label="Webhook URL — paste in Meta App → WhatsApp → Configuration" value={webhookUrl("whatsapp")} readOnly mono />
-          <div className="flex gap-3">
-            <button style={{ background: color }} className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity">Test connection</button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              onClick={handleTest}
+              disabled={testing}
+              style={{ background: color }}
+              className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {testing ? "Testing…" : "Test connection"}
+            </button>
+            {testResult && (
+              <span className={`text-xs font-medium ${testResult.ok ? "text-green-400" : "text-red-400"}`}>
+                {testResult.message}
+              </span>
+            )}
           </div>
         </div>
       )}

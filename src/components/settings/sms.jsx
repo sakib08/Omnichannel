@@ -1,12 +1,69 @@
 import { useState } from "react";
 import { ChannelSharePanel, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
-import { webhookUrl } from "../../api/client.js";
+import api, { webhookUrl } from "../../api/client.js";
+
+function stripMasked(values) {
+  const out = { ...values };
+  for (const key of Object.keys(out)) {
+    if (typeof out[key] === "string" && /^•+$/.test(out[key])) delete out[key];
+    if (key.endsWith("_set")) delete out[key];
+  }
+  return out;
+}
+
+function missingSmsCredentials(cfg) {
+  const provider = cfg.provider || "twilio";
+  const blank = (value, stored) => {
+    const text = String(value || "").trim();
+    return !text || (/^•+$/.test(text) && !stored);
+  };
+  if (provider === "twilio") {
+    if (!String(cfg.accountSid || "").trim() || blank(cfg.authToken, cfg.authToken_set)) {
+      return "Enter your Twilio Account SID and Auth Token first.";
+    }
+  } else if (provider === "vonage") {
+    if (!String(cfg.vonageKey || "").trim() || blank(cfg.vonageSecret, cfg.vonageSecret_set)) {
+      return "Enter your Vonage API key and secret first.";
+    }
+  } else if (provider === "sinch" || provider === "plivo") {
+    if (!String(cfg.genericKey || "").trim() || blank(cfg.genericSecret, cfg.genericSecret_set)) {
+      return provider === "sinch"
+        ? "Enter your Sinch service plan ID and API token first."
+        : "Enter your Plivo Auth ID and Auth Token first.";
+    }
+  } else if (!String(cfg.genericKey || "").trim()) {
+    return provider === "telnyx" ? "Enter your Telnyx API key first." : "Enter your MessageBird API key first.";
+  }
+  return "";
+}
 
 export default function SmsSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("connection");
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
   const S = (k, v) => setCfg({ ...cfg, [k]: v });
   const color = TOKEN.sms.color;
+
+  const handleTest = async () => {
+    if (testing) return;
+    const missing = missingSmsCredentials(cfg);
+    if (missing) {
+      setTestResult({ ok: false, message: missing });
+      return;
+    }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      await api.saveChannel("sms", stripMasked(cfg));
+      const data = await api.testSms();
+      setTestResult({ ok: true, message: data.message || "Connected." });
+    } catch (err) {
+      setTestResult({ ok: false, message: err.message || "Connection failed." });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -90,8 +147,11 @@ export default function SmsSettings({ cfg, setCfg }) {
               </div>
             </div>
           )}
-          <div className="flex gap-3">
-            <button style={{ background: color }} className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity">Test connection</button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button type="button" onClick={handleTest} disabled={testing} style={{ background: color }} className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50">
+              {testing ? "Testing…" : "Test connection"}
+            </button>
+            {testResult && <span className={`text-xs font-medium ${testResult.ok ? "text-green-400" : "text-red-400"}`}>{testResult.message}</span>}
           </div>
         </div>
       )}

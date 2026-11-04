@@ -1,12 +1,48 @@
 import { useState } from "react";
 import { ChannelSharePanel, CodeSnippet, InfoBox, Input, Row, SectionDivider, Select, StatusBadge, TabBar, Textarea, Toggle } from "./shared.jsx";
 import { TOKEN } from "./tokens.js";
-import { webhookUrl } from "../../api/client.js";
+import api, { webhookUrl } from "../../api/client.js";
+
+function stripMasked(values) {
+  const out = { ...values };
+  for (const key of Object.keys(out)) {
+    if (typeof out[key] === "string" && /^•+$/.test(out[key])) delete out[key];
+    if (key.endsWith("_set")) delete out[key];
+  }
+  return out;
+}
 
 export default function InstagramSettings({ cfg, setCfg }) {
   const [tab, setTab] = useState("api");
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
   const S = (k, v) => setCfg({ ...cfg, [k]: v });
   const color = TOKEN.instagram.color;
+
+  const handleTest = async () => {
+    if (testing) return;
+    const token = String(cfg.pageToken || "").trim();
+    const stored = Boolean(cfg.pageToken_set) && /^•+$/.test(token);
+    if (!token || (/^•+$/.test(token) && !stored)) {
+      setTestResult({ ok: false, message: "Enter a Page Access Token first." });
+      return;
+    }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      await api.saveChannel("instagram", stripMasked(cfg));
+      const data = await api.testInstagram();
+      const next = { ...cfg };
+      if (data.pageId && !String(cfg.pageId || "").trim()) next.pageId = data.pageId;
+      if (data.igAccountId && !String(cfg.igAccountId || "").trim()) next.igAccountId = data.igAccountId;
+      setCfg(next);
+      setTestResult({ ok: true, message: data.message || "Connected." });
+    } catch (err) {
+      setTestResult({ ok: false, message: err.message || "Connection failed." });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -102,10 +138,11 @@ export default function InstagramSettings({ cfg, setCfg }) {
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <button style={{ background: color }} className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity">
-              Verify connection
+          <div className="flex items-center gap-3 pt-2 flex-wrap">
+            <button type="button" onClick={handleTest} disabled={testing} style={{ background: color }} className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50">
+              {testing ? "Verifying…" : "Verify connection"}
             </button>
+            {testResult && <span className={`text-xs font-medium ${testResult.ok ? "text-green-400" : "text-red-400"}`}>{testResult.message}</span>}
           </div>
         </div>
       )}

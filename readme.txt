@@ -4,7 +4,7 @@ Tags: live chat, whatsapp, chat, omnichannel, shared inbox
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.4.2
+Stable tag: 1.4.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -37,7 +37,7 @@ Answer WhatsApp, Messenger, Instagram, Telegram, SMS, email, and live chat from 
 
 **AI Support (optional)**
 
-* An AI assistant greets new conversations and answers from a knowledge base you control: articles you write, plus your published posts and pages if you choose.
+* An AI assistant greets new conversations and answers from a knowledge base you control: articles you write, files you upload, plus your published posts and pages if you choose.
 * Detects which department a question belongs to and assigns an online agent from that team.
 * Hands over to a human whenever the customer asks, with a wait message you write.
 * Works with OpenAI, Claude (Anthropic), Gemini (Google), Grok (xAI), or any OpenAI-compatible endpoint, using your own API key.
@@ -308,6 +308,14 @@ The following components are bundled in the distributed plugin (compiled into `b
 Development-only tools (npm packages used at build time, not included in the plugin ZIP) are not distributed with this plugin.
 
 == Changelog ==
+
+= 1.4.3 =
+* Add Verify or Test connection on Settings for Messenger, WhatsApp, Instagram DM, LINE, WeChat, Viber, and SMS. Each check uses the saved credentials and shows the provider's result. SMS checks the selected provider without sending a message.
+* LINE sending now uses the channel access token saved in Settings.
+* Return the Meta webhook challenge as plain text for Messenger, WhatsApp, and Instagram, so the Callback URL can be verified.
+* Use Meta Graph API v23.0 for Messenger, Instagram DM, and WhatsApp.
+* Upload several knowledge-base files at once under Settings → AI Support. Text, Markdown, CSV, HTML, JSON, RTF, DOCX, and PDF are each indexed as their own article.
+* Restyle the knowledge-base upload and article cards for light and dark mode.
 
 = 1.4.2 =
 * Require a phone number before a Live Chat visitor can send a message. The country menu is sorted A–Z and shows the letter code first, such as BD +880 or US +1. The saved number is that dialing code plus the digits they type.
