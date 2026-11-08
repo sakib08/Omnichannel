@@ -88,12 +88,12 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
      * Used by WhatsApp, Messenger, and Instagram.
      */
     public function check_meta_hub_verify_permission( WP_REST_Request $request ): bool {
-        $verify_token = (string) ( $this->get_settings()['verifyToken'] ?? '' );
+        $verify_token = trim( (string) ( $this->get_settings()['verifyToken'] ?? '' ) );
         if ( '' === $verify_token ) {
             return false;
         }
         $mode  = $this->meta_hub_param( $request, 'mode' );
-        $token = $this->meta_hub_param( $request, 'verify_token' );
+        $token = trim( $this->meta_hub_param( $request, 'verify_token' ) );
         return 'subscribe' === $mode && hash_equals( $verify_token, $token );
     }
 
@@ -155,14 +155,16 @@ abstract class Kinetix_Messaging_By_Ppros_Channel_Pipe_Base {
      * Verify Meta X-Hub-Signature-256 using the configured app secret.
      */
     protected function verify_meta_hub_signature( WP_REST_Request $request, string $app_secret ): bool {
+        $app_secret = trim( $app_secret );
         if ( '' === $app_secret ) {
             return false;
         }
-        $sig_header = (string) ( $request->get_header( 'x-hub-signature-256' ) ?? '' );
+        $sig_header = strtolower( trim( $this->get_request_header( $request, 'x-hub-signature-256' ) ) );
         if ( '' === $sig_header ) {
             return false;
         }
-        $expected = 'sha256=' . hash_hmac( 'sha256', $request->get_body(), $app_secret );
+        $body     = (string) $request->get_body();
+        $expected = 'sha256=' . hash_hmac( 'sha256', $body, $app_secret );
         return hash_equals( $expected, $sig_header );
     }
 

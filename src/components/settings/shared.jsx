@@ -12,7 +12,9 @@ function getChannelDirectLink(channel, cfg) {
       return username ? `https://t.me/${username}` : "";
     }
     case "whatsapp": {
-      const phone = (cfg.displayPhone || "").replace(/\D/g, "");
+      const typed = String(cfg.displayPhone || "").replace(/\D/g, "");
+      const saved = String(cfg.connectedPhone || "").replace(/\D/g, "");
+      const phone = typed.length >= 8 && typed.length <= 15 ? typed : (saved.length >= 8 && saved.length <= 15 ? saved : "");
       const text  = encodeURIComponent(cfg.ctaMessage || "Hello!");
       return phone ? `https://wa.me/${phone}?text=${text}` : "";
     }

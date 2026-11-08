@@ -8,6 +8,7 @@ import {
   getNotifyPrefs,
   saveNotifyPrefs,
   playChime,
+  refreshNotificationPermission,
   relevantForMe,
   showMessageNotification,
 } from "./notifications.js";
@@ -174,6 +175,10 @@ export default function OmnichannelApp() {
   const setNotifyPrefs = useCallback((next) => {
     setNotifyPrefsState(next);
     saveNotifyPrefs(next);
+  }, []);
+
+  useEffect(() => {
+    refreshNotificationPermission();
   }, []);
 
   // ── Load agents once (for assignee selector) ────────────────────────────────

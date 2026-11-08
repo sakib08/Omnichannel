@@ -389,6 +389,13 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
                 $out[ $key ] = (bool) $value;
             } elseif ( is_array( $value ) ) {
                 $out[ $key ] = array_map( 'sanitize_text_field', wp_unslash( $value ) );
+            } elseif ( in_array( $key, array( 'accessToken', 'authToken', 'channelSecret', 'channelAccessToken', 'appSecret', 'smtpPass', 'imapPass', 'serverToken', 'encodingAesKey', 'pageToken', 'botToken', 'webhookToken', 'webhookSecret', 'verifyToken', 'apiKey', 'vonageSecret', 'genericSecret' ), true ) ) {
+                // Keep secrets as text. A numeric verify token must not become an integer.
+                $value = sanitize_textarea_field( (string) $value );
+                if ( preg_match( '/^•+$/u', $value ) ) {
+                    continue;
+                }
+                $out[ $key ] = $value;
             } elseif ( is_numeric( $value ) ) {
                 $out[ $key ] = $value + 0;
             } else {
@@ -757,33 +764,41 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
         $cid      = (int) $request->get_param( 'id' );
         $after_id = (int) $request->get_param( 'after_id' ); // 0 = fetch all
 
-        $ids = $this->conversation_ids_for_contact( $cid );
-        $in  = implode( ',', array_map( 'absint', $ids ) );
+        $ids = array_values( array_filter( array_map( 'absint', $this->conversation_ids_for_contact( $cid ) ) ) );
+        if ( empty( $ids ) ) {
+            $ids = array( 0 );
+        }
+        $placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
 
         if ( $after_id > 0 ) {
             // Incremental fetch: only messages newer than the given ID, across
             // every thread that belongs to this person.
-            $rows = $wpdb->get_results(
-                $wpdb->prepare(
-                    "SELECT m.*, c.channel AS message_channel
-                    FROM {$wpdb->prefix}kmbp_messages m
-                    INNER JOIN {$wpdb->prefix}kmbp_conversations c ON c.id = m.conversation_id
-                    WHERE m.conversation_id IN ({$in}) AND m.id > %d
-                    ORDER BY m.sent_at ASC, m.id ASC",
-                    $after_id
-                ),
-                ARRAY_A
-            );
-        } else {
-            $rows = $wpdb->get_results(
+            $args   = $ids;
+            $args[] = $after_id;
+            // $placeholders is only %d tokens. The ids are passed to prepare().
+            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+            $sql = $wpdb->prepare(
                 "SELECT m.*, c.channel AS message_channel
                 FROM {$wpdb->prefix}kmbp_messages m
                 INNER JOIN {$wpdb->prefix}kmbp_conversations c ON c.id = m.conversation_id
-                WHERE m.conversation_id IN ({$in})
+                WHERE m.conversation_id IN ({$placeholders}) AND m.id > %d
                 ORDER BY m.sent_at ASC, m.id ASC",
-                ARRAY_A
+                ...$args
             );
+            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+        } else {
+            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+            $sql = $wpdb->prepare(
+                "SELECT m.*, c.channel AS message_channel
+                FROM {$wpdb->prefix}kmbp_messages m
+                INNER JOIN {$wpdb->prefix}kmbp_conversations c ON c.id = m.conversation_id
+                WHERE m.conversation_id IN ({$placeholders})
+                ORDER BY m.sent_at ASC, m.id ASC",
+                ...$ids
+            );
+            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
         }
+        $rows = $wpdb->get_results( $sql, ARRAY_A );
 
         return rest_ensure_response( array_map( array( $this, 'format_message_row' ), (array) $rows ) );
     }

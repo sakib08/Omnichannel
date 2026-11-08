@@ -39,9 +39,12 @@ export default function WhatsAppSettings({ cfg, setCfg }) {
       await api.saveChannel("whatsapp", stripMasked(cfg));
       const data = await api.testWhatsApp();
       const next = { ...cfg };
-      if (data.displayPhone && !String(cfg.displayPhone || "").trim()) {
+      const typedDigits = String(cfg.displayPhone || "").replace(/\D/g, "");
+      if (data.displayPhone && typedDigits.length < 8) {
         next.displayPhone = data.displayPhone;
       }
+      if (data.connectedPhone) next.connectedPhone = data.connectedPhone;
+      if (data.wabaid && !String(cfg.wabaid || "").replace(/\D/g, "")) next.wabaid = data.wabaid;
       setCfg(next);
       setTestResult({ ok: true, message: data.message || "Connected." });
     } catch (err) {
@@ -91,7 +94,7 @@ export default function WhatsAppSettings({ cfg, setCfg }) {
             </div>
             <Input label="App Secret" value={cfg.appSecret} onChange={v => S("appSecret", v)} placeholder="••••••••••••••••••••••" type="password" helper="Required. Used to verify X-Hub-Signature-256 on inbound webhooks." />
             <Input label="Webhook Verify Token" value={cfg.verifyToken} onChange={v => S("verifyToken", v)} placeholder="your_webhook_verify_token" helper="Any secret string you choose." />
-            <Input label="Display phone number" value={cfg.displayPhone} onChange={v => S("displayPhone", v)} placeholder="+1 555 000 0000" />
+            <Input label="Display phone number" value={cfg.displayPhone} onChange={v => S("displayPhone", v)} placeholder="+880 1XXX XXXXXX" helper="The WhatsApp number visitors open. A business name here is ignored; Test connection fills in the real number." />
           </div>
           <Input label="Webhook URL — paste in Meta App → WhatsApp → Configuration" value={webhookUrl("whatsapp")} readOnly mono />
           <div className="flex items-center gap-3 flex-wrap">
@@ -105,7 +108,7 @@ export default function WhatsAppSettings({ cfg, setCfg }) {
               {testing ? "Testing…" : "Test connection"}
             </button>
             {testResult && (
-              <span className={`text-xs font-medium ${testResult.ok ? "text-green-400" : "text-red-400"}`}>
+              <span className={`text-xs font-medium min-w-0 flex-1 ${testResult.ok ? "text-green-400" : "text-red-400"}`}>
                 {testResult.message}
               </span>
             )}

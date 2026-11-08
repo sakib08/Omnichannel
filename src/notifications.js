@@ -4,12 +4,40 @@
 const PREFS_KEY = "kmbp_notify_prefs";
 const DEFAULT_PREFS = { desktop: true, sound: true };
 
+// Notification.permission can stay "denied" on a local HTTP site even after the
+// browser has granted notifications. The Permissions API reports that grant.
+let knownPermission = null;
+
 export const notificationsSupported = () =>
-  typeof window !== "undefined" && "Notification" in window && window.isSecureContext;
+  typeof window !== "undefined" && "Notification" in window;
+
+function normalizePermission(state) {
+  if (state === "prompt") return "default";
+  if (state === "granted" || state === "denied" || state === "default") return state;
+  return "default";
+}
 
 /** "granted" | "denied" | "default" | "unsupported" */
-export const notificationPermission = () =>
-  notificationsSupported() ? window.Notification.permission : "unsupported";
+export const notificationPermission = () => {
+  if (!notificationsSupported()) return "unsupported";
+  return knownPermission || normalizePermission(window.Notification.permission);
+};
+
+export async function refreshNotificationPermission() {
+  if (!notificationsSupported()) return "unsupported";
+  let state = normalizePermission(window.Notification.permission);
+  try {
+    if (navigator.permissions?.query) {
+      const status = await navigator.permissions.query({ name: "notifications" });
+      const queried = normalizePermission(status.state);
+      if (queried === "granted" || state !== "granted") state = queried;
+    }
+  } catch {
+    // Notification.permission is the fallback.
+  }
+  knownPermission = state;
+  return state;
+}
 
 export function getNotifyPrefs() {
   try {
@@ -30,10 +58,15 @@ export function saveNotifyPrefs(prefs) {
 export async function requestNotificationPermission() {
   if (!notificationsSupported()) return "unsupported";
   try {
-    return await window.Notification.requestPermission();
+    const result = normalizePermission(await window.Notification.requestPermission());
+    if (result === "granted") {
+      knownPermission = "granted";
+      return "granted";
+    }
   } catch {
-    return window.Notification.permission;
+    // Fall through to the live permission.
   }
+  return refreshNotificationPermission();
 }
 
 // ── Sound ────────────────────────────────────────────────────────────────────

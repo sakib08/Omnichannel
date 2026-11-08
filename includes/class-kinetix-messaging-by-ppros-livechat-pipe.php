@@ -332,10 +332,12 @@ class Kinetix_Messaging_By_Ppros_Livechat_Pipe extends Kinetix_Messaging_By_Ppro
         require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
 
+        // phpcs:disable WordPress.Security.NonceVerification.Missing -- check_upload_permission() already authorized this REST upload. Visitors have no logged-in form nonce.
         if ( empty( $_FILES['file'] ) ) {
             // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- upload payload, checked by wp_handle_upload.
             $_FILES['file'] = $file;
         }
+        // phpcs:enable WordPress.Security.NonceVerification.Missing
 
         add_filter( 'upload_dir', array( $this, 'livechat_upload_dir' ) );
         $attach_id = media_handle_upload(

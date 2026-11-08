@@ -176,7 +176,7 @@ class Kinetix_Messaging_By_Ppros_Shortcodes {
                 return $username ? 'https://t.me/' . rawurlencode( $username ) : '';
 
             case 'whatsapp':
-                $phone = preg_replace( '/\D/', '', (string) ( $cfg['displayPhone'] ?? '' ) );
+                $phone = self::whatsapp_phone_digits( $cfg );
                 $text  = rawurlencode( (string) ( $cfg['ctaMessage'] ?? 'Hello!' ) );
                 return $phone ? "https://wa.me/{$phone}?text={$text}" : '';
 
@@ -209,6 +209,20 @@ class Kinetix_Messaging_By_Ppros_Shortcodes {
                 return $address ? 'mailto:' . $address : '';
         }
 
+        return '';
+    }
+
+    /**
+     * Digits for the public WhatsApp button. The display field is used when it
+     * contains a phone number. Otherwise the number confirmed by Meta is used.
+     */
+    public static function whatsapp_phone_digits( array $cfg ): string {
+        foreach ( array( 'displayPhone', 'connectedPhone' ) as $key ) {
+            $digits = preg_replace( '/\D+/', '', (string) ( $cfg[ $key ] ?? '' ) );
+            if ( is_string( $digits ) && strlen( $digits ) >= 8 && strlen( $digits ) <= 15 ) {
+                return $digits;
+            }
+        }
         return '';
     }
 }

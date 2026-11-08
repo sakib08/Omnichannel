@@ -62,6 +62,11 @@
       submitBtn.textContent = cfg.strings.submitting;
     }
 
+    if (selectedReason() === "development") {
+      goDeactivate();
+      return;
+    }
+
     var body = new window.URLSearchParams();
     body.set("action", cfg.action);
     body.set("nonce", cfg.nonce);

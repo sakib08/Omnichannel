@@ -3,9 +3,8 @@
  * Optional deactivation feedback on the Plugins screen.
  *
  * Intercepts Deactivate for this plugin, asks why, and emails the answer to
- * support@pluginpros.co. On local/dev sites without sendmail, the payload is
- * posted to pluginpros.co which then sends the mail. Skipping still deactivates
- * and sends nothing.
+ * support@pluginpros.co. Skipping still deactivates and sends nothing. Choosing
+ * the development-environment reason also sends nothing.
  *
  * @package Kinetix_Messaging_By_Ppros
  */
@@ -91,7 +90,7 @@ class Kinetix_Messaging_By_Ppros_Deactivate_Feedback {
                     </label>
                     <textarea id="kmbp-df-details" name="kmbp_df_details" rows="3" maxlength="2000" placeholder="<?php esc_attr_e( 'What went wrong, what you expected, or which plugin you switched to…', 'kinetix-messaging-by-ppros' ); ?>"></textarea>
                     <p class="kmbp-df__privacy">
-                        <?php esc_html_e( 'Submitting sends your reason, optional comments, site URL, plugin/WordPress/PHP versions, and your name and email to Plugin Pros so we can email support@pluginpros.co. Skip if you prefer not to share this.', 'kinetix-messaging-by-ppros' ); ?>
+                        <?php esc_html_e( 'Submitting sends your reason, optional comments, site URL, plugin/WordPress/PHP versions, and your name and email to Plugin Pros so we can email support@pluginpros.co. Skip if you prefer not to share this. “This is a development or staging site” deactivates without sending anything.', 'kinetix-messaging-by-ppros' ); ?>
                     </p>
                     <div class="kmbp-df__actions">
                         <button type="button" class="button" data-kmbp-df="skip">
@@ -137,8 +136,7 @@ class Kinetix_Messaging_By_Ppros_Deactivate_Feedback {
     }
 
     /**
-     * Public receiver used on pluginpros.co so local/dev sites can deliver mail
-     * without a working sendmail binary.
+     * Public receiver used on pluginpros.co. Development-environment reports are ignored.
      *
      * @param WP_REST_Request $request Request.
      * @return WP_REST_Response|WP_Error
@@ -153,9 +151,14 @@ class Kinetix_Messaging_By_Ppros_Deactivate_Feedback {
             return new WP_Error( 'kmbp_rate_limited', 'Too many requests.', array( 'status' => 429 ) );
         }
 
+        $reason = sanitize_key( (string) $request->get_param( 'reason' ) );
+        if ( 'development' === $reason ) {
+            return rest_ensure_response( array( 'sent' => false ) );
+        }
+
         $payload = $this->sanitize_payload(
             array(
-                'reason'         => $request->get_param( 'reason' ),
+                'reason'         => $reason,
                 'details'        => $request->get_param( 'details' ),
                 'site'           => $request->get_param( 'site' ),
                 'plugin_version' => $request->get_param( 'plugin_version' ),
@@ -181,6 +184,7 @@ class Kinetix_Messaging_By_Ppros_Deactivate_Feedback {
      */
     private function reasons() {
         return array(
+            'development'     => __( 'This is a development or staging site.', 'kinetix-messaging-by-ppros' ),
             'temporary'       => __( 'It is a temporary deactivation — I am troubleshooting.', 'kinetix-messaging-by-ppros' ),
             'not_working'     => __( 'The plugin is not working or is broken.', 'kinetix-messaging-by-ppros' ),
             'missing_feature' => __( 'It is missing a feature I need.', 'kinetix-messaging-by-ppros' ),
@@ -252,6 +256,10 @@ class Kinetix_Messaging_By_Ppros_Deactivate_Feedback {
      * @return bool
      */
     private function deliver_feedback( $payload ) {
+        if ( 'development' === $payload['reason'] ) {
+            return false;
+        }
+
         if ( $this->is_feedback_hub() ) {
             return $this->deliver_mail_local( $payload );
         }
@@ -386,9 +394,6 @@ class Kinetix_Messaging_By_Ppros_Deactivate_Feedback {
         return true;
     }
 
-    /**
-     * @return bool
-     */
     private function is_feedback_hub() {
         $host = wp_parse_url( home_url(), PHP_URL_HOST );
         return is_string( $host ) && in_array( $host, array( 'pluginpros.co', 'www.pluginpros.co' ), true );

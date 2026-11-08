@@ -4,7 +4,7 @@ Tags: live chat, whatsapp, chat, omnichannel, shared inbox
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.4.3
+Stable tag: 1.4.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -158,7 +158,7 @@ Live Chat does not need a public webhook URL, so it can be tested on `localhost`
 
 == External services ==
 
-This plugin is an omnichannel messaging inbox. It does **not** call any third-party API until a site administrator enables a channel and saves that channel's credentials in the plugin settings. No external requests are made on ordinary WordPress page loads for visitors, **except** when Live Chat is enabled: the public widget then opens a WebSocket to livechat.pluginpros.co so visitors can chat. Outbound API calls otherwise occur only when an authorized agent sends a message, when the plugin registers or checks a webhook, when optional auto-replies are sent, when scheduled email polling runs (IMAP, if configured), when the optional AI Support feature is enabled with an administrator-supplied API key, or when an administrator optionally submits the deactivation feedback form.
+This plugin is an omnichannel messaging inbox. It does **not** call any third-party API until a site administrator enables a channel and saves that channel's credentials in the plugin settings. No external requests are made on ordinary WordPress page loads for visitors, **except** when Live Chat is enabled: the public widget then opens a WebSocket to livechat.pluginpros.co so visitors can chat. Outbound API calls otherwise occur only when an authorized agent sends a message, when the plugin registers or checks a webhook, when optional auto-replies are sent, when scheduled email polling runs (IMAP, if configured), when the optional AI Support feature is enabled with an administrator-supplied API key, or when an administrator optionally submits the deactivation feedback form and does not choose the development-environment reason.
 
 Inbound messages are delivered **to** your WordPress site by the messaging provider via webhooks you configure in each provider's dashboard. Those providers may send message content, sender identifiers, and profile metadata to your site.
 
@@ -267,9 +267,9 @@ When enabled, the plugin calls the selected provider:
 
 = Deactivation feedback =
 
-Optional. When an administrator deactivates the plugin from the Plugins screen, they may submit a short feedback form. Submitting the form POSTs the feedback over HTTPS so Plugin Pros can email support@pluginpros.co. This does **not** depend on the site's PHP `mail()` / sendmail setup, so it also works on local development sites. Choosing **Skip & Deactivate** (or closing the dialog) deactivates the plugin without sending anything.
+Optional. When an administrator deactivates the plugin from the Plugins screen, they may submit a short feedback form. Submitting a reason other than “This is a development or staging site” POSTs the feedback over HTTPS so Plugin Pros can email support@pluginpros.co. This includes local sites such as `omnimailbox.test`. Choosing **Skip & Deactivate**, closing the dialog, or choosing **This is a development or staging site** deactivates the plugin without sending anything.
 
-**Data sent (only if the form is submitted):** deactivation reason, optional comments, site URL, WordPress version, PHP version, plugin version, and the administrator's name and email (used as Reply-To).
+**Data sent (only if the form is submitted and the development-environment reason is not selected):** deactivation reason, optional comments, site URL, WordPress version, PHP version, plugin version, and the administrator's name and email (used as Reply-To).
 
 Primary endpoint: `https://pluginpros.co/wp-json/kmbp/v1/deactivate-feedback` — **Service provided by Plugin Pros:** [pluginpros.co](https://pluginpros.co/). Contact: support@pluginpros.co.
 
@@ -308,6 +308,16 @@ The following components are bundled in the distributed plugin (compiled into `b
 Development-only tools (npm packages used at build time, not included in the plugin ZIP) are not distributed with this plugin.
 
 == Changelog ==
+
+= 1.4.5 =
+* Show the WhatsApp icon in the live chat window and on inbox messages, and open the connected phone number when the display field contains a business name.
+* WhatsApp Test connection registers the message webhook and shows why messages are not arriving.
+* Keep a numeric Webhook Verify Token as text so Meta can verify it.
+* Let the desktop pop-up switch turn on when the inbox is not served over HTTPS. Pop-ups still appear only while the inbox tab is in the background.
+* Add “This is a development or staging site” to the deactivation form. That choice sends nothing. Any other submitted reason, including from a local site, is emailed to support@pluginpros.co.
+
+= 1.4.4 =
+* Include the contacts class that the 1.4.3 download left out. Without that file the plugin could not load.
 
 = 1.4.3 =
 * Add Verify or Test connection on Settings for Messenger, WhatsApp, Instagram DM, LINE, WeChat, Viber, and SMS. Each check uses the saved credentials and shows the provider's result. SMS checks the selected provider without sending a message.

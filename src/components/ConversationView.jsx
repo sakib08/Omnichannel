@@ -89,9 +89,9 @@ function MessageBubble({ message, conv, onDelete }) {
               AI
             </span>
           )}
-          {message.channel && (conv.channels || []).length > 1 && (
+          {message.channel ? (
             <ChannelBadge channelId={message.channel} small />
-          )}
+          ) : null}
           <span className="text-xs text-gray-400">{message.time}</span>
         </div>
         <div className="relative min-w-0 w-full">

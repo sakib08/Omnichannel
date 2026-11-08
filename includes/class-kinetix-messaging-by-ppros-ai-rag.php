@@ -496,10 +496,6 @@ class Kinetix_Messaging_By_Ppros_Ai_Rag {
      * @return array{added:array<int,array<string,mixed>>,errors:array<int,array{name:string,message:string}>}
      */
     public function import_uploaded_files( array $files ): array {
-        if ( function_exists( 'set_time_limit' ) ) {
-            set_time_limit( 120 );
-        }
-
         $added  = array();
         $errors = array();
         $count  = 0;

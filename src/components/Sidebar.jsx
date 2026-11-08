@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CHANNELS } from "../constants/config";
 import ThemeToggle from "./ThemeToggle.jsx";
 import { ChannelIcon } from "./ChannelBadge.jsx";
@@ -6,14 +6,17 @@ import { currentUser } from "../api/client.js";
 import { PRESENCE_STYLES } from "./PresenceDot.jsx";
 import {
   notificationPermission,
+  refreshNotificationPermission,
   requestNotificationPermission,
   playChime,
 } from "../notifications.js";
 
-function Switch({ checked, onChange, disabled }) {
+function Switch({ checked, onChange, disabled, label }) {
   return (
     <button
       type="button"
+      aria-label={label}
+      aria-pressed={!!checked}
       onClick={() => !disabled && onChange(!checked)}
       disabled={disabled}
       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${checked && !disabled ? "bg-indigo-500" : "bg-gray-300"} disabled:opacity-50`}
@@ -29,14 +32,24 @@ function NotificationMenu({ prefs, setPrefs }) {
   const needsSetup = prefs.desktop && permission === "default";
   const desktopOn = prefs.desktop && permission === "granted";
 
+  useEffect(() => {
+    let live = true;
+    refreshNotificationPermission().then((result) => {
+      if (live) setPermission(result);
+    });
+    return () => {
+      live = false;
+    };
+  }, [open]);
+
   const toggleDesktop = async (on) => {
-    if (on && permission === "default") {
-      const result = await requestNotificationPermission();
-      setPermission(result);
-      setPrefs({ ...prefs, desktop: result === "granted" });
+    if (!on) {
+      setPrefs({ ...prefs, desktop: false });
       return;
     }
-    setPrefs({ ...prefs, desktop: on });
+    const result = await requestNotificationPermission();
+    setPermission(result);
+    setPrefs({ ...prefs, desktop: result === "granted" });
   };
 
   return (
@@ -65,19 +78,21 @@ function NotificationMenu({ prefs, setPrefs }) {
                 <p className="text-xs text-gray-400">When the inbox isn't in front</p>
               </div>
               <Switch
+                label="Desktop pop-ups"
                 checked={desktopOn}
                 onChange={toggleDesktop}
-                disabled={permission === "denied" || permission === "unsupported"}
+                disabled={permission === "unsupported"}
               />
             </div>
             {permission === "denied" && (
               <p className="text-xs text-amber-600 leading-relaxed">
-                Blocked by your browser. Allow notifications for this site in the browser&apos;s site settings, then reload.
+                Blocked by your browser. Allow notifications for this site in the browser&apos;s site settings, then turn this on again.
+                {typeof window !== "undefined" && !window.isSecureContext ? " Some browsers only allow this on HTTPS." : ""}
               </p>
             )}
             {permission === "unsupported" && (
               <p className="text-xs text-amber-600 leading-relaxed">
-                Not available here. Browser notifications need the site to use HTTPS.
+                Not available in this browser.
               </p>
             )}
 
@@ -88,7 +103,7 @@ function NotificationMenu({ prefs, setPrefs }) {
                   Play test sound
                 </button>
               </div>
-              <Switch checked={!!prefs.sound} onChange={(on) => setPrefs({ ...prefs, sound: on })} />
+              <Switch label="Sound" checked={!!prefs.sound} onChange={(on) => setPrefs({ ...prefs, sound: on })} />
             </div>
 
             <p className="pt-2 border-t border-gray-100 text-xs text-gray-400 leading-relaxed">
