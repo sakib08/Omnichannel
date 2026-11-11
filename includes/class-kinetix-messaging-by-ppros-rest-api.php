@@ -764,68 +764,30 @@ class Kinetix_Messaging_By_Ppros_Rest_Api {
         $cid      = (int) $request->get_param( 'id' );
         $after_id = (int) $request->get_param( 'after_id' ); // 0 = fetch all
 
-        $ids = array_values( array_filter( array_map( 'absint', $this->conversation_ids_for_contact( $cid ) ) ) );
-        if ( empty( $ids ) ) {
-            $ids = array( 0 );
-        }
-        $placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
-
-        if ( $after_id > 0 ) {
-            // Incremental fetch: only messages newer than the given ID, across
-            // every thread that belongs to this person.
-            $args   = $ids;
-            $args[] = $after_id;
-            // $placeholders is only %d tokens. The ids are passed to prepare().
-            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-            $sql = $wpdb->prepare(
+        // Every thread for this person, including older than $after_id when that is 0.
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
                 "SELECT m.*, c.channel AS message_channel
                 FROM {$wpdb->prefix}kmbp_messages m
                 INNER JOIN {$wpdb->prefix}kmbp_conversations c ON c.id = m.conversation_id
-                WHERE m.conversation_id IN ({$placeholders}) AND m.id > %d
+                WHERE (
+                    c.id = %d
+                    OR c.contact_id = (
+                        SELECT contact_id FROM {$wpdb->prefix}kmbp_conversations
+                        WHERE id = %d AND contact_id > 0
+                    )
+                )
+                AND ( %d = 0 OR m.id > %d )
                 ORDER BY m.sent_at ASC, m.id ASC",
-                ...$args
-            );
-            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-        } else {
-            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-            $sql = $wpdb->prepare(
-                "SELECT m.*, c.channel AS message_channel
-                FROM {$wpdb->prefix}kmbp_messages m
-                INNER JOIN {$wpdb->prefix}kmbp_conversations c ON c.id = m.conversation_id
-                WHERE m.conversation_id IN ({$placeholders})
-                ORDER BY m.sent_at ASC, m.id ASC",
-                ...$ids
-            );
-            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-        }
-        $rows = $wpdb->get_results( $sql, ARRAY_A );
+                $cid,
+                $cid,
+                $after_id,
+                $after_id
+            ),
+            ARRAY_A
+        );
 
         return rest_ensure_response( array_map( array( $this, 'format_message_row' ), (array) $rows ) );
-    }
-
-    /**
-     * Conversation ids that belong to the same person as $cid.
-     *
-     * @return int[]
-     */
-    private function conversation_ids_for_contact( int $cid ): array {
-        global $wpdb;
-        if ( $cid <= 0 ) {
-            return array( 0 );
-        }
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-        $contact_id = (int) $wpdb->get_var(
-            $wpdb->prepare( "SELECT contact_id FROM {$wpdb->prefix}kmbp_conversations WHERE id = %d", $cid )
-        );
-        if ( $contact_id <= 0 ) {
-            return array( $cid );
-        }
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-        $ids = $wpdb->get_col(
-            $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}kmbp_conversations WHERE contact_id = %d", $contact_id )
-        );
-        $ids = array_values( array_filter( array_map( 'absint', (array) $ids ) ) );
-        return $ids ? $ids : array( $cid );
     }
 
     /**

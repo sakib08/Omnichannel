@@ -1,6 +1,6 @@
 <?php
 /**
- * Multi-provider AI client: OpenAI-compatible, Grok (xAI), Claude (Anthropic), Gemini (Google).
+ * Multi-provider AI client: OpenAI-compatible, Grok (xAI), DeepSeek, Claude (Anthropic), Gemini (Google).
  *
  * @package Kinetix_Messaging_By_Ppros
  */
@@ -9,7 +9,7 @@ defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 
 class Kinetix_Messaging_By_Ppros_Ai_Client {
 
-    const PROVIDERS = array( 'openai', 'grok', 'claude', 'gemini', 'openai_compat' );
+    const PROVIDERS = array( 'openai', 'grok', 'deepseek', 'claude', 'gemini', 'openai_compat' );
 
     /**
      * Provider API roots. AI is configured and managed inside this plugin
@@ -20,7 +20,9 @@ class Kinetix_Messaging_By_Ppros_Ai_Client {
         // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Admin-configured provider, disclosed in readme.
         'openai' => 'https://api.openai.com/v1',
         // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Admin-configured provider, disclosed in readme.
-        'grok'   => 'https://api.x.ai/v1',
+        'grok'     => 'https://api.x.ai/v1',
+        // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Admin-configured provider, disclosed in readme.
+        'deepseek' => 'https://api.deepseek.com',
         // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Admin-configured provider, disclosed in readme.
         'claude' => 'https://api.anthropic.com',
         // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Admin-configured provider, disclosed in readme.
@@ -69,6 +71,13 @@ class Kinetix_Messaging_By_Ppros_Ai_Client {
                 'label'          => 'Grok (xAI)',
                 'baseUrl'        => self::ENDPOINTS['grok'],
                 'chatModel'      => 'grok-3-mini',
+                'embeddingModel' => '',
+                'supportsEmbed'  => false,
+            ),
+            'deepseek' => array(
+                'label'          => 'DeepSeek',
+                'baseUrl'        => self::ENDPOINTS['deepseek'],
+                'chatModel'      => 'deepseek-chat',
                 'embeddingModel' => '',
                 'supportsEmbed'  => false,
             ),
@@ -163,6 +172,7 @@ class Kinetix_Messaging_By_Ppros_Ai_Client {
             case 'gemini':
                 return $this->chat_gemini( $messages, $opts );
             case 'grok':
+            case 'deepseek':
             case 'openai':
             case 'openai_compat':
             default:

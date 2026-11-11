@@ -137,8 +137,8 @@ function stripMaskedSecrets(values) {
   return out;
 }
 
-export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
-  const [active, setActive] = useState("messenger");
+export default function IntegrationSettings({ theme = "dark", toggleTheme, section }) {
+  const [active, setActive] = useState(section === "ai" ? "ai" : "messenger");
   const [configs, setConfigs] = useState(() => ({
     ...Object.fromEntries(CHANNEL_ORDER.map((id) => [id, { ...CHANNEL_DEFAULTS[id] }])),
     ai: { ...AI_DEFAULTS },
@@ -239,20 +239,20 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
       >
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-black text-white">
-            <i className="ti ti-settings" />
+            <i className={section === "ai" ? "ti ti-robot" : "ti ti-settings"} />
           </div>
-          <span className="text-sm font-bold text-white tracking-tight">Integration Settings</span>
-          <span className="text-xs text-slate-600 hidden sm:block">
-            / {active === "team"
-              ? "Team & Departments"
-              : active === "ai"
-              ? "AI Support"
-              : active === "availability"
-              ? "Availability"
-              : active === "notifications"
-              ? "Notifications"
-              : "Channel Connections"}
-          </span>
+          <span className="text-sm font-bold text-white tracking-tight">{section === "ai" ? "AI Support" : "Integration Settings"}</span>
+          {section !== "ai" && (
+            <span className="text-xs text-slate-600 hidden sm:block">
+              / {active === "team"
+                ? "Team & Departments"
+                : active === "availability"
+                ? "Availability"
+                : active === "notifications"
+                ? "Notifications"
+                : "Channel Connections"}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {loading && <span className="text-xs text-slate-400">Loading…</span>}
@@ -274,7 +274,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <aside
+        {section !== "ai" && <aside
           className="w-60 shrink-0 border-r border-slate-800/60 flex flex-col py-4 px-3 gap-1 overflow-y-auto"
           style={{ background: theme === "dark" ? "rgba(8,12,22,0.6)" : "rgba(255,255,255,0.62)" }}
         >
@@ -288,20 +288,6 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
               onClick={() => setActive(id)}
             />
           ))}
-
-          <p className="px-3 mt-6 text-xs font-bold uppercase tracking-widest text-slate-600 mb-2">Intelligence</p>
-          <button
-            onClick={() => setActive("ai")}
-            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-150 ${active === "ai" ? "bg-slate-800 shadow-md border border-slate-700/60" : "hover:bg-slate-800/50 border border-transparent"}`}
-          >
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white bg-gradient-to-br from-indigo-500 to-violet-600 shrink-0">
-              <i className="ti ti-robot" />
-            </div>
-            <div className="flex-1 text-left min-w-0">
-              <p className={`text-sm font-semibold truncate ${active === "ai" ? "text-gray-500" : "text-slate-300"}`}>AI Support</p>
-              <p className="text-xs text-slate-500">{configs.ai?.enabled ? "Enabled" : "Disabled"}</p>
-            </div>
-          </button>
 
           <p className="px-3 mt-6 text-xs font-bold uppercase tracking-widest text-slate-600 mb-2">Team</p>
           <button
@@ -356,7 +342,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme }) {
               </div>
             ))}
           </div>
-        </aside>
+        </aside>}
 
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-6 py-8 pb-24">

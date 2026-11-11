@@ -10,6 +10,7 @@ defined( 'ABSPATH' ) || die( 'No script kiddies please!' );
 class Kinetix_Messaging_By_Ppros_Admin {
 
     const MENU_SLUG      = 'kinetix-messaging-by-ppros';
+    const AI_MENU_SLUG   = 'kinetix-messaging-by-ppros-ai';
     const HELP_MENU_SLUG = 'kinetix-messaging-by-ppros-help';
 
     public function register_menu() {
@@ -37,6 +38,19 @@ class Kinetix_Messaging_By_Ppros_Admin {
             array( $this, 'render_app_container' )
         );
 
+        $settings_cap = current_user_can( 'manage_options' )
+            ? 'manage_options'
+            : Kinetix_Messaging_By_Ppros_Activator::CAP_MANAGE_SETTINGS;
+
+        add_submenu_page(
+            self::MENU_SLUG,
+            __( 'AI Support — Kinetix Messaging', 'kinetix-messaging-by-ppros' ),
+            __( 'AI Support', 'kinetix-messaging-by-ppros' ),
+            $settings_cap,
+            self::AI_MENU_SLUG,
+            array( $this, 'render_ai_page' )
+        );
+
         // Help submenu.
         add_submenu_page(
             self::MENU_SLUG,
@@ -55,6 +69,15 @@ class Kinetix_Messaging_By_Ppros_Admin {
         }
 
         echo '<div id="kinetix-messaging-by-ppros"></div>';
+    }
+
+    public function render_ai_page() {
+        if ( ! current_user_can( Kinetix_Messaging_By_Ppros_Activator::CAP_MANAGE_SETTINGS )
+            && ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'You do not have permission to access this page.', 'kinetix-messaging-by-ppros' ) );
+        }
+
+        $this->render_app_container();
     }
 
     // ── Help page ──────────────────────────────────────────────────────────
@@ -413,6 +436,7 @@ class Kinetix_Messaging_By_Ppros_Admin {
                     'canManageSettings'  => $can_manage_settings,
                     'canManageDepts'     => $can_manage_depts,
                 ),
+                'screen'  => false !== strpos( (string) $hook_suffix, self::AI_MENU_SLUG ) ? 'ai' : 'inbox',
             )
         );
     }

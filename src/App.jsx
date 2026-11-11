@@ -136,6 +136,8 @@ export function normaliseMessage(raw) {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
+const bootScreen = (typeof window !== "undefined" && window.KinetixMessagingBoot?.screen) || "inbox";
+
 export default function OmnichannelApp() {
   const [activeChannel, setActiveChannel] = useState("all");
   const [conversations, setConversations] = useState([]);
@@ -623,6 +625,16 @@ export default function OmnichannelApp() {
   };
 
   const handleBackToList = () => setSelected(null);
+
+  if (bootScreen === "ai") {
+    return (
+      <div className={`kmbp-app-root theme-${theme} flex bg-gray-50 font-sans overflow-hidden`}>
+        <main className="flex-1 overflow-hidden min-w-0">
+          <IntegrationSettings theme={theme} toggleTheme={toggleTheme} section="ai" />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className={`kmbp-app-root theme-${theme} flex bg-gray-50 font-sans overflow-hidden`}>

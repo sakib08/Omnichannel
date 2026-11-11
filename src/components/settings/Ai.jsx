@@ -23,6 +23,15 @@ const PROVIDER_PRESETS = {
     keyHint: "xai-…",
     helper: "xAI Grok via OpenAI-compatible API. RAG uses keyword search (no embeddings).",
   },
+  deepseek: {
+    label: "DeepSeek",
+    baseUrl: "https://api.deepseek.com",
+    chatModel: "deepseek-chat",
+    embeddingModel: "",
+    supportsEmbed: false,
+    keyHint: "sk-…",
+    helper: "DeepSeek chat API. Use deepseek-reasoner for the thinking model. RAG uses keyword search (no embeddings).",
+  },
   claude: {
     label: "Claude (Anthropic)",
     baseUrl: "https://api.anthropic.com",
@@ -75,7 +84,7 @@ export default function AiSettings({ cfg, setCfg }) {
 
   const provider = cfg.provider || "openai";
   const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openai;
-  const showBaseUrl = provider === "openai" || provider === "openai_compat" || provider === "grok";
+  const showBaseUrl = provider === "openai" || provider === "openai_compat" || provider === "grok" || provider === "deepseek";
   const showEmbed = !!preset.supportsEmbed;
 
   const [docs, setDocs] = useState([]);

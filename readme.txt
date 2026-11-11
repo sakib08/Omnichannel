@@ -4,7 +4,7 @@ Tags: live chat, whatsapp, chat, omnichannel, shared inbox
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.4.5
+Stable tag: 1.4.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -13,6 +13,8 @@ Answer WhatsApp, Messenger, Instagram, Telegram, SMS, email, and live chat from 
 == Description ==
 
 **Every customer conversation in one inbox, inside WordPress.** Kinetix Messaging connects your messaging channels to a shared team inbox in your WordPress admin. Your agents reply from one screen, an optional AI assistant answers from your own content, and conversations go to the right person automatically.
+
+https://www.youtube.com/watch?v=zhiJLUyV-s0
 
 = Features =
 
@@ -40,7 +42,7 @@ Answer WhatsApp, Messenger, Instagram, Telegram, SMS, email, and live chat from 
 * An AI assistant greets new conversations and answers from a knowledge base you control: articles you write, files you upload, plus your published posts and pages if you choose.
 * Detects which department a question belongs to and assigns an online agent from that team.
 * Hands over to a human whenever the customer asks, with a wait message you write.
-* Works with OpenAI, Claude (Anthropic), Gemini (Google), Grok (xAI), or any OpenAI-compatible endpoint, using your own API key.
+* Works with OpenAI, DeepSeek, Claude (Anthropic), Gemini (Google), Grok (xAI), or any OpenAI-compatible endpoint, using your own API key.
 
 **Availability and automation**
 
@@ -251,13 +253,15 @@ Optional and off by default. AI is configured entirely inside this plugin (Setti
 When enabled, the plugin calls the selected provider:
 
 * when a customer message arrives in a conversation that has no human agent assigned, to decide which department it belongs to and to write a reply;
-* when an administrator adds, edits, or re-indexes a knowledge-base article, and when a published post or page is saved while "Index WordPress posts & pages" is on, to create search embeddings (OpenAI, Gemini, and OpenAI-compatible endpoints only).
+* when an administrator adds, edits, or re-indexes a knowledge-base article, and when a published post or page is saved while "Index WordPress posts & pages" is on, to create search embeddings (OpenAI, Gemini, and OpenAI-compatible endpoints only). DeepSeek, Grok, and Claude answer from keyword search instead.
 
 **Data sent:** the API key, the chosen model name, the customer's latest message and up to the 12 most recent messages in that conversation, the names and slugs of your departments, and knowledge-base excerpts that match the question (from articles you add and, if enabled, your published posts and pages). No data is sent for conversations that already have a human agent assigned or where the customer asked for a human.
 
 **OpenAI** (`https://api.openai.com/v1/chat/completions` and `/v1/embeddings`) — **Service provided by OpenAI, L.L.C.:** [Terms of Use](https://openai.com/policies/terms-of-use), [Privacy Policy](https://openai.com/policies/privacy-policy).
 
 **Grok by xAI** (`https://api.x.ai/v1/chat/completions`) — **Service provided by X.AI LLC:** [Terms of Service](https://x.ai/legal/terms-of-service), [Privacy Policy](https://x.ai/legal/privacy-policy).
+
+**DeepSeek** (`https://api.deepseek.com/chat/completions`) — **Service provided by DeepSeek:** [Terms of Use](https://cdn.deepseek.com/policies/en-US/deepseek-terms-of-use.html), [Privacy Policy](https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html).
 
 **Claude by Anthropic** (`https://api.anthropic.com/v1/messages`) — **Service provided by Anthropic, PBC:** [Commercial Terms](https://www.anthropic.com/legal/commercial-terms), [Privacy Policy](https://www.anthropic.com/legal/privacy).
 
@@ -308,6 +312,11 @@ The following components are bundled in the distributed plugin (compiled into `b
 Development-only tools (npm packages used at build time, not included in the plugin ZIP) are not distributed with this plugin.
 
 == Changelog ==
+
+= 1.4.6 =
+* Move AI Support to its own menu under Kinetix Messaging, next to Inbox.
+* Add DeepSeek as an AI provider. Replies use the DeepSeek chat API, and knowledge-base search uses keywords because DeepSeek does not provide embeddings.
+* Show an overview video on the plugin page.
 
 = 1.4.5 =
 * Show the WhatsApp icon in the live chat window and on inbox messages, and open the connected phone number when the display field contains a business name.
