@@ -51,8 +51,12 @@ function MessageAttachment({ attachment, inverted }) {
 }
 
 function MessageBubble({ message, conv, onDelete }) {
-  const [hovered, setHovered] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const confirmRef = useRef(null);
+
+  useEffect(() => {
+    if (confirming) confirmRef.current?.focus();
+  }, [confirming]);
   const avatarInitials = message.isAi ? "AI" : message.isAgent ? "AG" : conv.avatar;
   const avatarColor = message.isAi ? "#8B5CF6" : message.isAgent ? "#6366F1" : (channelMeta(conv.channel).color || "#6366F1");
 
@@ -75,8 +79,13 @@ function MessageBubble({ message, conv, onDelete }) {
   return (
     <div
       className={`flex gap-2 sm:gap-3 group min-w-0 ${message.isAgent ? "flex-row-reverse" : ""}`}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setConfirming(false); }}
+      onMouseLeave={() => setConfirming(false)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && confirming) {
+          event.preventDefault();
+          setConfirming(false);
+        }
+      }}
     >
       <div className="shrink-0">
         <Avatar initials={avatarInitials} color={avatarColor} size={32} />
@@ -121,13 +130,14 @@ function MessageBubble({ message, conv, onDelete }) {
               <span className="break-words" style={{ whiteSpace: "pre-wrap" }}>{message.text}</span>
             )}
           </div>
-          {hovered && !confirming && (
+          {!confirming && (
             <button
+              type="button"
               onClick={handleDeleteClick}
-              title="Delete message"
-              className={`absolute top-1 ${message.isAgent ? "left-0 -translate-x-full -ml-1" : "right-0 translate-x-full ml-1"} p-1 rounded-md bg-white border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 shadow-sm transition-colors`}
+              aria-label="Delete message"
+              className={`absolute top-1 ${message.isAgent ? "left-0 -translate-x-full -ml-1" : "right-0 translate-x-full ml-1"} p-1 rounded-md bg-white border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 shadow-sm transition-opacity opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto`}
             >
-              <i className="ti ti-trash" style={{ fontSize: 13 }} />
+              <i className="ti ti-trash" aria-hidden="true" style={{ fontSize: 13 }} />
             </button>
           )}
           {confirming && (
@@ -136,6 +146,8 @@ function MessageBubble({ message, conv, onDelete }) {
             >
               <span className="text-xs text-gray-600">Delete?</span>
               <button
+                ref={confirmRef}
+                type="button"
                 onClick={handleConfirm}
                 className="text-xs px-2 py-0.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
               >

@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Avatar from "./Avatar.jsx";
 import ChannelBadge from "./ChannelBadge.jsx";
 import SLABadge from "./SLABadge.jsx";
 import { channelMeta, STATUS_FILTERS, statusConfig } from "../constants/config";
 
 function ConversationRow({ conversation, selected, setSelected, onDelete }) {
-  const [hovered, setHovered] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const confirmRef = useRef(null);
+
+  useEffect(() => {
+    if (confirming) confirmRef.current?.focus();
+  }, [confirming]);
 
   const handleDeleteClick = (e) => {
     e.stopPropagation();
@@ -26,9 +30,14 @@ function ConversationRow({ conversation, selected, setSelected, onDelete }) {
 
   return (
     <div
-      className="relative border-b border-gray-50"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setConfirming(false); }}
+      className="group relative border-b border-gray-50"
+      onMouseLeave={() => setConfirming(false)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && confirming) {
+          event.preventDefault();
+          setConfirming(false);
+        }
+      }}
     >
       <button
         onClick={() => setSelected(conversation.id)}
@@ -63,14 +72,14 @@ function ConversationRow({ conversation, selected, setSelected, onDelete }) {
         </div>
       </button>
 
-      {/* Delete control — visible on hover */}
-      {hovered && !confirming && (
+      {!confirming && (
         <button
+          type="button"
           onClick={handleDeleteClick}
-          title="Delete thread"
-          className="absolute top-2 right-2 p-1 rounded-md bg-white border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 shadow-sm transition-colors"
+          aria-label={`Delete thread ${conversation.name || ""}`.trim()}
+          className="absolute top-2 right-2 p-1 rounded-md bg-white border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 shadow-sm transition-opacity opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto"
         >
-          <i className="ti ti-trash" style={{ fontSize: 13 }} />
+          <i className="ti ti-trash" aria-hidden="true" style={{ fontSize: 13 }} />
         </button>
       )}
 
@@ -79,6 +88,8 @@ function ConversationRow({ conversation, selected, setSelected, onDelete }) {
         <div className="absolute top-2 right-2 flex items-center gap-1 bg-white border border-gray-200 rounded-lg shadow-md px-2 py-1 z-10 whitespace-nowrap">
           <span className="text-xs text-gray-600">Delete thread?</span>
           <button
+            ref={confirmRef}
+            type="button"
             onClick={handleConfirm}
             className="text-xs px-2 py-0.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
           >

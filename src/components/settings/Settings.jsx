@@ -150,6 +150,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme, secti
   const [saved, setSaved] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState(null);
+  const [announce, setAnnounce] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -190,6 +191,7 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme, secti
     if (saving) return;
     setSaving(true);
     setError(null);
+    setAnnounce("Saving settings.");
     try {
       const payload = Object.fromEntries(
         CHANNEL_ORDER.map((id) => [id, stripMaskedSecrets(configs[id])])
@@ -210,9 +212,12 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme, secti
       });
       setSaved(true);
       setDirty(false);
+      setAnnounce("Settings saved.");
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      setError(err.message || "Could not save settings");
+      const message = err.message || "Could not save settings";
+      setError(message);
+      setAnnounce("");
     } finally {
       setSaving(false);
     }
@@ -255,8 +260,9 @@ export default function IntegrationSettings({ theme = "dark", toggleTheme, secti
           )}
         </div>
         <div className="flex items-center gap-3">
+          <p className="sr-only" role="status" aria-live="polite">{announce}</p>
           {loading && <span className="text-xs text-slate-400">Loading…</span>}
-          {error && <span className="text-xs text-red-400 font-medium">{error}</span>}
+          {error && <span role="alert" className="text-xs text-red-400 font-medium">{error}</span>}
           {dirty && !saved && !saving && <span className="text-xs text-amber-400 font-medium animate-pulse">Unsaved changes</span>}
           {saving && <span className="text-xs text-slate-300">Saving…</span>}
           {toggleTheme && <ThemeToggle theme={theme} onToggle={toggleTheme} />}

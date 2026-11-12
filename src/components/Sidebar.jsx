@@ -19,7 +19,7 @@ function Switch({ checked, onChange, disabled, label }) {
       aria-pressed={!!checked}
       onClick={() => !disabled && onChange(!checked)}
       disabled={disabled}
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${checked && !disabled ? "bg-indigo-500" : "bg-gray-300"} disabled:opacity-50`}
+      className={`kmbp-switch relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${checked && !disabled ? "bg-indigo-500" : "bg-gray-300"} disabled:opacity-50`}
     >
       <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-4" : "translate-x-1"}`} />
     </button>
@@ -42,6 +42,18 @@ function NotificationMenu({ prefs, setPrefs }) {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
   const toggleDesktop = async (on) => {
     if (!on) {
       setPrefs({ ...prefs, desktop: false });
@@ -55,8 +67,11 @@ function NotificationMenu({ prefs, setPrefs }) {
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
-        title="Notifications"
+        aria-label="Notifications"
+        aria-expanded={open}
+        aria-haspopup="true"
         className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:opacity-80"
       >
         <i
@@ -132,12 +147,28 @@ function StatusMenu({ presence, onChangeStatus }) {
   const me = presence?.me;
   const effective = me?.presence || "offline";
   const hours = presence?.hours;
+  const statusLabel = `You are ${PRESENCE_STYLES[effective].label.toLowerCase()}`;
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
-        title={`You are ${PRESENCE_STYLES[effective].label.toLowerCase()}`}
+        aria-label={statusLabel}
+        aria-expanded={open}
+        aria-haspopup="true"
         className="relative w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold"
       >
         {initials(currentUser.name)}
@@ -210,8 +241,10 @@ export default function Sidebar({
         return (
           <button
             key={channel.id}
+            type="button"
             onClick={() => setActiveChannel(channel.id)}
-            title={channel.label}
+            aria-label={hasUnread ? `${channel.label}, unread messages` : channel.label}
+            aria-pressed={isActive}
             style={isActive ? { background: color + "18" } : undefined}
             className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:opacity-80"
           >
@@ -231,8 +264,10 @@ export default function Sidebar({
       {notifyPrefs && <NotificationMenu prefs={notifyPrefs} setPrefs={setNotifyPrefs} />}
       <ThemeToggle theme={theme} onToggle={toggleTheme} compact />
       <button
+        type="button"
         onClick={() => setActiveChannel("settings")}
-        title="Settings"
+        aria-label="Settings"
+        aria-pressed={activeChannel === "settings"}
         style={activeChannel === "settings" ? { background: "#4F46E518" } : undefined}
         className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:opacity-80"
       >

@@ -57,6 +57,11 @@ body.kmbp-df-open {
 	color: #0f172a;
 }
 
+.kmbp-df :focus-visible {
+	outline: 2px solid #4f46e5;
+	outline-offset: 2px;
+}
+
 .kmbp-df__header h2 {
 	margin: 0 0 8px;
 	font-size: 1.2rem;
@@ -177,5 +182,19 @@ body.kmbp-df-open {
 		width: 100%;
 		text-align: center;
 		justify-content: center;
+	}
+}
+
+@media (forced-colors: active) {
+	.kmbp-df :focus-visible {
+		outline: 3px solid Highlight;
+		outline-offset: 2px;
+	}
+
+	.kmbp-df__dialog,
+	.kmbp-df button,
+	.kmbp-df input,
+	.kmbp-df textarea {
+		border: 1px solid ButtonText;
 	}
 }

@@ -345,3 +345,44 @@
   border-top: 1px solid #e5e7eb;
   margin: 0.75em 0;
 }
+
+.kmbp-app-root :focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+  .kmbp-app-root :focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .kmbp-app-root button,
+  .kmbp-app-root input,
+  .kmbp-app-root select,
+  .kmbp-app-root textarea,
+  .kmbp-app-root a {
+    border: 1px solid ButtonText;
+  }
+
+  .kmbp-app-root button[aria-pressed="true"],
+  .kmbp-app-root button[aria-current="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .kmbp-switch {
+    border: 2px solid ButtonText;
+    background: ButtonFace !important;
+  }
+
+  .kmbp-switch[aria-pressed="true"] {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+  }
+
+  .kmbp-switch > span {
+    background: ButtonText !important;
+    forced-color-adjust: none;
+  }
+}

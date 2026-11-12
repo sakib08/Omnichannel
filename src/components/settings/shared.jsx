@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from "react";
+import { cloneElement, createContext, isValidElement, useContext, useId, useState } from "react";
 import { TOKEN } from "./tokens.js";
 
 /** Consumed by ChannelSharePanel to adapt colours without prop-drilling. */
@@ -44,12 +44,15 @@ function getChannelDirectLink(channel, cfg) {
 }
  
 /* ─── tiny primitives ───────────────────────────────────────────────────── */
-export function Toggle({ checked, onChange, color = "#6366f1" }) {
+export function Toggle({ checked, onChange, color = "#6366f1", ...rest }) {
   return (
     <button
+      type="button"
+      aria-pressed={!!checked}
       onClick={() => onChange(!checked)}
       style={{ background: checked ? color : "#d1d5db" }}
-      className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none"
+      className="kmbp-switch relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200"
+      {...rest}
     >
       <span
         className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${checked ? "translate-x-6" : "translate-x-1"}`}
@@ -60,13 +63,15 @@ export function Toggle({ checked, onChange, color = "#6366f1" }) {
  
 export function Input({ label, value, onChange, placeholder, type = "text", readOnly, mono, helper, prefix, suffix }) {
   const [show, setShow] = useState(false);
+  const fieldId = useId();
   const isPass = type === "password";
   return (
     <div className="space-y-1.5">
-      {label && <label className="block text-xs font-semibold uppercase tracking-widest text-slate-400">{label}</label>}
+      {label && <label htmlFor={fieldId} className="block text-xs font-semibold uppercase tracking-widest text-slate-400">{label}</label>}
       <div className={`flex items-center rounded-xl border transition-all duration-150 ${readOnly ? "border-slate-700/60 bg-slate-800/40" : "border-slate-700 bg-slate-800/70 hover:border-slate-500 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20"}`}>
         {prefix && <span className="px-3 py-2.5 text-xs text-slate-500 border-r border-slate-700 select-none font-mono">{prefix}</span>}
         <input
+          id={fieldId}
           type={isPass && !show ? "password" : "text"}
           value={value}
           onChange={e => !readOnly && onChange?.(e.target.value)}
@@ -75,13 +80,15 @@ export function Input({ label, value, onChange, placeholder, type = "text", read
           className={`flex-1 bg-transparent px-3 py-2.5 text-sm outline-none ${readOnly ? "text-slate-400 select-all cursor-default" : "text-slate-100 placeholder-slate-600"} ${mono ? "font-mono" : ""}`}
         />
         {isPass && (
-          <button onClick={() => setShow(s => !s)} className="px-3 text-slate-500 hover:text-slate-300 transition-colors">
-            {show ? "🙈" : "👁"}
+          <button type="button" onClick={() => setShow(s => !s)} aria-label={show ? `Hide ${label || "password"}` : `Show ${label || "password"}`} aria-pressed={show} className="px-3 text-slate-500 hover:text-slate-300 transition-colors">
+            <span aria-hidden="true">{show ? "🙈" : "👁"}</span>
           </button>
         )}
         {readOnly && (
           <button
+            type="button"
             onClick={() => navigator.clipboard?.writeText(value)}
+            aria-label={`Copy ${label || "value"}`}
             className="px-3 text-slate-500 hover:text-indigo-400 transition-colors text-xs font-medium"
           >copy</button>
         )}
@@ -93,10 +100,12 @@ export function Input({ label, value, onChange, placeholder, type = "text", read
 }
  
 export function Select({ label, value, onChange, options, helper }) {
+  const fieldId = useId();
   return (
     <div className="space-y-1.5">
-      {label && <label className="block text-xs font-semibold uppercase tracking-widest text-slate-400">{label}</label>}
+      {label && <label htmlFor={fieldId} className="block text-xs font-semibold uppercase tracking-widest text-slate-400">{label}</label>}
       <select
+        id={fieldId}
         value={value}
         onChange={e => onChange(e.target.value)}
         className="w-full rounded-xl border border-slate-700 bg-slate-800/70 px-3 py-2.5 text-sm text-slate-100 outline-none hover:border-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
@@ -109,10 +118,12 @@ export function Select({ label, value, onChange, options, helper }) {
 }
  
 export function Textarea({ label, value, onChange, placeholder, rows = 3, helper, mono }) {
+  const fieldId = useId();
   return (
     <div className="space-y-1.5">
-      {label && <label className="block text-xs font-semibold uppercase tracking-widest text-slate-400">{label}</label>}
+      {label && <label htmlFor={fieldId} className="block text-xs font-semibold uppercase tracking-widest text-slate-400">{label}</label>}
       <textarea
+        id={fieldId}
         rows={rows}
         value={value}
         onChange={e => onChange(e.target.value)}
@@ -135,13 +146,17 @@ export function SectionDivider({ label }) {
 }
  
 export function Row({ label, desc, children }) {
+  const labelId = useId();
+  const control = isValidElement(children) && !children.props["aria-labelledby"] && !children.props["aria-label"]
+    ? cloneElement(children, { "aria-labelledby": labelId })
+    : children;
   return (
     <div className="flex items-start justify-between gap-6 py-3.5 border-b border-slate-800/80 last:border-0">
       <div className="flex-1">
-        <p className="text-sm font-medium text-slate-200">{label}</p>
+        <p id={labelId} className="text-sm font-medium text-slate-200">{label}</p>
         {desc && <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{desc}</p>}
       </div>
-      <div className="shrink-0 pt-0.5">{children}</div>
+      <div className="shrink-0 pt-0.5">{control}</div>
     </div>
   );
 }

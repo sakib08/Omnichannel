@@ -125,9 +125,39 @@
     submitFeedback();
   });
 
+  function focusableInModal() {
+    return Array.prototype.filter.call(
+      modal.querySelectorAll("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])"),
+      function (el) {
+        return !el.disabled && el.offsetParent !== null;
+      }
+    );
+  }
+
   document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape" && !modal.hidden) {
+    if (modal.hidden) {
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
       closeModal();
+      return;
+    }
+    if (event.key !== "Tab") {
+      return;
+    }
+    var items = focusableInModal();
+    if (!items.length) {
+      return;
+    }
+    var first = items[0];
+    var last = items[items.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
     }
   });
 })();

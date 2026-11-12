@@ -181,11 +181,12 @@ export default function TeamSettings() {
                       <td className="px-4 py-3 text-right">
                         {canManageDepts && (
                           <button
+                            type="button"
                             onClick={() => handleDelete(dept.id)}
-                            title="Delete department"
+                            aria-label={`Delete department ${dept.name || ""}`.trim()}
                             className="text-slate-500 hover:text-red-400 text-xs"
                           >
-                            <i className="ti ti-trash" />
+                            <i className="ti ti-trash" aria-hidden="true" />
                           </button>
                         )}
                       </td>
